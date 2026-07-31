@@ -40,7 +40,7 @@ func Narrative(res model.AskResult) string {
 
 	firing := []string{}
 	for _, a := range res.Alerts {
-		if a.Status == "firing" {
+		if model.AlertActive(a.Status) {
 			firing = append(firing, a.Name)
 		}
 	}

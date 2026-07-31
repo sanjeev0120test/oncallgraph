@@ -27,13 +27,19 @@ verify_asset_sha256() {
   local sums_file="$1"
   local asset_name="$2"
   local asset_path="$3"
-  local line want got
-  line="$(grep -E "[* ]${asset_name}\$" "$sums_file" | head -n1 || true)"
-  if [[ -z "$line" ]]; then
+  local want="" got="" hash name
+  while read -r hash name; do
+    name="${name#\*}"
+    name="$(printf '%s' "$name" | tr -d '\r')"
+    if [[ "$name" == "$asset_name" ]]; then
+      want="$hash"
+      break
+    fi
+  done < "$sums_file"
+  if [[ -z "$want" ]]; then
     echo "SHA256SUMS has no entry for ${asset_name}" >&2
     return 1
   fi
-  want="$(echo "$line" | awk '{print $1}')"
   if command -v sha256sum >/dev/null 2>&1; then
     got="$(sha256sum "$asset_path" | awk '{print $1}')"
   elif command -v shasum >/dev/null 2>&1; then

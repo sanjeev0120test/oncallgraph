@@ -28,7 +28,7 @@ func Compute(res model.AskResult) Result {
 	}
 
 	for _, a := range res.Alerts {
-		if a.Status != "firing" {
+		if !model.AlertActive(a.Status) {
 			continue
 		}
 		pts := 15
@@ -38,7 +38,7 @@ func Compute(res model.AskResult) Result {
 			pts = 18
 		}
 		b["firing_alerts"] += pts
-		highlights = append(highlights, "firing alert "+a.Name)
+		highlights = append(highlights, a.Status+" alert "+a.Name)
 	}
 	if b["firing_alerts"] > 35 {
 		b["firing_alerts"] = 35

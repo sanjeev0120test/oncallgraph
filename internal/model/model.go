@@ -51,14 +51,19 @@ type Dependency struct {
 	Source        string `json:"source"`
 }
 
-// Alert is a firing or resolved alert linked to a service.
+// AlertActive reports whether an alert status is actionable (firing or pending).
+func AlertActive(status string) bool {
+	return status == "firing" || status == "pending"
+}
+
+// Alert is a firing, pending, or resolved alert linked to a service.
 type Alert struct {
 	ID         string    `json:"id"`
 	ServiceID  string    `json:"service_id"`
 	At         time.Time `json:"at"`
 	Severity   string    `json:"severity"` // critical|warning|info
 	Name       string    `json:"name"`
-	Status     string    `json:"status"` // firing|resolved
+	Status     string    `json:"status"` // firing|pending|resolved
 	Summary    string    `json:"summary"`
 	Source     string    `json:"source"`
 	EvidenceID string    `json:"evidence_id"`

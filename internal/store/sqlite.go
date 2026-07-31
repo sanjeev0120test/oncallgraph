@@ -215,9 +215,9 @@ FROM alerts WHERE service_id=? AND at>=?`,
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	// firing first, then newest, then id for stability.
+	// active (firing/pending) first, then newest, then id for stability.
 	sort.SliceStable(out, func(i, j int) bool {
-		fi, fj := out[i].Status == "firing", out[j].Status == "firing"
+		fi, fj := model.AlertActive(out[i].Status), model.AlertActive(out[j].Status)
 		if fi != fj {
 			return fi
 		}
@@ -338,13 +338,13 @@ func (s *Store) LatestChange(serviceID string) (*model.Change, bool, error) {
 	return &changes[0], true, nil
 }
 
-// FindFiringAlert returns the newest firing alert matching an alert name or a
-// service id.
+// FindFiringAlert returns the newest active (firing/pending) alert matching an
+// alert name or a service id.
 func (s *Store) FindFiringAlert(nameOrService string) (*model.Alert, bool, error) {
 	rows, err := s.db.Query(`
 SELECT id,service_id,at,severity,name,status,summary,source,evidence_id
-FROM alerts WHERE status='firing' AND (name=? OR service_id=?)
-ORDER BY at DESC, id LIMIT 1`, nameOrService, nameOrService)
+FROM alerts WHERE status IN ('firing','pending') AND (name=? OR service_id=?)
+ORDER BY CASE status WHEN 'firing' THEN 0 ELSE 1 END, at DESC, id LIMIT 1`, nameOrService, nameOrService)
 	if err != nil {
 		return nil, false, wrap("find firing alert", err)
 	}
@@ -361,7 +361,7 @@ ORDER BY at DESC, id LIMIT 1`, nameOrService, nameOrService)
 	return &v, true, nil
 }
 
-// Counts returns row counts per table (for `opsgraph status`).
+// Counts returns row counts per table (for `oncallgraph status`).
 func (s *Store) Counts() (map[string]int, error) {
 	tables := []string{"services", "owners", "changes", "dependencies", "alerts", "runbooks", "evidence"}
 	out := make(map[string]int, len(tables))

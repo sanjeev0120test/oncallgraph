@@ -24,7 +24,7 @@ func Of(res model.AskResult) Result {
 	parts = append(parts, "service="+res.Service.ID)
 	parts = append(parts, "health="+res.Service.Health)
 	for _, a := range res.Alerts {
-		if a.Status == "firing" {
+		if model.AlertActive(a.Status) {
 			parts = append(parts, "alert="+a.Name+":"+a.Severity)
 		}
 	}

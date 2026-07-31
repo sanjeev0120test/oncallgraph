@@ -58,8 +58,8 @@ func whyLine(res model.AskResult) string {
 		}
 	}
 	for _, a := range res.Alerts {
-		if a.Status == "firing" {
-			line += "; alert " + a.Name + " firing"
+		if model.AlertActive(a.Status) {
+			line += "; alert " + a.Name + " " + a.Status
 			break
 		}
 	}

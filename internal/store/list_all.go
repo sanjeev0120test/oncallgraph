@@ -50,7 +50,7 @@ SELECT id,service_id,at,severity,name,status,summary,source,evidence_id FROM ale
 		return nil, err
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		fi, fj := out[i].Status == "firing", out[j].Status == "firing"
+		fi, fj := model.AlertActive(out[i].Status), model.AlertActive(out[j].Status)
 		if fi != fj {
 			return fi
 		}

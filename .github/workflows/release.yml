@@ -69,14 +69,21 @@ jobs:
           COMMIT="${{ steps.meta.outputs.commit }}"
           DATE="${{ steps.meta.outputs.date }}"
           LDFLAGS="-s -w -X github.com/sanjeev0120test/oncallgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/oncallgraph/internal/version.Commit=${COMMIT} -X github.com/sanjeev0120test/oncallgraph/internal/version.Date=${DATE}"
+          pids=()
           for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             GOOS="${pair%/*}"
             GOARCH="${pair#*/}"
             out="dist/oncallgraph_${VERSION}_${GOOS}_${GOARCH}"
             if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
             echo "building $out"
-            GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/oncallgraph
-            test -s "$out"
+            GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/oncallgraph &
+            pids+=($!)
+          done
+          for pid in "${pids[@]}"; do
+            wait "$pid" || exit 1
+          done
+          for f in dist/oncallgraph_${VERSION}_*; do
+            test -s "$f"
           done
           cd dist
           for f in oncallgraph_${VERSION}_linux_* oncallgraph_${VERSION}_darwin_*; do

@@ -55,7 +55,7 @@ func assertGolden(t *testing.T, fsys fs.FS, name string, v any) {
 	}
 	want, err := fs.ReadFile(fsys, name)
 	if err != nil {
-		t.Fatalf("read golden %s: %v (run: opsgraph test ./fixtures/incident_checkout --update)", name, err)
+		t.Fatalf("read golden %s: %v (run: oncallgraph test ./fixtures/incident_checkout --update)", name, err)
 	}
 	want = bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))
 	if !bytes.Equal(want, buf.Bytes()) {

@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/sanjeev0120test/oncallgraph/internal/model"
 	"github.com/sanjeev0120test/oncallgraph/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +32,7 @@ func newAlertsCmd() *cobra.Command {
 			if firingOnly {
 				filtered := list[:0]
 				for _, a := range list {
-					if a.Status == "firing" || a.Status == "pending" {
+					if model.AlertActive(a.Status) {
 						filtered = append(filtered, a)
 					}
 				}

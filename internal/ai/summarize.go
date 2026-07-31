@@ -52,7 +52,7 @@ func LocalSummary(res model.AskResult) string {
 
 func firstFiring(alerts []model.Alert) string {
 	for _, a := range alerts {
-		if a.Status == "firing" {
+		if model.AlertActive(a.Status) {
 			return a.Name
 		}
 	}
