@@ -1,6 +1,6 @@
 // Package fixtures embeds incident packs so commands like `demo` work from any
-// working directory. The embed directive lives here (inside fixtures/) because
-// go:embed cannot reference parent directories.
+// working directory. The embed lives here (inside fixtures/) because embed
+// directives cannot reference parent directories.
 package fixtures
 
 import (

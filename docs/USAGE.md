@@ -88,8 +88,10 @@ Optional cluster demo: `bash hack/kind-demo.sh`.
 ## Install
 
 Precompiled binaries are published only in **GitHub Releases** (never committed
-to the git source tree). Each `v*` tag builds linux/darwin/windows × amd64/arm64
-archives, `SHA256SUMS`, provenance attestation, and install scripts.
+to the git source tree). Pushing a `v*` tag (e.g. `v0.1.2`) automatically runs
+the release workflow: build 6 targets, package archives, write `SHA256SUMS`
+(including installers + LICENSE), attest provenance, and publish the Release.
+CI also fails if binaries/archives are accidentally tracked in git.
 
 Prefer the **attested release copies** of the installers (same tag as the binary):
 

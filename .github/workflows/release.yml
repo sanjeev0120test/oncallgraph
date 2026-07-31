@@ -1,5 +1,14 @@
 name: release
 
+# Automated secure delivery for every v* tag:
+# - build 6 GOOS/GOARCH targets (no CGO)
+# - package archives + LICENSE + installers + DEPENDENCIES + SHA256SUMS
+# - attest provenance
+# - publish a GitHub Release
+#
+# Precompiled binaries are NEVER committed to git; Releases are the only
+# distribution channel for binaries.
+
 on:
   push:
     tags:
@@ -15,7 +24,6 @@ on:
           - 'true'
           - 'false'
 
-# Least privilege for secure delivery: release upload + provenance only.
 permissions:
   contents: write
   id-token: write
@@ -49,6 +57,10 @@ jobs:
           set -euo pipefail
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME}"
+            if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$ ]]; then
+              echo "tag $VERSION does not look like a semver release (vX.Y.Z)" >&2
+              exit 1
+            fi
           else
             VERSION="dev-${GITHUB_SHA::7}"
           fi
@@ -94,13 +106,27 @@ jobs:
             zip -q "${f%.exe}.zip" "$f"
             rm -f "$f"
           done
-          sha256sum *.tar.gz *.zip > SHA256SUMS
-          # Include a frozen dependency inventory for supply-chain review (no network).
-          (cd .. && go list -m all) > DEPENDENCIES.txt
+          cp ../LICENSE ./LICENSE
           cp ../scripts/install.sh ./install.sh
           cp ../scripts/install.ps1 ./install.ps1
           chmod +x install.sh
+          (cd .. && go list -m all) > DEPENDENCIES.txt
+          # SHA256SUMS must cover every file uploaded to the Release.
+          sha256sum *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
+          test "$(grep -c . SHA256SUMS)" -eq 11
+          sha256sum -c SHA256SUMS
+          echo "--- SHA256SUMS ---"
           cat SHA256SUMS
+      - name: Smoke-test linux/amd64 release archive
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.meta.outputs.version }}"
+          tmp="$(mktemp -d)"
+          tar -xzf "dist/opsgraph_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
+          "$tmp/opsgraph_${VERSION}_linux_amd64" version | tee /tmp/opsgraph-version.txt
+          grep -F "$VERSION" /tmp/opsgraph-version.txt
+          "$tmp/opsgraph_${VERSION}_linux_amd64" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$tmp/opsgraph_${VERSION}_linux_amd64" doctor >/dev/null
       - name: Upload release assets (artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -110,6 +136,7 @@ jobs:
             dist/*.zip
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
+            dist/LICENSE
             dist/install.sh
             dist/install.ps1
           if-no-files-found: error
@@ -129,6 +156,23 @@ jobs:
         with:
           name: opsgraph-release-${{ needs.build.outputs.version }}
           path: dist
+      - name: Verify release asset set
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.build.outputs.version }}"
+          cd dist
+          for f in \
+            "opsgraph_${VERSION}_linux_amd64.tar.gz" \
+            "opsgraph_${VERSION}_linux_arm64.tar.gz" \
+            "opsgraph_${VERSION}_darwin_amd64.tar.gz" \
+            "opsgraph_${VERSION}_darwin_arm64.tar.gz" \
+            "opsgraph_${VERSION}_windows_amd64.zip" \
+            "opsgraph_${VERSION}_windows_arm64.zip" \
+            SHA256SUMS DEPENDENCIES.txt LICENSE install.sh install.ps1
+          do
+            test -s "$f"
+          done
+          sha256sum -c SHA256SUMS
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -137,6 +181,7 @@ jobs:
             dist/*.zip
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
+            dist/LICENSE
             dist/install.sh
             dist/install.ps1
       - name: Create GitHub Release
@@ -145,11 +190,28 @@ jobs:
           tag_name: ${{ needs.build.outputs.version }}
           name: ${{ needs.build.outputs.version }}
           generate_release_notes: true
+          body: |
+            ## opsgraph ${{ needs.build.outputs.version }}
+
+            Precompiled binaries for **linux / darwin / windows × amd64 / arm64**.
+
+            - Binaries are distributed **only** via GitHub Releases (never committed to the git source tree).
+            - Verify downloads with `SHA256SUMS`.
+            - Provenance attestation is attached to this release.
+            - Installers: `install.sh` (Unix) and `install.ps1` (Windows).
+
+            ```bash
+            VERSION=${{ needs.build.outputs.version }}
+            curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/install.sh" -o install.sh
+            chmod +x install.sh
+            OPSGRAPH_VERSION="$VERSION" ./install.sh
+            ```
           files: |
             dist/*.tar.gz
             dist/*.zip
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
+            dist/LICENSE
             dist/install.sh
             dist/install.ps1
           fail_on_unmatched_files: true
