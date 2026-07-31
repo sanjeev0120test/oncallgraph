@@ -47,8 +47,9 @@ for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 wind
   src="$(resolve_src "$GOOS" "$GOARCH")"
   # Cheap integrity: confirm embed GOOS/GOARCH match the filename.
   meta="$(go version -m "$src")"
-  echo "$meta" | grep -E "[[:space:]]GOOS:[[:space:]]+${GOOS}$" >/dev/null
-  echo "$meta" | grep -E "[[:space:]]GOARCH:[[:space:]]+${GOARCH}$" >/dev/null
+  # go version -m lines look like: build<TAB>GOOS=linux
+  echo "$meta" | grep -F "GOOS=${GOOS}" >/dev/null
+  echo "$meta" | grep -F "GOARCH=${GOARCH}" >/dev/null
 
   base="opsgraph_${VERSION}_${GOOS}_${GOARCH}"
   if [ "$GOOS" = windows ]; then

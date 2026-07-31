@@ -312,8 +312,9 @@ jobs:
             f="dist/opsgraph-${GOOS}-${GOARCH}"
             if [ "$GOOS" = windows ]; then f="${f}.exe"; fi
             meta="$(go version -m "$f")"
-            echo "$meta" | grep -E "[[:space:]]GOOS:[[:space:]]+${GOOS}$" >/dev/null
-            echo "$meta" | grep -E "[[:space:]]GOARCH:[[:space:]]+${GOARCH}$" >/dev/null
+            # go version -m lines look like: build<TAB>GOOS=linux
+            echo "$meta" | grep -F "GOOS=${GOOS}" >/dev/null
+            echo "$meta" | grep -F "GOARCH=${GOARCH}" >/dev/null
             echo "ok ${GOOS}/${GOARCH}"
           done
           ./dist/opsgraph-linux-amd64 version
