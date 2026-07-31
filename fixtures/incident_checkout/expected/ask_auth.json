@@ -1,0 +1,67 @@
+{
+  "service": {
+    "id": "auth",
+    "name": "auth",
+    "aliases": [
+      "auth-svc",
+      "auth-service"
+    ],
+    "owner_id": "identity",
+    "health": "unhealthy",
+    "sources": [
+      "fixture",
+      "kubernetes"
+    ]
+  },
+  "owner": {
+    "id": "identity",
+    "name": "Identity Team"
+  },
+  "window": "60m",
+  "generated_at": "2026-07-31T12:00:00Z",
+  "changes": [],
+  "alerts": [],
+  "upstream": [],
+  "downstream": [
+    {
+      "id": "checkout",
+      "name": "checkout",
+      "aliases": [
+        "checkout-api",
+        "checkout-service"
+      ],
+      "owner_id": "payments",
+      "health": "degraded",
+      "sources": [
+        "fixture",
+        "kubernetes"
+      ]
+    }
+  ],
+  "runbook": {
+    "service_id": "auth",
+    "path": "runbooks/auth.md",
+    "status": "pass",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Verify auth is currently unhealthy (this is the upstream cause).",
+        "check": "service_unhealthy:auth",
+        "status": "pass",
+        "message": "auth is unhealthy"
+      },
+      {
+        "number": 2,
+        "text": "Escalate to the identity on-call.",
+        "check": "manual",
+        "status": "manual",
+        "message": "manual step"
+      }
+    ]
+  },
+  "timeline": [],
+  "recommendations": [
+    "Notify owner Identity Team."
+  ],
+  "evidence": []
+}

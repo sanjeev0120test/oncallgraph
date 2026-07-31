@@ -1,0 +1,29 @@
+{
+  "service_id": "checkout",
+  "path": "runbooks/checkout.md",
+  "status": "stale",
+  "steps": [
+    {
+      "number": 1,
+      "text": "A deploy in the last hour is the most likely trigger; inspect it first.",
+      "check": "deploy_age_lt:60m",
+      "status": "pass",
+      "message": "last change 22m ago",
+      "evidence_id": "ev-change-1"
+    },
+    {
+      "number": 2,
+      "text": "Confirm checkout has recovered and is healthy before closing out.",
+      "check": "service_healthy:checkout",
+      "status": "stale",
+      "message": "checkout is degraded"
+    },
+    {
+      "number": 3,
+      "text": "If not recovered, page the payments on-call and open an incident channel.",
+      "check": "manual",
+      "status": "manual",
+      "message": "manual step"
+    }
+  ]
+}

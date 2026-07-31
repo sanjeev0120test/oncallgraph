@@ -1,0 +1,21 @@
+{
+  "service_id": "auth",
+  "path": "runbooks/auth.md",
+  "status": "pass",
+  "steps": [
+    {
+      "number": 1,
+      "text": "Verify auth is currently unhealthy (this is the upstream cause).",
+      "check": "service_unhealthy:auth",
+      "status": "pass",
+      "message": "auth is unhealthy"
+    },
+    {
+      "number": 2,
+      "text": "Escalate to the identity on-call.",
+      "check": "manual",
+      "status": "manual",
+      "message": "manual step"
+    }
+  ]
+}
