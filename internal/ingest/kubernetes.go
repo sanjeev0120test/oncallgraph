@@ -90,7 +90,7 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string) error {
 		}
 		if err := s.UpsertEvidence(model.Evidence{
 			ID: e.EvidenceID, Source: "kubernetes", At: e.At, Kind: "k8s-event",
-			Summary: eventSummary(e), RawRef: e.Reason,
+			Summary: eventSummary(e), RawRef: e.Reason, ServiceID: e.ServiceID,
 		}); err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func emitRollout(s *store.Store, d k8sDeployment) error {
 		return err
 	}
 	return s.UpsertEvidence(model.Evidence{
-		ID: evID, Source: "kubernetes", At: d.UpdatedAt, Kind: "rollout", Summary: summary,
+		ID: evID, Source: "kubernetes", At: d.UpdatedAt, Kind: "rollout", Summary: summary, ServiceID: d.ServiceID,
 	})
 }
 

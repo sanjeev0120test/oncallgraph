@@ -82,12 +82,13 @@ type RunbookStep struct {
 
 // Evidence is a referenceable fact backing a change/alert/timeline entry.
 type Evidence struct {
-	ID      string    `json:"id"`
-	Source  string    `json:"source"`
-	At      time.Time `json:"at"`
-	Kind    string    `json:"kind"`
-	Summary string    `json:"summary"`
-	RawRef  string    `json:"raw_ref,omitempty"`
+	ID        string    `json:"id"`
+	Source    string    `json:"source"`
+	At        time.Time `json:"at"`
+	Kind      string    `json:"kind"`
+	Summary   string    `json:"summary"`
+	RawRef    string    `json:"raw_ref,omitempty"`
+	ServiceID string    `json:"service_id,omitempty"`
 }
 
 // TimelineEvent is a point on the incident timeline.

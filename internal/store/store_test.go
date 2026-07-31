@@ -17,6 +17,20 @@ func newTestStore(t *testing.T) *Store {
 	return s
 }
 
+func TestSchemaUserVersion(t *testing.T) {
+	s := newTestStore(t)
+	v, err := s.UserVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != SchemaVersion {
+		t.Fatalf("user_version = %d, want %d", v, SchemaVersion)
+	}
+	if s.Path() == "" {
+		t.Fatal("Path() empty")
+	}
+}
+
 func TestUpsertIsIdempotent(t *testing.T) {
 	s := newTestStore(t)
 	svc := model.Service{ID: "checkout", Name: "checkout", Aliases: []string{"checkout-api"}, Health: model.HealthDegraded}

@@ -71,6 +71,12 @@ func open(dbPath string) (*Store, error) {
 // Close closes the underlying database.
 func (s *Store) Close() error { return s.db.Close() }
 
+// Path returns the on-disk SQLite path.
+func (s *Store) Path() string { return s.path }
+
+// SchemaVersion is the current PRAGMA user_version for this schema.
+const SchemaVersion = 1
+
 func (s *Store) initSchema() error {
 	const schema = `
 CREATE TABLE IF NOT EXISTS services (
@@ -130,13 +136,28 @@ CREATE TABLE IF NOT EXISTS evidence (
 	at TEXT,
 	kind TEXT,
 	summary TEXT,
-	raw_ref TEXT
+	raw_ref TEXT,
+	service_id TEXT
 );
 `
 	if _, err := s.db.Exec(schema); err != nil {
 		return fmt.Errorf("init schema: %w", err)
 	}
+	// Best-effort column add for stores created before service_id existed.
+	_, _ = s.db.Exec(`ALTER TABLE evidence ADD COLUMN service_id TEXT`)
+	if _, err := s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", SchemaVersion)); err != nil {
+		return fmt.Errorf("set user_version: %w", err)
+	}
 	return nil
+}
+
+// UserVersion returns PRAGMA user_version.
+func (s *Store) UserVersion() (int, error) {
+	var v int
+	if err := s.db.QueryRow(`PRAGMA user_version`).Scan(&v); err != nil {
+		return 0, wrap("user_version", err)
+	}
+	return v, nil
 }
 
 // --- helpers ---

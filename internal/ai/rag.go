@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/opsgraph/opsgraph/internal/config"
@@ -50,6 +51,16 @@ func evidenceDocuments(res model.AskResult) []chromem.Document {
 	for _, e := range res.Evidence {
 		content := e.Kind + ": " + e.Summary
 		docs = append(docs, chromem.Document{ID: e.ID, Content: content})
+	}
+	if res.RunbookResult != nil {
+		for _, st := range res.RunbookResult.Steps {
+			id := "rb-step-" + strings.ReplaceAll(res.RunbookResult.Path, "/", "_") + "-" + strconv.Itoa(st.Number)
+			content := "runbook step: " + st.Text
+			if st.Check != "" {
+				content += " [" + st.Check + "]"
+			}
+			docs = append(docs, chromem.Document{ID: id, Content: content})
+		}
 	}
 	return docs
 }

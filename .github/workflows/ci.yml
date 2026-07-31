@@ -101,17 +101,24 @@ jobs:
           test "$code" -eq 1
           # healthy auth runbook => exit 0
           "$BIN" verify-runbook auth --fixture ./fixtures/incident_checkout >/dev/null
-          # missing runbook => exit 2
+          # missing runbook => exit 1
           set +e
           "$BIN" verify-runbook order --fixture ./fixtures/incident_checkout >/dev/null
           code=$?
           set -e
-          test "$code" -eq 2
+          test "$code" -eq 1
           # verify by file path => exit 0
           "$BIN" verify-runbook ./fixtures/incident_checkout/runbooks/auth.md --fixture ./fixtures/incident_checkout >/dev/null
+          # ingest + ask via persistent data-dir
+          DATA="$(mktemp -d)"
+          "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
+          "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
+          "$BIN" status --data-dir "$DATA" >/dev/null
           # status / version smoke
           "$BIN" status >/dev/null
           "$BIN" version >/dev/null
+          # --ai degrades offline (must not fail)
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json >/dev/null
 
   cross:
     name: cross-compile

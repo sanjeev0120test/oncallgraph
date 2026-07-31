@@ -75,8 +75,20 @@ func TestCLIExitVerifyPass(t *testing.T) {
 
 func TestCLIExitVerifyMissing(t *testing.T) {
 	_, _, code := runRoot(t, "verify-runbook", "order", "--fixture", fixtureDir(t))
-	if code != 2 {
-		t.Fatalf("verify order (missing runbook) exit = %d, want 2", code)
+	if code != 1 {
+		t.Fatalf("verify order (missing runbook) exit = %d, want 1", code)
+	}
+}
+
+func TestCLIExitIngestAndAskDataDir(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runRoot(t, "ingest", "--fixture", fixtureDir(t), "--data-dir", dir)
+	if code != 0 {
+		t.Fatalf("ingest exit = %d, want 0", code)
+	}
+	_, _, code = runRoot(t, "ask", "checkout", "--data-dir", dir, "--format", "json")
+	if code != 0 {
+		t.Fatalf("ask --data-dir exit = %d, want 0", code)
 	}
 }
 

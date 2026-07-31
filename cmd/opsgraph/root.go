@@ -20,6 +20,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newAskCmd())
 	root.AddCommand(newVerifyRunbookCmd())
+	root.AddCommand(newIngestCmd())
 	root.AddCommand(newDemoCmd())
 	root.AddCommand(newTestCmd())
 	root.AddCommand(newStatusCmd())

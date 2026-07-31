@@ -153,7 +153,7 @@ func ingestChanges(s *store.Store, fsys fs.FS) error {
 		if v.EvidenceID != "" {
 			if err := s.UpsertEvidence(model.Evidence{
 				ID: v.EvidenceID, Source: v.Source, At: v.At, Kind: "change",
-				Summary: v.Summary, RawRef: v.Revision,
+				Summary: v.Summary, RawRef: v.Revision, ServiceID: v.ServiceID,
 			}); err != nil {
 				return err
 			}
@@ -198,7 +198,7 @@ func ingestAlerts(s *store.Store, fsys fs.FS) error {
 		}
 		if v.EvidenceID != "" {
 			if err := s.UpsertEvidence(model.Evidence{
-				ID: v.EvidenceID, Source: v.Source, At: v.At, Kind: "alert", Summary: v.Summary,
+				ID: v.EvidenceID, Source: v.Source, At: v.At, Kind: "alert", Summary: v.Summary, ServiceID: v.ServiceID,
 			}); err != nil {
 				return err
 			}

@@ -59,10 +59,32 @@
       }
     ]
   },
-  "timeline": [],
+  "timeline": [
+    {
+      "at": "2026-07-31T12:00:00Z",
+      "kind": "health",
+      "summary": "auth is unhealthy",
+      "service_id": "auth"
+    },
+    {
+      "at": "2026-07-31T12:00:00Z",
+      "kind": "runbook",
+      "summary": "runbook runbooks/auth.md is pass",
+      "service_id": "auth"
+    }
+  ],
   "recommendations": [
     "Notify owner Identity Team.",
     "Write a short handoff note with evidence IDs before closing the incident."
   ],
-  "evidence": []
+  "evidence": [
+    {
+      "id": "ev-k8s-rollout-auth",
+      "source": "kubernetes",
+      "at": "2026-07-31T09:00:00Z",
+      "kind": "rollout",
+      "summary": "rollout auth (0/2 ready)",
+      "service_id": "auth"
+    }
+  ]
 }

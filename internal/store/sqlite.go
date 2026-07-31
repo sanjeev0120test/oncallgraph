@@ -89,11 +89,11 @@ ON CONFLICT(service_id) DO UPDATE SET
 // UpsertEvidence inserts or updates evidence.
 func (s *Store) UpsertEvidence(v model.Evidence) error {
 	_, err := s.db.Exec(`
-INSERT INTO evidence (id,source,at,kind,summary,raw_ref) VALUES (?,?,?,?,?,?)
+INSERT INTO evidence (id,source,at,kind,summary,raw_ref,service_id) VALUES (?,?,?,?,?,?,?)
 ON CONFLICT(id) DO UPDATE SET
 	source=excluded.source, at=excluded.at, kind=excluded.kind,
-	summary=excluded.summary, raw_ref=excluded.raw_ref`,
-		v.ID, v.Source, fmtTime(v.At), v.Kind, v.Summary, v.RawRef)
+	summary=excluded.summary, raw_ref=excluded.raw_ref, service_id=excluded.service_id`,
+		v.ID, v.Source, fmtTime(v.At), v.Kind, v.Summary, v.RawRef, v.ServiceID)
 	return wrap("upsert evidence", err)
 }
 
@@ -276,7 +276,7 @@ func (s *Store) ListEvidence(ids []string) ([]model.Evidence, error) {
 	for i, id := range ids {
 		args[i] = id
 	}
-	rows, err := s.db.Query(`SELECT id,source,at,kind,summary,raw_ref FROM evidence WHERE id IN (`+placeholders+`)`, args...)
+	rows, err := s.db.Query(`SELECT id,source,at,kind,summary,raw_ref,service_id FROM evidence WHERE id IN (`+placeholders+`)`, args...)
 	if err != nil {
 		return nil, wrap("list evidence", err)
 	}
@@ -285,7 +285,7 @@ func (s *Store) ListEvidence(ids []string) ([]model.Evidence, error) {
 	for rows.Next() {
 		var v model.Evidence
 		var at string
-		if err := rows.Scan(&v.ID, &v.Source, &at, &v.Kind, &v.Summary, &v.RawRef); err != nil {
+		if err := rows.Scan(&v.ID, &v.Source, &at, &v.Kind, &v.Summary, &v.RawRef, &v.ServiceID); err != nil {
 			return nil, wrap("scan evidence", err)
 		}
 		v.At = parseTime(at)
@@ -301,6 +301,29 @@ func (s *Store) ListEvidence(ids []string) ([]model.Evidence, error) {
 		return out[i].ID < out[j].ID
 	})
 	return out, nil
+}
+
+// ListEvidenceForService returns evidence rows tagged with the given service id.
+func (s *Store) ListEvidenceForService(serviceID string) ([]model.Evidence, error) {
+	rows, err := s.db.Query(
+		`SELECT id,source,at,kind,summary,raw_ref,service_id FROM evidence WHERE service_id = ? ORDER BY at, id`,
+		serviceID,
+	)
+	if err != nil {
+		return nil, wrap("list evidence for service", err)
+	}
+	defer rows.Close()
+	var out []model.Evidence
+	for rows.Next() {
+		var v model.Evidence
+		var at string
+		if err := rows.Scan(&v.ID, &v.Source, &at, &v.Kind, &v.Summary, &v.RawRef, &v.ServiceID); err != nil {
+			return nil, wrap("scan evidence", err)
+		}
+		v.At = parseTime(at)
+		out = append(out, v)
+	}
+	return out, rows.Err()
 }
 
 // LatestChange returns the newest change for a service (any type), if any.

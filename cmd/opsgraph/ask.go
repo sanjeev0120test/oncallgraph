@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"path/filepath"
 	"time"
 
 	"github.com/opsgraph/opsgraph/internal/ai"
@@ -16,6 +15,7 @@ func newAskCmd() *cobra.Command {
 	var (
 		fixture    string
 		configPath string
+		dataDir    string
 		format     string
 		since      time.Duration
 		withRB     bool
@@ -37,17 +37,11 @@ func newAskCmd() *cobra.Command {
 				since = cfg.Since()
 			}
 
-			var ls *loadedStore
-			if fixture != "" {
-				ls, err = storeFromFixtureDir(fixture)
-			} else {
-				effPath := resolveConfigPath(configPath)
-				if effPath == "" {
-					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
-				}
-				ls, err = storeFromConfig(cfg, filepath.Dir(effPath), since, time.Now().UTC())
-			}
+			ls, err := loadAskStore(fixture, configPath, dataDir, cfg, since)
 			if err != nil {
+				if errors.Is(err, ErrEmptyStore) {
+					return fail(1, "%v", err)
+				}
 				return fail(2, "%v", err)
 			}
 			defer ls.cleanup()
@@ -60,6 +54,7 @@ func newAskCmd() *cobra.Command {
 			}
 
 			if useAI {
+				cfg.AI.Enabled = true
 				res.AISummary = ai.Summarize(cmd.Context(), cfg, res)
 			}
 
@@ -71,6 +66,7 @@ func newAskCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (default: ./.opsgraph.yaml if present)")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "read from a persistent store (from `opsgraph ingest`)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window (default: config default_since or 60m)")
 	cmd.Flags().BoolVar(&withRB, "runbook", true, "verify the service runbook")

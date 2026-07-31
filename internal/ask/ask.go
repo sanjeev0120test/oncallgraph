@@ -86,12 +86,11 @@ func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 		}
 	}
 
-	res.Timeline = buildTimeline(res.Changes, res.Alerts)
-	res.Recommendations = recommend(res)
-
 	if res.Evidence, err = collectEvidence(s, res); err != nil {
 		return model.AskResult{}, err
 	}
+	res.Timeline = buildTimeline(res, now)
+	res.Recommendations = recommend(res)
 	return res, nil
 }
 
@@ -145,27 +144,54 @@ func resolveServices(s *store.Store, ids []string) ([]model.Service, error) {
 	return out, nil
 }
 
-func buildTimeline(changes []model.Change, alerts []model.Alert) []model.TimelineEvent {
-	events := make([]model.TimelineEvent, 0, len(changes)+len(alerts))
-	for _, c := range changes {
+func buildTimeline(res model.AskResult, now time.Time) []model.TimelineEvent {
+	events := make([]model.TimelineEvent, 0, len(res.Changes)+len(res.Alerts)+2)
+	for _, c := range res.Changes {
 		events = append(events, model.TimelineEvent{
 			At: c.At, Kind: "change", Summary: c.Summary, ServiceID: c.ServiceID, EvidenceID: c.EvidenceID,
 		})
 	}
-	for _, a := range alerts {
+	for _, a := range res.Alerts {
 		events = append(events, model.TimelineEvent{
 			At: a.At, Kind: "alert", Summary: a.Name + " (" + a.Status + ")", ServiceID: a.ServiceID,
 			EvidenceID: a.EvidenceID, Severity: a.Severity,
 		})
 	}
+	// K8s (and other) service-scoped evidence that is not already a change/alert.
+	seenEv := map[string]bool{}
+	for _, e := range events {
+		if e.EvidenceID != "" {
+			seenEv[e.EvidenceID] = true
+		}
+	}
+	for _, e := range res.Evidence {
+		if e.Kind != "k8s-event" || seenEv[e.ID] {
+			continue
+		}
+		events = append(events, model.TimelineEvent{
+			At: e.At, Kind: "k8s-event", Summary: e.Summary, ServiceID: res.Service.ID, EvidenceID: e.ID,
+		})
+	}
+	// Synthetic health/runbook markers at fixture now (deterministic clock).
+	events = append(events, model.TimelineEvent{
+		At: now, Kind: "health", Summary: res.Service.ID + " is " + res.Service.Health, ServiceID: res.Service.ID,
+	})
+	if res.RunbookResult != nil {
+		events = append(events, model.TimelineEvent{
+			At: now, Kind: "runbook",
+			Summary:   "runbook " + res.RunbookResult.Path + " is " + res.RunbookResult.Status,
+			ServiceID: res.Service.ID,
+		})
+	}
+	// Newest first; tie-break (Kind, Summary) for byte-stable output.
 	sort.SliceStable(events, func(i, j int) bool {
 		if !events[i].At.Equal(events[j].At) {
-			return events[i].At.Before(events[j].At)
+			return events[i].At.After(events[j].At)
 		}
 		if events[i].Kind != events[j].Kind {
 			return events[i].Kind < events[j].Kind
 		}
-		return events[i].EvidenceID < events[j].EvidenceID
+		return events[i].Summary < events[j].Summary
 	})
 	return events
 }
@@ -189,6 +215,14 @@ func collectEvidence(s *store.Store, res model.AskResult) ([]model.Evidence, err
 		for _, st := range res.RunbookResult.Steps {
 			add(st.EvidenceID)
 		}
+	}
+	// Include service-scoped evidence (e.g. k8s events) not already referenced.
+	extra, err := s.ListEvidenceForService(res.Service.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range extra {
+		add(e.ID)
 	}
 	ev, err := s.ListEvidence(ids)
 	if err != nil {

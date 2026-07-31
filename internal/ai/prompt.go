@@ -16,14 +16,19 @@ const maxPromptChars = 6000
 // deterministic, but the prompt is.
 func buildPrompt(res model.AskResult, ragContext []string) string {
 	var b strings.Builder
-	b.WriteString("You are an on-call SRE assistant. Using ONLY the facts below, write a concise ")
-	b.WriteString("3-5 sentence incident summary for the engineer who was just paged. ")
-	b.WriteString("Name the prime-suspect change, the blast radius, and the single most important next step. ")
-	b.WriteString("Do not invent facts or hostnames.\n\n")
+	b.WriteString("You are an on-call SRE assistant. Using ONLY the facts below, write up to 8 ")
+	b.WriteString("bullet points summarizing the incident. EACH bullet MUST cite at least one ")
+	b.WriteString("evidence ID exactly as listed (e.g. ev-change-1). Do not invent facts or IDs.\n\n")
 
 	fmt.Fprintf(&b, "Service: %s (%s)\n", res.Service.ID, res.Service.Health)
 	fmt.Fprintf(&b, "Window: last %s\n", res.Window)
 
+	if len(res.Evidence) > 0 {
+		b.WriteString("Evidence IDs (cite these):\n")
+		for _, e := range res.Evidence {
+			fmt.Fprintf(&b, "- %s: %s\n", e.ID, e.Summary)
+		}
+	}
 	if len(res.Changes) > 0 {
 		b.WriteString("Recent changes:\n")
 		for _, c := range res.Changes {
@@ -31,13 +36,13 @@ func buildPrompt(res model.AskResult, ragContext []string) string {
 			if rev == "" {
 				rev = c.ID
 			}
-			fmt.Fprintf(&b, "- %s %q (%s) at %s\n", c.Type, c.Summary, rev, c.At.Format("15:04Z"))
+			fmt.Fprintf(&b, "- %s %q (%s) evidence=%s\n", c.Type, c.Summary, rev, c.EvidenceID)
 		}
 	}
 	if len(res.Alerts) > 0 {
 		b.WriteString("Alerts:\n")
 		for _, a := range res.Alerts {
-			fmt.Fprintf(&b, "- %s (%s, %s)\n", a.Name, a.Severity, a.Status)
+			fmt.Fprintf(&b, "- %s (%s, %s) evidence=%s\n", a.Name, a.Severity, a.Status, a.EvidenceID)
 		}
 	}
 	if len(res.Upstream) > 0 {
@@ -50,12 +55,12 @@ func buildPrompt(res model.AskResult, ragContext []string) string {
 		fmt.Fprintf(&b, "Runbook %s: %s\n", res.RunbookResult.Path, res.RunbookResult.Status)
 	}
 	if len(ragContext) > 0 {
-		b.WriteString("\nRelated evidence:\n")
+		b.WriteString("\nRelated context:\n")
 		for _, c := range ragContext {
 			fmt.Fprintf(&b, "- %s\n", c)
 		}
 	}
-	b.WriteString("\nSummary:")
+	b.WriteString("\nBullets:")
 
 	out := b.String()
 	if len(out) > maxPromptChars {

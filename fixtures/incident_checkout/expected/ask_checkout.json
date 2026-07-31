@@ -121,6 +121,33 @@
   },
   "timeline": [
     {
+      "at": "2026-07-31T12:00:00Z",
+      "kind": "health",
+      "summary": "checkout is degraded",
+      "service_id": "checkout"
+    },
+    {
+      "at": "2026-07-31T12:00:00Z",
+      "kind": "runbook",
+      "summary": "runbook runbooks/checkout.md is stale",
+      "service_id": "checkout"
+    },
+    {
+      "at": "2026-07-31T11:50:00Z",
+      "kind": "k8s-event",
+      "summary": "Unhealthy: Readiness probe failed: HTTP 503 from /healthz",
+      "service_id": "checkout",
+      "evidence_id": "ev-k8s-event-1"
+    },
+    {
+      "at": "2026-07-31T11:45:00Z",
+      "kind": "alert",
+      "summary": "CheckoutErrorRateHigh (firing)",
+      "service_id": "checkout",
+      "evidence_id": "ev-alert-1",
+      "severity": "critical"
+    },
+    {
       "at": "2026-07-31T11:38:00Z",
       "kind": "change",
       "summary": "deploy checkout v1.4.2",
@@ -133,14 +160,6 @@
       "summary": "rollout checkout (1/3 ready)",
       "service_id": "checkout",
       "evidence_id": "ev-k8s-rollout-checkout"
-    },
-    {
-      "at": "2026-07-31T11:45:00Z",
-      "kind": "alert",
-      "summary": "CheckoutErrorRateHigh (firing)",
-      "service_id": "checkout",
-      "evidence_id": "ev-alert-1",
-      "severity": "critical"
     }
   ],
   "recommendations": [
@@ -158,21 +177,33 @@
       "at": "2026-07-31T11:38:00Z",
       "kind": "change",
       "summary": "deploy checkout v1.4.2",
-      "raw_ref": "abc123"
+      "raw_ref": "abc123",
+      "service_id": "checkout"
     },
     {
       "id": "ev-k8s-rollout-checkout",
       "source": "kubernetes",
       "at": "2026-07-31T11:38:00Z",
       "kind": "rollout",
-      "summary": "rollout checkout (1/3 ready)"
+      "summary": "rollout checkout (1/3 ready)",
+      "service_id": "checkout"
     },
     {
       "id": "ev-alert-1",
       "source": "fixture",
       "at": "2026-07-31T11:45:00Z",
       "kind": "alert",
-      "summary": "error rate 12% over 5m (threshold 2%)"
+      "summary": "error rate 12% over 5m (threshold 2%)",
+      "service_id": "checkout"
+    },
+    {
+      "id": "ev-k8s-event-1",
+      "source": "kubernetes",
+      "at": "2026-07-31T11:50:00Z",
+      "kind": "k8s-event",
+      "summary": "Unhealthy: Readiness probe failed: HTTP 503 from /healthz",
+      "raw_ref": "Unhealthy",
+      "service_id": "checkout"
     }
   ]
 }

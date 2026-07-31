@@ -34,7 +34,9 @@ func newDemoCmd() *cobra.Command {
 				return fail(2, "%v", err)
 			}
 			if useAI {
-				res.AISummary = ai.Summarize(cmd.Context(), config.Default(), res)
+				cfg := config.Default()
+				cfg.AI.Enabled = true
+				res.AISummary = ai.Summarize(cmd.Context(), cfg, res)
 			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), res)

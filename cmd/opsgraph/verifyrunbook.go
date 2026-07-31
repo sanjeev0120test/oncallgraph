@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/opsgraph/opsgraph/internal/config"
 	"github.com/opsgraph/opsgraph/internal/model"
@@ -16,6 +15,7 @@ func newVerifyRunbookCmd() *cobra.Command {
 	var (
 		fixture    string
 		configPath string
+		dataDir    string
 		format     string
 	)
 	cmd := &cobra.Command{
@@ -30,16 +30,7 @@ func newVerifyRunbookCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-			var ls *loadedStore
-			if fixture != "" {
-				ls, err = storeFromFixtureDir(fixture)
-			} else {
-				effPath := resolveConfigPath(configPath)
-				if effPath == "" {
-					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
-				}
-				ls, err = storeFromConfig(cfg, filepath.Dir(effPath), cfg.Since(), time.Now().UTC())
-			}
+			ls, err := loadAskStore(fixture, configPath, dataDir, cfg, cfg.Since())
 			if err != nil {
 				return fail(2, "%v", err)
 			}
@@ -61,15 +52,16 @@ func newVerifyRunbookCmd() *cobra.Command {
 			switch res.Status {
 			case model.StatusPass:
 				return nil
-			case model.StatusStale, model.StatusFail:
+			case model.StatusStale, model.StatusFail, model.StatusMissing:
 				return &exitError{code: 1, err: errStatus(res.Status)}
-			default: // missing / error
+			default:
 				return &exitError{code: 2, err: errStatus(res.Status)}
 			}
 		},
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (default: ./.opsgraph.yaml if present)")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "read from a persistent store (from `opsgraph ingest`)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
 }
