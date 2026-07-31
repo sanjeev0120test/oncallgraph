@@ -22,5 +22,6 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newVerifyRunbookCmd())
 	root.AddCommand(newDemoCmd())
 	root.AddCommand(newTestCmd())
+	root.AddCommand(newStatusCmd())
 	return root
 }
