@@ -97,7 +97,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BIN=./bin/opsgraph.exe
+          BIN=./bin/opsgraph
+          if [ -f ./bin/opsgraph.exe ]; then BIN=./bin/opsgraph.exe; fi
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
           set +e
           "$BIN" ask nosuch --fixture ./fixtures/incident_checkout >/dev/null
