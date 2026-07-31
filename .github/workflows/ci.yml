@@ -3,19 +3,21 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
   GOTOOLCHAIN: local
+  CGO_ENABLED: "0"
 
 jobs:
   lint:
     name: lint (ubuntu)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -31,7 +33,7 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
       - name: default build compiles (no k8s.io linked)
-        run: CGO_ENABLED=0 go build ./...
+        run: go build ./...
 
   test:
     name: test (${{ matrix.os }})
@@ -47,7 +49,7 @@ jobs:
           - os: windows-latest
             race: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -64,6 +66,42 @@ jobs:
         run: go run ./cmd/opsgraph test ./fixtures/incident_checkout
       - name: Demo (no kube/AI/Docker)
         run: go run ./cmd/opsgraph demo --format json
+      - name: CLI smoke (ask + verify-runbook exit codes)
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./cmd/opsgraph ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          # stale runbook => exit 1
+          set +e
+          go run ./cmd/opsgraph verify-runbook checkout --fixture ./fixtures/incident_checkout >/dev/null
+          code=$?
+          set -e
+          test "$code" -eq 1
+          # healthy auth runbook => exit 0
+          go run ./cmd/opsgraph verify-runbook auth --fixture ./fixtures/incident_checkout >/dev/null
+
+  cross:
+    name: cross-compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+      - name: Cross-compile release targets
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            GOOS="${pair%/*}"
+            GOARCH="${pair#*/}"
+            out="dist/opsgraph-${GOOS}-${GOARCH}"
+            if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
+            echo "building $out"
+            GOOS="$GOOS" GOARCH="$GOARCH" go build -o "$out" ./cmd/opsgraph
+          done
+          ls -la dist
 
   # Phase-2 only; kept disabled so default CI stays clusterless and secret-free.
   # Enable locally with: bash hack/kind-demo.sh (needs docker + kind + kubectl).
@@ -71,12 +109,12 @@ jobs:
     if: false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache: true
       - name: kind demo script present
-        run: test -x hack/kind-demo.sh || test -f hack/kind-demo.sh
+        run: test -f hack/kind-demo.sh
       - name: (disabled) run kind demo
         run: bash hack/kind-demo.sh
