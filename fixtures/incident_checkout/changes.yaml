@@ -1,0 +1,10 @@
+changes:
+  - id: ch-deploy-checkout
+    service_id: checkout
+    at: 2026-07-31T11:38:00Z
+    type: deploy
+    summary: "deploy checkout v1.4.2"
+    author: cd-bot
+    revision: abc123
+    source: fixture
+    evidence_id: ev-change-1

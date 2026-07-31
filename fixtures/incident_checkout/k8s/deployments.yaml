@@ -1,0 +1,13 @@
+deployments:
+  - name: checkout
+    namespace: default
+    service_id: checkout
+    desired: 3
+    ready: 1
+    updated_at: 2026-07-31T11:38:00Z
+  - name: auth
+    namespace: default
+    service_id: auth
+    desired: 2
+    ready: 0
+    updated_at: 2026-07-31T09:00:00Z

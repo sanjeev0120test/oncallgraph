@@ -1,0 +1,20 @@
+services:
+  - id: checkout
+    name: checkout
+    aliases: [checkout-api, checkout-service]
+    owner_id: payments
+    health: degraded
+    sources: [fixture]
+  - id: auth
+    name: auth
+    aliases: [auth-svc, auth-service]
+    owner_id: identity
+    health: unhealthy
+    sources: [fixture]
+  - id: order
+    name: order
+    owner_id: payments
+    health: healthy
+    sources: [fixture]
+# Note: "redis" intentionally omitted here; it appears only as a dependency
+# target and is synthesized (health: unknown) to prove blast radius is complete.

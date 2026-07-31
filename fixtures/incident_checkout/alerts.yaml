@@ -1,0 +1,10 @@
+alerts:
+  - id: al-checkout-errorrate
+    service_id: checkout
+    at: 2026-07-31T11:45:00Z
+    severity: critical
+    name: CheckoutErrorRateHigh
+    status: firing
+    summary: "error rate 12% over 5m (threshold 2%)"
+    source: fixture
+    evidence_id: ev-alert-1

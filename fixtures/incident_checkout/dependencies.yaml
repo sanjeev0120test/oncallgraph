@@ -1,0 +1,13 @@
+dependencies:
+  - from: checkout
+    to: auth
+    type: http
+    source: fixture
+  - from: checkout
+    to: redis
+    type: db
+    source: fixture
+  - from: order
+    to: checkout
+    type: http
+    source: fixture

@@ -1,0 +1,6 @@
+owners:
+  - id: payments
+    name: Payments Team
+    email: payments@example.com
+  - id: identity
+    name: Identity Team

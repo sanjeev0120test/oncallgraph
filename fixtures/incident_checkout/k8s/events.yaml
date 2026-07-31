@@ -1,0 +1,7 @@
+events:
+  - service_id: checkout
+    at: 2026-07-31T11:50:00Z
+    reason: Unhealthy
+    message: "Readiness probe failed: HTTP 503 from /healthz"
+    type: Warning
+    evidence_id: ev-k8s-event-1
