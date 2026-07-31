@@ -4,7 +4,9 @@ AGENTS.md
 
 # --- Build artifacts (NEVER commit binaries; ship via GitHub Releases only) ---
 /bin/
+/binaries/
 /dist/
+/dist-release/
 *.exe
 *.out
 *.test

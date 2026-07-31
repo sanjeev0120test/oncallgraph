@@ -38,7 +38,9 @@ jobs:
             echo "$tracked" >&2
             exit 1
           fi
-          # Installers must exist for Releases.
+          # Installers + shared packager must exist for Releases.
           test -s scripts/install.sh
           test -s scripts/install.ps1
+          test -s scripts/pack-release.sh
           head -n 1 scripts/install.sh | grep -qE '^#!/'
+          head -n 1 scripts/pack-release.sh | grep -qE '^#!/'

@@ -63,6 +63,10 @@ cross: ## Cross-compile release binaries (linux/darwin/windows × amd64/arm64)
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe $(PKG)
 	GOOS=windows GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-arm64.exe $(PKG)
 
+pack-release: cross ## Package archives + SHA256SUMS via scripts/pack-release.sh (VERSION=vX.Y.Z)
+	@test -n "$(filter-out dev,$(VERSION))" || (echo "set VERSION=vX.Y.Z" >&2; exit 1)
+	bash scripts/pack-release.sh $(VERSION) dist dist-release
+
 clean: ## Remove build artifacts
 	go clean
 	-rm -rf $(BIN_DIR) dist cover.out
