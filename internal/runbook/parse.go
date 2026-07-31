@@ -22,7 +22,7 @@ type FrontMatter struct {
 }
 
 var (
-	stepRe = regexp.MustCompile(`^\s*(\d+)\.\s+(.*\S)\s*$`)
+	stepRe  = regexp.MustCompile(`^\s*(\d+)\.\s+(.*\S)\s*$`)
 	checkRe = regexp.MustCompile(`opsgraph:check=([^\s]+)\s*-->`)
 )
 
