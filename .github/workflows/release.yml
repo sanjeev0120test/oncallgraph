@@ -84,6 +84,10 @@ jobs:
             rm -f "$f"
           done
           sha256sum *.tar.gz *.zip > SHA256SUMS
+          # Include a frozen dependency inventory for supply-chain review (no network).
+          (cd .. && go list -m all) > DEPENDENCIES.txt
+          cp ../scripts/install.sh ./install.sh
+          chmod +x install.sh
           cat SHA256SUMS
       - name: Upload release assets (artifact)
         uses: actions/upload-artifact@v4
@@ -93,6 +97,8 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/SHA256SUMS
+            dist/DEPENDENCIES.txt
+            dist/install.sh
           if-no-files-found: error
           retention-days: 14
 
@@ -117,6 +123,8 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/SHA256SUMS
+            dist/DEPENDENCIES.txt
+            dist/install.sh
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -127,6 +135,8 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/SHA256SUMS
+            dist/DEPENDENCIES.txt
+            dist/install.sh
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

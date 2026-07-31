@@ -1,9 +1,28 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestExportCommand(t *testing.T) {
+	fx := fixtureDir(t)
+	dir := t.TempDir()
+	out := filepath.Join(dir, "checkout.md")
+	_, _, code := runRoot(t, "export", "checkout", "--fixture", fx, "--format", "markdown", "--out", out)
+	if code != 0 {
+		t.Fatalf("export exit=%d", code)
+	}
+	b, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "# Incident report") {
+		t.Fatalf("bad export: %s", b)
+	}
+}
 
 func TestNewFeatureCommands(t *testing.T) {
 	fx := fixtureDir(t)
@@ -30,6 +49,14 @@ func TestNewFeatureCommands(t *testing.T) {
 		{"doctor", []string{"doctor"}, 0, "summary:"},
 		{"validate", []string{"validate-fixture", fx}, 0, "valid"},
 		{"completion", []string{"completion", "bash"}, 0, "oncallgraph"},
+		{"health", []string{"health", "--fixture", fx, "--format", "json"}, 0, "degraded"},
+		{"top", []string{"top", "--fixture", fx, "--format", "json"}, 0, "checkout"},
+		{"resolve", []string{"resolve", "checkout-api", "--fixture", fx}, 0, "checkout"},
+		{"changes", []string{"changes", "--fixture", fx, "--service", "checkout"}, 0, "deploy"},
+		{"alerts", []string{"alerts", "--fixture", fx, "--firing"}, 0, "CheckoutErrorRateHigh"},
+		{"impact", []string{"impact", "auth", "--fixture", fx}, 0, "checkout"},
+		{"fingerprint", []string{"fingerprint", "checkout", "--fixture", fx}, 0, "inc_"},
+		{"why", []string{"why", "checkout", "--fixture", fx}, 0, "prime suspect"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
