@@ -122,12 +122,24 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.meta.outputs.version }}"
+          VERSION="${VERSION//$'\r'/}"
+          archive="dist/opsgraph_${VERSION}_linux_amd64.tar.gz"
+          test -s "$archive"
           tmp="$(mktemp -d)"
-          tar -xzf "dist/opsgraph_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
-          "$tmp/opsgraph_${VERSION}_linux_amd64" version | tee /tmp/opsgraph-version.txt
-          grep -F "$VERSION" /tmp/opsgraph-version.txt
-          "$tmp/opsgraph_${VERSION}_linux_amd64" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
-          "$tmp/opsgraph_${VERSION}_linux_amd64" doctor >/dev/null
+          tar -xzf "$archive" -C "$tmp"
+          bin="$tmp/opsgraph_${VERSION}_linux_amd64"
+          test -x "$bin"
+          # Avoid grep/tee indirection: bash substring match is enough and clearer on failure.
+          out="$("$bin" version)"
+          echo "version-output: $out"
+          if [[ "$out" != *"$VERSION"* ]]; then
+            echo "release binary version output does not contain $VERSION" >&2
+            exit 1
+          fi
+          # Absolute fixture path (cwd-independent), same pattern as CI packaging simulation.
+          "$bin" ask checkout --fixture "${GITHUB_WORKSPACE}/fixtures/incident_checkout" --format json >/dev/null
+          # doctor may WARN (no ollama / no state.db) but must not FAIL.
+          "$bin" doctor
       - name: Upload release assets (artifact)
         uses: actions/upload-artifact@v4
         with:
