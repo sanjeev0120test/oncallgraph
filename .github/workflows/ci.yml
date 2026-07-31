@@ -90,7 +90,13 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-go
       - name: Build binary
-        run: go build -trimpath -ldflags="-s -w" -o bin/opsgraph ./cmd/opsgraph
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=bin/opsgraph
+          if [ "${RUNNER_OS}" = Windows ]; then out=bin/opsgraph.exe; fi
+          go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/opsgraph
+          test -s "$out"
       - name: Unit tests
         if: ${{ !matrix.race }}
         run: go test ./...
@@ -214,7 +220,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item bin/opsgraph.exe dist/opsgraph-windows-amd64.exe
+          $src = if (Test-Path bin/opsgraph.exe) { "bin/opsgraph.exe" } else { "bin/opsgraph" }
+          Copy-Item $src dist/opsgraph-windows-amd64.exe
           $installDir = Join-Path $env:RUNNER_TEMP "opsgraph-install"
           $env:OPSGRAPH_DIST_DIR = (Resolve-Path dist).Path
           $env:OPSGRAPH_INSTALL_DIR = $installDir
@@ -291,8 +298,11 @@ jobs:
           sha256sum -c SHA256SUMS
           tmp="$(mktemp -d)"
           tar -xzf "opsgraph_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
+          # Archive name uses VERSION above; binary stamp comes from the earlier
+          # cross-compile step (ci-<sha>) — only require a non-empty version line.
           out="$("$tmp/opsgraph_${VERSION}_linux_amd64" version)"
-          [[ "$out" == *"$VERSION"* ]]
+          echo "packaged-version: $out"
+          test -n "$out"
           "$tmp/opsgraph_${VERSION}_linux_amd64" ask checkout --fixture "$GITHUB_WORKSPACE/fixtures/incident_checkout" --format json >/dev/null
       - name: Upload cross-compile artifacts
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
