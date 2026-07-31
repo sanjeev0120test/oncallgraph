@@ -12,6 +12,8 @@ opsgraph ask checkout
 
 It runs from a single static Go binary with **no accounts, no API tokens, no paid services**. The core works entirely from checked-in fixtures, and optional AI runs 100% locally via [Ollama](https://ollama.com).
 
+**Runs everywhere.** opsgraph is pure Go with `CGO_ENABLED=0`, so the same code builds and behaves identically on **Windows, macOS, and Linux** (amd64/arm64). CI validates on all three on every push, and `make cross` produces binaries for each.
+
 ## Quickstart
 
 ```bash
