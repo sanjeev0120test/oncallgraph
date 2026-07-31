@@ -113,7 +113,8 @@ jobs:
           (cd .. && go list -m all) > DEPENDENCIES.txt
           # SHA256SUMS must cover every file uploaded to the Release.
           sha256sum *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
-          test "$(grep -c . SHA256SUMS)" -eq 11
+          # 6 archives + LICENSE + DEPENDENCIES + install.sh + install.ps1
+          test "$(grep -c . SHA256SUMS)" -eq 10
           sha256sum -c SHA256SUMS
           echo "--- SHA256SUMS ---"
           cat SHA256SUMS

@@ -312,13 +312,14 @@ jobs:
           (cd .. && go list -m all) > DEPENDENCIES.txt
           # Checksums cover EVERY published file (archives + installers + metadata).
           sha256sum *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
-          test "$(grep -c . SHA256SUMS)" -eq 11
+          # 6 archives + LICENSE + DEPENDENCIES + install.sh + install.ps1
+          test "$(grep -c . SHA256SUMS)" -eq 10
           sha256sum -c SHA256SUMS
-          tar -tzf "opsgraph_${VERSION}_linux_amd64.tar.gz" | grep -qx "opsgraph_${VERSION}_linux_amd64"
+          tar -tzf "opsgraph_${VERSION}_linux_amd64.tar.gz" | grep -E "opsgraph_${VERSION}_linux_amd64\$"
           tmp="$(mktemp -d)"
           tar -xzf "opsgraph_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
           "$tmp/opsgraph_${VERSION}_linux_amd64" version
-          "$tmp/opsgraph_${VERSION}_linux_amd64" ask checkout --fixture ../fixtures/incident_checkout --format json >/dev/null
+          "$tmp/opsgraph_${VERSION}_linux_amd64" ask checkout --fixture "$GITHUB_WORKSPACE/fixtures/incident_checkout" --format json >/dev/null
       - name: Upload cross-compile artifacts
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
