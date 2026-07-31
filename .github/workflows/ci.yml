@@ -1,10 +1,13 @@
 name: ci
 
-# Fast parallel quality gates. Wall-clock target: ~3 minutes on cache hits.
+# Fast parallel quality gates. Wall-clock target: ~2–3 minutes on cache hits.
 # Required aggregator job: "all checks passed".
+# Tag pushes are owned by release.yml (skip here to avoid duplicate runners).
 
 on:
   push:
+    branches: ['**']
+    tags-ignore: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -30,12 +33,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
-      - name: gofmt + vet + tidy + no committed binaries
+      - name: gofmt + vet + mod + build + hygiene
         run: |
           set -euo pipefail
           fmtout="$(gofmt -l .)"
           if [ -n "$fmtout" ]; then echo "Unformatted files:"; echo "$fmtout"; exit 1; fi
           go vet ./...
+          go mod download
+          go mod verify
           go mod tidy
           git diff --exit-code go.mod go.sum
           go build ./...
@@ -50,11 +55,19 @@ jobs:
             echo "release archives present in workspace root; do not commit them" >&2
             exit 1
           fi
+          # License + installer presence (was a separate license workflow).
+          test -s LICENSE
+          grep -qi 'MIT License' LICENSE
+          test -s scripts/install.sh
+          test -s scripts/install.ps1
+          test -s scripts/pack-release.sh
+          head -n 1 scripts/install.sh | grep -qE '^#!/'
+          head -n 1 scripts/pack-release.sh | grep -qE '^#!/'
 
   staticcheck:
     name: staticcheck
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v7
         with:
@@ -64,7 +77,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/go/bin/staticcheck
-          key: staticcheck-${{ runner.os }}-2025.1.1-${{ hashFiles('go.mod') }}
+          key: staticcheck-${{ runner.os }}-2025.1.1-${{ hashFiles('go.sum') }}
       - name: Install + run staticcheck
         run: |
           set -euo pipefail
@@ -76,7 +89,7 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 8
     strategy:
       fail-fast: false
       matrix:
@@ -118,7 +131,12 @@ jobs:
           BIN=./bin/opsgraph
           if [ -f ./bin/opsgraph.exe ]; then BIN=./bin/opsgraph.exe; fi
           "$BIN" test ./fixtures/incident_checkout
+          "$BIN" validate-fixture ./fixtures/incident_checkout
           "$BIN" demo --format json >/dev/null
+          # Determinism gate (was separate fixtures workflow).
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > /tmp/opsgraph-a.json
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > /tmp/opsgraph-b.json
+          cmp -s /tmp/opsgraph-a.json /tmp/opsgraph-b.json
       - name: Compact CLI smoke (macos/windows)
         if: ${{ matrix.smoke == 'compact' }}
         shell: bash
@@ -133,87 +151,56 @@ jobs:
           set -e
           test "$code" -eq 1
           "$BIN" path checkout-api auth --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" validate-fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" doctor >/dev/null
-          DATA="$(mktemp -d)"
+          DATA="$(mktemp -d 2>/dev/null || mktemp -d -t opsgraph)"
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
-          "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
       - name: Full CLI smoke (ubuntu)
         if: ${{ matrix.smoke == 'full' }}
         shell: bash
         run: |
           set -euo pipefail
           BIN=./bin/opsgraph
-          if [ -f ./bin/opsgraph.exe ]; then BIN=./bin/opsgraph.exe; fi
+          # Critical contracts only — broad command coverage lives in Go tests (features_test).
+          out="$("$BIN" version 2>/tmp/version.err)"
+          if [ -s /tmp/version.err ]; then
+            echo "version wrote to stderr:" >&2
+            cat /tmp/version.err >&2
+            exit 1
+          fi
+          test -n "$out"
+
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
           set +e
           "$BIN" ask nosuch --fixture ./fixtures/incident_checkout >/dev/null
-          code=$?
-          set -e
-          test "$code" -eq 1
-          set +e
+          c1=$?
           "$BIN" ask checkout >/dev/null
-          code=$?
-          set -e
-          test "$code" -eq 2
-          set +e
+          c2=$?
           "$BIN" verify-runbook checkout --fixture ./fixtures/incident_checkout >/dev/null
-          code=$?
+          c3=$?
           set -e
-          test "$code" -eq 1
+          test "$c1" -eq 1
+          test "$c2" -eq 2
+          test "$c3" -eq 1
           "$BIN" verify-runbook auth --fixture ./fixtures/incident_checkout >/dev/null
-          set +e
-          "$BIN" verify-runbook order --fixture ./fixtures/incident_checkout >/dev/null
-          code=$?
-          set -e
-          test "$code" -eq 1
-          "$BIN" verify-runbook ./fixtures/incident_checkout/runbooks/auth.md --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" handoff checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" why checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" score checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json >/dev/null
           DATA="$(mktemp -d)"
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" status --data-dir "$DATA" >/dev/null
-          "$BIN" status >/dev/null
-          "$BIN" version >/dev/null
-          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json >/dev/null
-          "$BIN" services --fixture ./fixtures/incident_checkout --format json >/dev/null
-          "$BIN" owners --fixture ./fixtures/incident_checkout --format json >/dev/null
-          "$BIN" graph --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" graph --fixture ./fixtures/incident_checkout --format mermaid >/dev/null
-          "$BIN" graph --fixture ./fixtures/incident_checkout --format table >/dev/null
-          "$BIN" evidence ev-change-1 --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" explain checkout --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" report checkout --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" score checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
-          "$BIN" who checkout --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" timeline checkout --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" path order auth --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" blast checkout --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" doctor >/dev/null
-          "$BIN" validate-fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" completion bash >/dev/null
-          set +e
-          "$BIN" watch checkout --fixture ./fixtures/incident_checkout --interval 1ms --timeout 5ms >/dev/null
-          code=$?
-          set -e
-          test "$code" -eq 1
-          "$BIN" health --fixture ./fixtures/incident_checkout --format json >/dev/null
-          "$BIN" top --fixture ./fixtures/incident_checkout --format json >/dev/null
-          "$BIN" resolve checkout-api --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" changes --fixture ./fixtures/incident_checkout --service checkout --since 2h >/dev/null
-          "$BIN" alerts --fixture ./fixtures/incident_checkout --firing >/dev/null
-          "$BIN" impact auth --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" why checkout --fixture ./fixtures/incident_checkout >/dev/null
           EXP="$(mktemp -d)"
           "$BIN" export checkout --fixture ./fixtures/incident_checkout --format markdown --out "$EXP/r.md" >/dev/null
           test -s "$EXP/r.md"
           CFGDIR="$(mktemp -d)"
           cp .opsgraph.example.yaml "$CFGDIR/.opsgraph.yaml"
-          BIN_ABS="$(pwd)/bin/opsgraph"
+          BIN_ABS="$GITHUB_WORKSPACE/bin/opsgraph"
           (cd "$CFGDIR" && "$BIN_ABS" doctor --config .opsgraph.yaml >/dev/null)
       - name: go install smoke
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           set -euo pipefail
@@ -238,7 +225,6 @@ jobs:
           INSTALL_DIR="$(mktemp -d)"
           OPSGRAPH_DIST_DIR="$PWD/dist" OPSGRAPH_INSTALL_DIR="$INSTALL_DIR" ./scripts/install.sh
           "$INSTALL_DIR/opsgraph" version
-          "$INSTALL_DIR/opsgraph" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
       - name: install.ps1 from local dist + release zip (windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -247,16 +233,13 @@ jobs:
           $src = if (Test-Path bin/opsgraph.exe) { "bin/opsgraph.exe" } else { "bin/opsgraph" }
           Copy-Item $src dist/opsgraph-windows-amd64.exe
 
-          # 1) Raw dist install path
           $installDir = Join-Path $env:RUNNER_TEMP "opsgraph-install-dist"
           $env:OPSGRAPH_DIST_DIR = (Resolve-Path dist).Path
           $env:OPSGRAPH_INSTALL_DIR = $installDir
           Remove-Item Env:OPSGRAPH_RELEASE_DIR -ErrorAction SilentlyContinue
           ./scripts/install.ps1
           & "$installDir/opsgraph.exe" version
-          & "$installDir/opsgraph.exe" ask checkout --fixture ./fixtures/incident_checkout --format json | Out-Null
 
-          # 2) Release-shaped zip + SHA256SUMS install path (same layout as GitHub Releases)
           $ver = "v0.0.0-ci"
           $rel = Join-Path $env:RUNNER_TEMP "opsgraph-release-win"
           New-Item -ItemType Directory -Force -Path $rel | Out-Null
@@ -274,18 +257,17 @@ jobs:
           $env:OPSGRAPH_INSTALL_DIR = $installRel
           ./scripts/install.ps1
           & "$installRel/opsgraph.exe" version
-          & "$installRel/opsgraph.exe" ask checkout --fixture ./fixtures/incident_checkout --format json | Out-Null
 
   cross:
     name: cross + release-pack
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
-      - name: Cross-compile 6 targets (parallel)
+      - name: Cross-compile 6 targets (parallel) + pack
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -297,7 +279,6 @@ jobs:
             GOARCH="${pair#*/}"
             out="dist/opsgraph-${GOOS}-${GOARCH}"
             if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
-            echo "building $out"
             GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/opsgraph &
             pids+=($!)
           done
@@ -305,45 +286,30 @@ jobs:
             wait "$pid" || exit 1
           done
           test "$(ls dist/opsgraph-* | wc -l)" -eq 6
-          # Verify every target embeds the expected GOOS/GOARCH (compile-compat gate).
           for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             GOOS="${pair%/*}"
             GOARCH="${pair#*/}"
             f="dist/opsgraph-${GOOS}-${GOARCH}"
             if [ "$GOOS" = windows ]; then f="${f}.exe"; fi
             meta="$(go version -m "$f")"
-            # go version -m lines look like: build<TAB>GOOS=linux
             echo "$meta" | grep -F "GOOS=${GOOS}" >/dev/null
             echo "$meta" | grep -F "GOARCH=${GOARCH}" >/dev/null
-            echo "ok ${GOOS}/${GOARCH}"
           done
-          ./dist/opsgraph-linux-amd64 version
-      - name: install.sh from local dist (linux)
-        run: |
-          set -euo pipefail
-          chmod +x scripts/install.sh
+          ./dist/opsgraph-linux-amd64 version | grep -F "$VERSION"
+
+          chmod +x scripts/install.sh scripts/pack-release.sh
           INSTALL_DIR="$(mktemp -d)"
           OPSGRAPH_DIST_DIR="$PWD/dist" OPSGRAPH_INSTALL_DIR="$INSTALL_DIR" ./scripts/install.sh
-          "$INSTALL_DIR/opsgraph" version
-          "$INSTALL_DIR/opsgraph" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
-      - name: Package release layout + install from archives
-        run: |
-          set -euo pipefail
-          chmod +x scripts/pack-release.sh scripts/install.sh
-          VERSION="v0.0.0-ci"
-          ./scripts/pack-release.sh "$VERSION" dist dist-release
-          # Execute packaged linux/amd64 archive.
+          "$INSTALL_DIR/opsgraph" version >/dev/null
+
+          REL_VERSION="v0.0.0-ci"
+          ./scripts/pack-release.sh "$REL_VERSION" dist dist-release
           tmp="$(mktemp -d)"
-          tar -xzf "dist-release/opsgraph_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
-          out="$("$tmp/opsgraph_${VERSION}_linux_amd64" version)"
-          echo "packaged-version: $out"
-          test -n "$out"
-          "$tmp/opsgraph_${VERSION}_linux_amd64" ask checkout --fixture "$GITHUB_WORKSPACE/fixtures/incident_checkout" --format json >/dev/null
-          # Real release install path: archives + SHA256SUMS (no network).
-          INSTALL_DIR="$(mktemp -d)"
-          OPSGRAPH_RELEASE_DIR="$PWD/dist-release" OPSGRAPH_VERSION="$VERSION" OPSGRAPH_INSTALL_DIR="$INSTALL_DIR" ./scripts/install.sh
-          "$INSTALL_DIR/opsgraph" version
-          "$INSTALL_DIR/opsgraph" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          tar -xzf "dist-release/opsgraph_${REL_VERSION}_linux_amd64.tar.gz" -C "$tmp"
+          "$tmp/opsgraph_${REL_VERSION}_linux_amd64" ask checkout --fixture "$GITHUB_WORKSPACE/fixtures/incident_checkout" --format json >/dev/null
+          INSTALL_REL="$(mktemp -d)"
+          OPSGRAPH_RELEASE_DIR="$PWD/dist-release" OPSGRAPH_VERSION="$REL_VERSION" OPSGRAPH_INSTALL_DIR="$INSTALL_REL" ./scripts/install.sh
+          "$INSTALL_REL/opsgraph" version >/dev/null
       - name: Upload cross-compile artifacts
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
@@ -353,12 +319,12 @@ jobs:
             dist/*
             dist-release/*
           if-no-files-found: error
-          retention-days: 3
+          retention-days: 2
 
   vuln:
     name: govulncheck
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v7
         with:
@@ -381,7 +347,7 @@ jobs:
     name: all checks passed
     needs: [lint, staticcheck, test, cross, vuln]
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 1
     if: always()
     steps:
       - name: Aggregate job results

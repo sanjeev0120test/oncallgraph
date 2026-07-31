@@ -1,9 +1,12 @@
 name: repro-build
 
 # Same inputs → same linux/amd64 binary hash. Parallel; usually <60s.
+# Tags owned by release.yml.
 
 on:
   push:
+    branches: ['**']
+    tags-ignore: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -23,7 +26,7 @@ jobs:
   reproducible:
     name: linux/amd64 hash match
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v7
         with:

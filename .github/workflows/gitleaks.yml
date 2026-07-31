@@ -1,9 +1,11 @@
 name: gitleaks
 
-# Fast secret scan of the git history/workdir. Parallel; usually <20s.
+# Fast secret scan. Parallel; usually <20s. Tags owned by release.yml.
 
 on:
   push:
+    branches: ['**']
+    tags-ignore: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -25,6 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          # Full history for secret scanning; shallow is not enough for gitleaks.
           fetch-depth: 0
           persist-credentials: false
       - name: Run gitleaks

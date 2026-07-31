@@ -1,10 +1,9 @@
 name: codeql
 
-# Security analysis for Go. Parallel to ci; scheduled + main + PRs.
+# Security analysis for Go. PR + weekly schedule (not every main push) to keep
+# day-to-day CI wall-clock free of a heavy analyzer.
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   schedule:

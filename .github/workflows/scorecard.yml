@@ -1,13 +1,11 @@
 name: scorecard
 
-# OSSF Scorecard supply-chain health. Weekly + main pushes; results to code scanning.
+# OSSF Scorecard supply-chain health. Weekly + manual (not every main push).
 
 on:
   branch_protection_rule:
   schedule:
     - cron: '31 6 * * 2'
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:

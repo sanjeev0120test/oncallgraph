@@ -8,3 +8,4 @@ runs:
       with:
         go-version-file: go.mod
         cache: true
+        check-latest: false
