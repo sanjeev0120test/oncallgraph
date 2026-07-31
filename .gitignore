@@ -1,0 +1,30 @@
+# --- opsgraph local-only planning docs (never pushed, always kept locally) ---
+PLAN.md
+AGENTS.md
+
+# --- Build artifacts ---
+/bin/
+/dist/
+*.exe
+*.out
+*.test
+cover.out
+coverage.*
+
+# --- Runtime data / SQLite state ---
+/.opsgraph/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# --- Go ---
+# Keep go.mod and go.sum tracked; ignore vendored deps if any.
+/vendor/
+
+# --- Editor / OS noise ---
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

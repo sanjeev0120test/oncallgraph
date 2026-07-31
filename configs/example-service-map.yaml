@@ -1,0 +1,19 @@
+# Example standalone service map you can adapt for a real environment.
+# Point `opsgraph --config` at a full .opsgraph.yaml; this file is a reference
+# for how to describe services, owners, and dependencies.
+version: 1
+services:
+  checkout:
+    aliases: ["checkout-api"]
+    owner: payments
+    depends_on: ["auth", "redis"]
+    runbook: runbooks/checkout.md
+  auth:
+    owner: identity
+    depends_on: []
+owners:
+  payments:
+    name: Payments Team
+    email: payments@example.com
+  identity:
+    name: Identity Team

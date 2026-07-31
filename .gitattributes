@@ -1,0 +1,14 @@
+# Normalize line endings to LF so committed golden files stay byte-stable
+# across Windows/macOS/Linux (the determinism gate depends on this).
+* text=auto eol=lf
+
+*.go   text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.sh   text eol=lf
+
+# Binaries
+*.exe binary
+*.db  binary
