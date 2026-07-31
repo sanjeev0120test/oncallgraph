@@ -3,7 +3,7 @@ package store
 import (
 	"sort"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // ListAllChanges returns all changes newest-first (deterministic by at,id).

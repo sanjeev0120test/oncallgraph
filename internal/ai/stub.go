@@ -3,7 +3,7 @@ package ai
 import (
 	"context"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // Summarizer produces a natural-language incident summary.

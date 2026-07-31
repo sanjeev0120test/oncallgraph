@@ -5,8 +5,8 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 type helmReleases struct {

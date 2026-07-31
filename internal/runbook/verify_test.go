@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/fixtures"
-	"github.com/sanjeev0120test/oncallgraph/internal/ingest"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
-	"github.com/sanjeev0120test/oncallgraph/internal/runbook"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/fixtures"
+	"github.com/sanjeev0120test/opsgraph/internal/ingest"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/runbook"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 func loadFixture(t *testing.T) (*store.Store, time.Time) {

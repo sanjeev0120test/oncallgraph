@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // ListOwners returns all owners sorted by id.

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/config"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/config"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 func sampleResult() model.AskResult {

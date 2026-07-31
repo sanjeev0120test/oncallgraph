@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	chromem "github.com/philippgille/chromem-go"
-	"github.com/sanjeev0120test/oncallgraph/internal/config"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/config"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // retrieveContext builds an in-memory vector index of the incident's evidence

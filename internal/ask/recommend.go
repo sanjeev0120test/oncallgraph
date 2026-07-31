@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // r1ChangeWindow is the fixed lookback for recommendation R1. Independent of

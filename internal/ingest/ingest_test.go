@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/fixtures"
-	"github.com/sanjeev0120test/oncallgraph/internal/ingest"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/fixtures"
+	"github.com/sanjeev0120test/opsgraph/internal/ingest"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 func TestIngestCheckoutFixture(t *testing.T) {

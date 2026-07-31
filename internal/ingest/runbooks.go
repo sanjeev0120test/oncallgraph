@@ -6,8 +6,8 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/runbook"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/runbook"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 // ingestRunbooks parses every runbooks/*.md file and upserts it, keyed by the

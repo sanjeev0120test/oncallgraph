@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/ingest"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/ingest"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 func TestIngestAlertmanager(t *testing.T) {

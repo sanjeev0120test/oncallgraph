@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Optional Phase-2 demo: stand up a tiny kind cluster and show how a k8s
-# snapshot feeds oncallgraph. NOT required for CI or everyday use.
+# snapshot feeds opsgraph. NOT required for CI or everyday use.
 # Prerequisites: docker, kind, kubectl. Free and local only.
 set -euo pipefail
 
-CLUSTER="${ONCALLGRAPH_KIND_CLUSTER:-oncallgraph-demo}"
+CLUSTER="${OPSGRAPH_KIND_CLUSTER:-opsgraph-demo}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SNAP="$(mktemp -d "${TMPDIR:-/tmp}/oncallgraph-snap.XXXXXX")"
+SNAP="$(mktemp -d "${TMPDIR:-/tmp}/opsgraph-snap.XXXXXX")"
 trap 'rm -rf "$SNAP"' EXIT
 
 echo "==> create kind cluster (idempotent)"
@@ -40,7 +40,7 @@ spec:
             - containerPort: 80
 YAML
 
-echo "==> export snapshot for oncallgraph (plain YAML, no client-go)"
+echo "==> export snapshot for opsgraph (plain YAML, no client-go)"
 cat >"$SNAP/deployments.yaml" <<YAML
 deployments:
   - name: checkout
@@ -63,7 +63,7 @@ releases:
     updated_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 YAML
 
-CFG="$SNAP/oncallgraph.yaml"
+CFG="$SNAP/opsgraph.yaml"
 cat >"$CFG" <<YAML
 version: 1
 services:
@@ -80,7 +80,7 @@ connectors:
     snapshot: $SNAP
 YAML
 
-echo "==> oncallgraph ask checkout (from snapshot)"
-(cd "$ROOT" && go run ./cmd/oncallgraph ask checkout --config "$CFG" --since 60m)
+echo "==> opsgraph ask checkout (from snapshot)"
+(cd "$ROOT" && go run ./cmd/opsgraph ask checkout --config "$CFG" --since 60m)
 
 echo "OK - kind demo finished (cluster left running: kind delete cluster --name $CLUSTER)"

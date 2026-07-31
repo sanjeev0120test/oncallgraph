@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 func TestRecommendR1Within30m(t *testing.T) {

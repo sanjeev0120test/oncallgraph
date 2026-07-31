@@ -59,8 +59,8 @@ jobs:
         run: |
           set -euo pipefail
           go test ./...
-          go run ./cmd/oncallgraph test ./fixtures/incident_checkout
-          go run ./cmd/oncallgraph demo --format json >/dev/null
+          go run ./cmd/opsgraph test ./fixtures/incident_checkout
+          go run ./cmd/opsgraph demo --format json >/dev/null
       - name: Build multi-arch release binaries
         run: |
           set -euo pipefail
@@ -68,29 +68,29 @@ jobs:
           VERSION="${{ steps.meta.outputs.version }}"
           COMMIT="${{ steps.meta.outputs.commit }}"
           DATE="${{ steps.meta.outputs.date }}"
-          LDFLAGS="-s -w -X github.com/sanjeev0120test/oncallgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/oncallgraph/internal/version.Commit=${COMMIT} -X github.com/sanjeev0120test/oncallgraph/internal/version.Date=${DATE}"
+          LDFLAGS="-s -w -X github.com/sanjeev0120test/opsgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/opsgraph/internal/version.Commit=${COMMIT} -X github.com/sanjeev0120test/opsgraph/internal/version.Date=${DATE}"
           pids=()
           for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             GOOS="${pair%/*}"
             GOARCH="${pair#*/}"
-            out="dist/oncallgraph_${VERSION}_${GOOS}_${GOARCH}"
+            out="dist/opsgraph_${VERSION}_${GOOS}_${GOARCH}"
             if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
             echo "building $out"
-            GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/oncallgraph &
+            GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/opsgraph &
             pids+=($!)
           done
           for pid in "${pids[@]}"; do
             wait "$pid" || exit 1
           done
-          for f in dist/oncallgraph_${VERSION}_*; do
+          for f in dist/opsgraph_${VERSION}_*; do
             test -s "$f"
           done
           cd dist
-          for f in oncallgraph_${VERSION}_linux_* oncallgraph_${VERSION}_darwin_*; do
+          for f in opsgraph_${VERSION}_linux_* opsgraph_${VERSION}_darwin_*; do
             tar -czf "${f}.tar.gz" "$f"
             rm -f "$f"
           done
-          for f in oncallgraph_${VERSION}_windows_*.exe; do
+          for f in opsgraph_${VERSION}_windows_*.exe; do
             zip -q "${f%.exe}.zip" "$f"
             rm -f "$f"
           done
@@ -104,7 +104,7 @@ jobs:
       - name: Upload release assets (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: oncallgraph-release-${{ steps.meta.outputs.version }}
+          name: opsgraph-release-${{ steps.meta.outputs.version }}
           path: |
             dist/*.tar.gz
             dist/*.zip
@@ -127,7 +127,7 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
-          name: oncallgraph-release-${{ needs.build.outputs.version }}
+          name: opsgraph-release-${{ needs.build.outputs.version }}
           path: dist
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
-	"github.com/sanjeev0120test/oncallgraph/internal/score"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/score"
 )
 
 func TestComputeCheckoutLike(t *testing.T) {

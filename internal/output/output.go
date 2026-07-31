@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // JSON writes res as indented, deterministic JSON with a trailing newline.

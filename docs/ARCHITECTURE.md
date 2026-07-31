@@ -1,16 +1,16 @@
 # Architecture
 
-`oncallgraph` is a single static Go binary. Deterministic incident context is the core path; optional local AI enrichment never affects goldens/CI.
+`opsgraph` is a single static Go binary. Deterministic incident context is the core path; optional local AI enrichment never affects goldens/CI.
 
 ## Packages
 
-- `cmd/oncallgraph` — cobra CLI (`ask`, fleet helpers, `demo`, `test`, `status`, …).
+- `cmd/opsgraph` — cobra CLI (`ask`, fleet helpers, `demo`, `test`, `status`, …).
 - `internal/model` — shared domain types (`AskResult`, services, alerts, evidence).
-- `internal/config` — `.oncallgraph.yaml` loader (legacy `.opsgraph.yaml` accepted) with defaults.
+- `internal/config` — `.opsgraph.yaml` loader (legacy `.oncallgraph.yaml` accepted) with defaults.
 - `internal/store` — pure-Go SQLite (`modernc.org/sqlite`), `PRAGMA user_version` gated.
 - `internal/ingest` — fixtures, git, k8s snapshot, optional Prometheus/Alertmanager/Helm.
 - `internal/ask` — blast radius, timeline, recommendations R1–R6.
-- `internal/runbook` — Markdown parse + check catalog (`oncallgraph:check=` / legacy `opsgraph:check=`).
+- `internal/runbook` — Markdown parse + check catalog (`opsgraph:check=` / legacy `oncallgraph:check=`).
 - `internal/ai` — optional Ollama + chromem-go RAG; stubbed in tests.
 - `internal/{score,explain,report,graphviz,pathfind,impact,fingerprint}` — enterprise helpers.
 - `fixtures/` — embedded `incident_checkout` pack for `demo`.

@@ -1,8 +1,8 @@
-# --- oncallgraph local-only planning docs (never pushed, always kept locally) ---
+# --- opsgraph local-only planning docs (never pushed, always kept locally) ---
 PLAN.md
 AGENTS.md
 
-# --- Build artifacts ---
+# --- Build artifacts (NEVER commit binaries; ship via GitHub Releases only) ---
 /bin/
 /dist/
 *.exe
@@ -10,10 +10,15 @@ AGENTS.md
 *.test
 cover.out
 coverage.*
+# Precompiled release archives must not enter the source tree.
+*.tar.gz
+*.zip
+SHA256SUMS
+DEPENDENCIES.txt
 
 # --- Runtime data / SQLite state ---
-/.oncallgraph/
 /.opsgraph/
+/.oncallgraph/
 *.db
 *.db-wal
 *.db-shm

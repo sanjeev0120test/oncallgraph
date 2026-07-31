@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/ask"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 func TestBlastRadiusDirectionAndSynthesize(t *testing.T) {

@@ -29,7 +29,7 @@ func Open(dataDir string) (*Store, error) {
 // OpenTemp opens an isolated store in a temp directory. The returned cleanup
 // closes the DB and removes the directory; use it for demo/test/--fixture runs.
 func OpenTemp() (*Store, func(), error) {
-	dir, err := os.MkdirTemp("", "oncallgraph-")
+	dir, err := os.MkdirTemp("", "opsgraph-")
 	if err != nil {
 		return nil, nil, fmt.Errorf("create temp dir: %w", err)
 	}
@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS evidence (
 		return fmt.Errorf("read user_version: %w", err)
 	}
 	if ver > SchemaVersion {
-		return fmt.Errorf("database schema v%d is newer than this binary (supports v%d); upgrade oncallgraph", ver, SchemaVersion)
+		return fmt.Errorf("database schema v%d is newer than this binary (supports v%d); upgrade opsgraph", ver, SchemaVersion)
 	}
 	// Future: apply migrations for ver < SchemaVersion here.
 	if ver != SchemaVersion {

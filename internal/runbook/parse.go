@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,7 +22,7 @@ type FrontMatter struct {
 
 var (
 	stepRe = regexp.MustCompile(`^\s*(\d+)\.\s+(.*\S)\s*$`)
-	// Accept both legacy opsgraph:check and oncallgraph:check annotations.
+	// Accept opsgraph:check= and brief-rename legacy oncallgraph:check=.
 	checkRe = regexp.MustCompile(`(?:opsgraph|oncallgraph):check=([^\s]+)\s*-->`)
 )
 

@@ -15,7 +15,7 @@ go vet ./...
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Write-Host "==> go build" -ForegroundColor Cyan
-go build -o bin/oncallgraph.exe ./cmd/oncallgraph
+go build -o bin/opsgraph.exe ./cmd/opsgraph
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Write-Host "==> go test (no race)" -ForegroundColor Cyan
@@ -24,11 +24,11 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 
 if (Test-Path ./fixtures/incident_checkout) {
     Write-Host "==> fixture/golden test" -ForegroundColor Cyan
-    & ./bin/oncallgraph.exe test ./fixtures/incident_checkout
+    & ./bin/opsgraph.exe test ./fixtures/incident_checkout
     if ($LASTEXITCODE -ne 0) { exit 1 }
 
     Write-Host "==> demo" -ForegroundColor Cyan
-    & ./bin/oncallgraph.exe demo --format json | Out-Null
+    & ./bin/opsgraph.exe demo --format json | Out-Null
     if ($LASTEXITCODE -ne 0) { exit 1 }
 }
 

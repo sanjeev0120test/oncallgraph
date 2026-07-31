@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/config"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
-	"github.com/sanjeev0120test/oncallgraph/internal/runbook"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/config"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/runbook"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 // LiveIngest seeds the store from config and runs the enabled live connectors

@@ -8,7 +8,6 @@ import (
 )
 
 func TestLoadMissingReturnsDefault(t *testing.T) {
-	// Non-existent implicit config => defaults, no error.
 	dir := t.TempDir()
 	cwd, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
@@ -42,7 +41,7 @@ func TestLoadMalformedIsError(t *testing.T) {
 	}
 }
 
-func TestLoadImplicitOncallgraphYAML(t *testing.T) {
+func TestLoadImplicitOpsgraphYAML(t *testing.T) {
 	dir := t.TempDir()
 	cwd, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
@@ -54,7 +53,7 @@ services:
   checkout:
     aliases: ["checkout-api"]
 `
-	if err := os.WriteFile(".oncallgraph.yaml", []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(".opsgraph.yaml", []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load("")
@@ -65,20 +64,20 @@ services:
 		t.Fatalf("since = %v, want 15m", cfg.Since())
 	}
 	if _, ok := cfg.Services["checkout"]; !ok {
-		t.Fatalf("expected checkout service from .oncallgraph.yaml: %+v", cfg.Services)
+		t.Fatalf("expected checkout service from .opsgraph.yaml: %+v", cfg.Services)
 	}
 }
 
-func TestLoadPrefersOncallgraphOverLegacy(t *testing.T) {
+func TestLoadPrefersOpsgraphOverOncallgraphLegacy(t *testing.T) {
 	dir := t.TempDir()
 	cwd, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
 	_ = os.Chdir(dir)
 
-	if err := os.WriteFile(".oncallgraph.yaml", []byte("default_since: 10m\n"), 0o644); err != nil {
+	if err := os.WriteFile(".opsgraph.yaml", []byte("default_since: 10m\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(".opsgraph.yaml", []byte("default_since: 45m\n"), 0o644); err != nil {
+	if err := os.WriteFile(".oncallgraph.yaml", []byte("default_since: 45m\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load("")
@@ -86,17 +85,17 @@ func TestLoadPrefersOncallgraphOverLegacy(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if cfg.Since() != 10*time.Minute {
-		t.Fatalf("since = %v, want 10m from .oncallgraph.yaml", cfg.Since())
+		t.Fatalf("since = %v, want 10m from .opsgraph.yaml", cfg.Since())
 	}
 }
 
-func TestLoadLegacyOpsgraphYAML(t *testing.T) {
+func TestLoadLegacyOncallgraphYAML(t *testing.T) {
 	dir := t.TempDir()
 	cwd, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
 	_ = os.Chdir(dir)
 
-	if err := os.WriteFile(".opsgraph.yaml", []byte("default_since: 45m\n"), 0o644); err != nil {
+	if err := os.WriteFile(".oncallgraph.yaml", []byte("default_since: 45m\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load("")
@@ -138,7 +137,6 @@ owners:
 	if cfg.Owners["payments"].Name != "Payments Team" {
 		t.Fatalf("owner parse: %+v", cfg.Owners)
 	}
-	// Defaults still applied for AI.
 	if cfg.AI.Model == "" || cfg.AI.OllamaURL == "" {
 		t.Fatalf("ai defaults missing: %+v", cfg.AI)
 	}

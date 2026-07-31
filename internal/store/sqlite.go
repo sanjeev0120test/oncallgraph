@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // ErrNotFound is returned when a lookup finds nothing.
@@ -361,7 +361,7 @@ ORDER BY CASE status WHEN 'firing' THEN 0 ELSE 1 END, at DESC, id LIMIT 1`, name
 	return &v, true, nil
 }
 
-// Counts returns row counts per table (for `oncallgraph status`).
+// Counts returns row counts per table (for `opsgraph status`).
 func (s *Store) Counts() (map[string]int, error) {
 	tables := []string{"services", "owners", "changes", "dependencies", "alerts", "runbooks", "evidence"}
 	out := make(map[string]int, len(tables))

@@ -6,8 +6,8 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 // v1 uses a checked-in YAML snapshot (pure Go, no client-go). A live-cluster

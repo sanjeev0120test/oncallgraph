@@ -1,6 +1,6 @@
 # Free stack
 
-Everything in `oncallgraph` is free and open-source. There are no accounts, API
+Everything in `opsgraph` is free and open-source. There are no accounts, API
 keys, paid SaaS connectors, or required cloud services.
 
 | Layer | Choice | Notes |

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 // Verifier evaluates runbook checks against current state in the store, using a

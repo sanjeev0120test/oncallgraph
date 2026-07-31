@@ -1,0 +1,57 @@
+# opsgraph configuration (copy to .opsgraph.yaml and edit).
+# Everything here is optional: `opsgraph demo` and `opsgraph test` work with
+# no config at all, using the built-in fixture defaults.
+# Legacy `.oncallgraph.yaml` (brief rename period) is still accepted if present.
+version: 1
+data_dir: .opsgraph/data
+default_since: 60m
+
+services:
+  checkout:
+    aliases: ["checkout-api", "checkout-service"]
+    owner: payments
+    git_paths: ["services/checkout", "fixtures/incident_checkout"]
+    k8s:
+      deployments: ["checkout"]
+      namespaces: ["default", "demo"]
+    runbook: runbooks/checkout.md
+    depends_on: ["auth", "redis"]
+  auth:
+    aliases: ["auth-svc", "auth-service"]
+    owner: identity
+    k8s:
+      deployments: ["auth"]
+    runbook: runbooks/auth.md
+
+owners:
+  payments:
+    name: Payments Team
+    email: payments@example.com
+  identity:
+    name: Identity Team
+
+connectors:
+  fixtures:
+    enabled: true
+  git:
+    enabled: true
+    repo_path: .
+  kubernetes:
+    # v1 uses a checked-in snapshot; live cluster support is a future opt-in.
+    enabled: true
+    snapshot: ""   # path to a k8s snapshot dir; empty => use fixture snapshot
+  prometheus:
+    # Optional: local Prometheus /api/v1/alerts (disabled by default; mocked in tests).
+    enabled: false
+    url: http://127.0.0.1:9090
+  alertmanager:
+    # Optional: local Alertmanager /api/v2/alerts (disabled by default; mocked in tests).
+    enabled: false
+    url: http://127.0.0.1:9093
+
+ai:
+  enabled: false
+  ollama_url: http://127.0.0.1:11434
+  model: qwen2.5:7b
+  embed_model: nomic-embed-text
+  timeout: 20s

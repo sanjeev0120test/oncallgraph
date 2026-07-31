@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Install oncallgraph from a GitHub Release (or a local dist/ directory).
+# Install opsgraph from a GitHub Release (or a local dist/ directory).
 # Free, no accounts, verifies SHA256 when SHA256SUMS is present.
-# Set ONCALLGRAPH_INSECURE=1 to skip checksum verification (not recommended).
+# Set OPSGRAPH_INSECURE=1 to skip checksum verification (not recommended).
 set -euo pipefail
 
-REPO="${ONCALLGRAPH_REPO:-sanjeev0120test/oncallgraph}"
-VERSION="${ONCALLGRAPH_VERSION:-latest}"
-INSTALL_DIR="${ONCALLGRAPH_INSTALL_DIR:-${HOME}/.local/bin}"
-DIST_DIR="${ONCALLGRAPH_DIST_DIR:-}"
-INSECURE="${ONCALLGRAPH_INSECURE:-0}"
+# Prefer OPSGRAPH_*; accept ONCALLGRAPH_* aliases from the brief rename period.
+REPO="${OPSGRAPH_REPO:-${ONCALLGRAPH_REPO:-sanjeev0120test/opsgraph}}"
+VERSION="${OPSGRAPH_VERSION:-${ONCALLGRAPH_VERSION:-latest}}"
+INSTALL_DIR="${OPSGRAPH_INSTALL_DIR:-${ONCALLGRAPH_INSTALL_DIR:-${HOME}/.local/bin}}"
+DIST_DIR="${OPSGRAPH_DIST_DIR:-${ONCALLGRAPH_DIST_DIR:-}}"
+INSECURE="${OPSGRAPH_INSECURE:-${ONCALLGRAPH_INSECURE:-0}}"
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 arch="$(uname -m)"
@@ -63,14 +64,14 @@ trap cleanup EXIT
 
 if [[ -n "$DIST_DIR" ]]; then
   # Local/CI mode: install from already-built dist artifacts.
-  src="$(ls -1 "${DIST_DIR}"/oncallgraph-"${os}"-"${arch}"* 2>/dev/null | head -n1 || true)"
+  src="$(ls -1 "${DIST_DIR}"/opsgraph-"${os}"-"${arch}"* 2>/dev/null | head -n1 || true)"
   if [[ -z "$src" ]]; then
     echo "no local binary for ${os}/${arch} in ${DIST_DIR}" >&2
     exit 1
   fi
-  bin="$tmp/oncallgraph"
+  bin="$tmp/opsgraph"
   if [[ "$os" == windows ]]; then
-    bin="$tmp/oncallgraph.exe"
+    bin="$tmp/opsgraph.exe"
   fi
   cp "$src" "$bin"
 else
@@ -84,16 +85,16 @@ else
     exit 1
   fi
   if [[ "$os" == windows ]]; then
-    asset="oncallgraph_${tag}_${os}_${arch}.zip"
+    asset="opsgraph_${tag}_${os}_${arch}.zip"
   else
-    asset="oncallgraph_${tag}_${os}_${arch}.tar.gz"
+    asset="opsgraph_${tag}_${os}_${arch}.tar.gz"
   fi
   url="https://github.com/${REPO}/releases/download/${tag}/${asset}"
   echo "downloading ${url}"
   curl -fsSL -o "$tmp/${asset}" "$url"
   if [[ "$INSECURE" != "1" ]]; then
     if ! curl -fsSL -o "$tmp/SHA256SUMS" "https://github.com/${REPO}/releases/download/${tag}/SHA256SUMS"; then
-      echo "failed to download SHA256SUMS (set ONCALLGRAPH_INSECURE=1 to skip)" >&2
+      echo "failed to download SHA256SUMS (set OPSGRAPH_INSECURE=1 to skip)" >&2
       exit 1
     fi
     if [[ ! -s "$tmp/SHA256SUMS" ]]; then
@@ -102,7 +103,7 @@ else
     fi
     verify_asset_sha256 "$tmp/SHA256SUMS" "$asset" "$tmp/${asset}"
   else
-    echo "warning: skipping checksum verification (ONCALLGRAPH_INSECURE=1)" >&2
+    echo "warning: skipping checksum verification (OPSGRAPH_INSECURE=1)" >&2
   fi
   if [[ "$os" == windows ]]; then
     if command -v unzip >/dev/null 2>&1; then
@@ -110,18 +111,18 @@ else
     else
       powershell.exe -NoProfile -Command "Expand-Archive -Path '$tmp/${asset}' -DestinationPath '$tmp' -Force"
     fi
-    bin="$(ls -1 "$tmp"/oncallgraph_${tag}_${os}_${arch}.exe | head -n1)"
+    bin="$(ls -1 "$tmp"/opsgraph_${tag}_${os}_${arch}.exe | head -n1)"
   else
     tar -xzf "$tmp/${asset}" -C "$tmp"
-    bin="$(ls -1 "$tmp"/oncallgraph_${tag}_${os}_${arch} | head -n1)"
+    bin="$(ls -1 "$tmp"/opsgraph_${tag}_${os}_${arch} | head -n1)"
   fi
 fi
 
 chmod +x "$bin" 2>/dev/null || true
 mkdir -p "$INSTALL_DIR"
-dest="${INSTALL_DIR}/oncallgraph"
+dest="${INSTALL_DIR}/opsgraph"
 if [[ "$os" == windows ]]; then
-  dest="${INSTALL_DIR}/oncallgraph.exe"
+  dest="${INSTALL_DIR}/opsgraph.exe"
 fi
 cp "$bin" "$dest"
 echo "installed ${dest}"

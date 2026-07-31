@@ -1,6 +1,6 @@
 # Incident walkthrough
 
-This is the built-in `incident_checkout` scenario, exactly as `oncallgraph demo`
+This is the built-in `incident_checkout` scenario, exactly as `opsgraph demo`
 runs it.
 
 ## What happened
@@ -12,7 +12,7 @@ checkout.
 ## Reproduce
 
 ```bash
-oncallgraph demo
+opsgraph demo
 ```
 
 You should see: degraded checkout, firing `CheckoutErrorRateHigh`, recent
@@ -22,9 +22,9 @@ is `stale` (step 2 expects healthy checkout).
 ## Dig deeper
 
 ```bash
-oncallgraph demo --format json | jq '.evidence'
-oncallgraph blast checkout --fixture fixtures/incident_checkout
-oncallgraph impact auth --fixture fixtures/incident_checkout
-oncallgraph why checkout --fixture fixtures/incident_checkout
-oncallgraph demo --ai
+opsgraph demo --format json | jq '.evidence'
+opsgraph blast checkout --fixture fixtures/incident_checkout
+opsgraph impact auth --fixture fixtures/incident_checkout
+opsgraph why checkout --fixture fixtures/incident_checkout
+opsgraph demo --ai
 ```

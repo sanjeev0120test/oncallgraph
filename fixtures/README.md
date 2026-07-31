@@ -1,8 +1,8 @@
 # Fixtures
 
-Each subdirectory is a self-contained incident pack that `oncallgraph` can ingest
-with no external systems. Packs are used by `oncallgraph demo`, `oncallgraph test`,
-and `oncallgraph ask --fixture <pack>`.
+Each subdirectory is a self-contained incident pack that `opsgraph` can ingest
+with no external systems. Packs are used by `opsgraph demo`, `opsgraph test`,
+and `opsgraph ask --fixture <pack>`.
 
 ## Layout
 
@@ -11,6 +11,6 @@ and `oncallgraph ask --fixture <pack>`.
 - `k8s/deployments.yaml`, `k8s/events.yaml` (optional)
 - `runbooks/*.md`
 - `meta.yaml` (`now:` fixture clock)
-- `expected/*.json` goldens for `oncallgraph test`
+- `expected/*.json` goldens for `opsgraph test`
 
-Validate a pack: `oncallgraph validate-fixture ./fixtures/incident_checkout`.
+Validate a pack: `opsgraph validate-fixture ./fixtures/incident_checkout`.

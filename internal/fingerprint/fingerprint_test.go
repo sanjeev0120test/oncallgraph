@@ -3,8 +3,8 @@ package fingerprint_test
 import (
 	"testing"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/fingerprint"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/fingerprint"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 func TestFingerprintStable(t *testing.T) {

@@ -7,8 +7,8 @@ package ai
 import (
 	"context"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/config"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/config"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // UnavailableMessage is returned (as the AI summary prefix) when Ollama is down.

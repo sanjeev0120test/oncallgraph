@@ -1,7 +1,7 @@
 // Package score computes a deterministic incident severity score from AskResult.
 package score
 
-import "github.com/sanjeev0120test/oncallgraph/internal/model"
+import "github.com/sanjeev0120test/opsgraph/internal/model"
 
 // Result is a 0–100 severity score with a stable breakdown.
 type Result struct {

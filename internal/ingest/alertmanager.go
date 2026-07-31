@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 // IngestAlertmanager fetches /api/v2/alerts and upserts alerts.

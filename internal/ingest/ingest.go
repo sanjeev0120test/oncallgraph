@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"gopkg.in/yaml.v3"
 )
 

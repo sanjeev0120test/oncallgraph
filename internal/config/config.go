@@ -1,6 +1,6 @@
-// Package config loads and represents the optional .oncallgraph.yaml file
-// (legacy .opsgraph.yaml is still accepted). Everything has sensible defaults
-// so demo/test work with no config at all.
+// Package config loads and represents the optional .opsgraph.yaml file
+// (legacy .oncallgraph.yaml from the brief rename period is still accepted).
+// Everything has sensible defaults so demo/test work with no config at all.
 package config
 
 import (
@@ -12,7 +12,7 @@ import (
 )
 
 // DefaultDataDir is used when config omits data_dir.
-const DefaultDataDir = ".oncallgraph/data"
+const DefaultDataDir = ".opsgraph/data"
 
 // DefaultSince is used when config omits default_since.
 const DefaultSince = time.Hour
@@ -93,7 +93,7 @@ type AIConfig struct {
 }
 
 // DefaultConfigCandidates are tried (in order) when Load("") is called.
-var DefaultConfigCandidates = []string{".oncallgraph.yaml", ".opsgraph.yaml"}
+var DefaultConfigCandidates = []string{".opsgraph.yaml", ".oncallgraph.yaml"}
 
 // Default returns a Config with built-in defaults (used when no file exists).
 func Default() *Config {
@@ -118,7 +118,7 @@ func Default() *Config {
 }
 
 // Load reads config from path. If path is empty it tries
-// .oncallgraph.yaml then legacy .opsgraph.yaml; if neither exists it
+// .opsgraph.yaml then legacy .oncallgraph.yaml; if neither exists it
 // returns Default(). A malformed file is an error.
 func Load(path string) (*Config, error) {
 	explicit := path != ""

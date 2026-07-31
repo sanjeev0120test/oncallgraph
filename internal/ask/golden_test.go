@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/fixtures"
-	"github.com/sanjeev0120test/oncallgraph/internal/ask"
-	"github.com/sanjeev0120test/oncallgraph/internal/ingest"
-	"github.com/sanjeev0120test/oncallgraph/internal/output"
-	"github.com/sanjeev0120test/oncallgraph/internal/runbook"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/fixtures"
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
+	"github.com/sanjeev0120test/opsgraph/internal/ingest"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
+	"github.com/sanjeev0120test/opsgraph/internal/runbook"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 // TestGoldensMatch enforces byte-identical output against the checked-in golden
@@ -55,10 +55,10 @@ func assertGolden(t *testing.T, fsys fs.FS, name string, v any) {
 	}
 	want, err := fs.ReadFile(fsys, name)
 	if err != nil {
-		t.Fatalf("read golden %s: %v (run: oncallgraph test ./fixtures/incident_checkout --update)", name, err)
+		t.Fatalf("read golden %s: %v (run: opsgraph test ./fixtures/incident_checkout --update)", name, err)
 	}
 	want = bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))
 	if !bytes.Equal(want, buf.Bytes()) {
-		t.Fatalf("golden %s mismatch; regenerate with:\n  go run ./cmd/oncallgraph test ./fixtures/incident_checkout --update", name)
+		t.Fatalf("golden %s mismatch; regenerate with:\n  go run ./cmd/opsgraph test ./fixtures/incident_checkout --update", name)
 	}
 }

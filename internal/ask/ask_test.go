@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanjeev0120test/oncallgraph/fixtures"
-	"github.com/sanjeev0120test/oncallgraph/internal/ask"
-	"github.com/sanjeev0120test/oncallgraph/internal/ingest"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
-	"github.com/sanjeev0120test/oncallgraph/internal/output"
-	"github.com/sanjeev0120test/oncallgraph/internal/store"
+	"github.com/sanjeev0120test/opsgraph/fixtures"
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
+	"github.com/sanjeev0120test/opsgraph/internal/ingest"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 func run(t *testing.T) (model.AskResult, []byte) {

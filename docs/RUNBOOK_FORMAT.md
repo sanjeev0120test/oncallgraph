@@ -1,7 +1,7 @@
 # Runbook format
 
 Runbooks are Markdown with optional YAML front matter and HTML-comment check
-annotations. `oncallgraph` parses numbered steps and evaluates each check against
+annotations. `opsgraph` parses numbered steps and evaluates each check against
 the current store.
 
 ## Front matter
@@ -16,18 +16,18 @@ aliases: [checkout-api]
 
 ## Checks
 
-Prefer `oncallgraph:check=…` (legacy `opsgraph:check=…` still works). A check
+Prefer `opsgraph:check=…` (legacy `oncallgraph:check=…` still works). A check
 binds to the nearest preceding numbered step.
 
 ```markdown
 1. Confirm a recent deploy.
-<!-- oncallgraph:check=deploy_age_lt:60m -->
+<!-- opsgraph:check=deploy_age_lt:60m -->
 
 2. Service must be healthy.
-<!-- oncallgraph:check=service_healthy:checkout -->
+<!-- opsgraph:check=service_healthy:checkout -->
 
 3. Human follow-up.
-<!-- oncallgraph:check=manual -->
+<!-- opsgraph:check=manual -->
 ```
 
 ### Catalog

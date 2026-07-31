@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // ASCII returns a simple text dependency map. Edge direction: From → To means From depends on To.

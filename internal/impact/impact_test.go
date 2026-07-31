@@ -3,8 +3,8 @@ package impact_test
 import (
 	"testing"
 
-	"github.com/sanjeev0120test/oncallgraph/internal/impact"
-	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/impact"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 func TestDownstreamImpact(t *testing.T) {
