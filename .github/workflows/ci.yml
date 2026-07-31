@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-go
       - name: gofmt + vet + tidy + no committed binaries
         run: |
@@ -54,10 +54,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-go
       - name: Cache staticcheck binary
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/staticcheck
           key: staticcheck-${{ runner.os }}-2025.1.1-${{ hashFiles('go.mod') }}
@@ -87,7 +87,7 @@ jobs:
             race: false
             smoke: compact
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-go
       - name: Build binary
         shell: bash
@@ -234,7 +234,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-go
       - name: Cross-compile 6 targets (parallel)
         run: |
@@ -318,10 +318,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-go
       - name: Cache govulncheck binary
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/govulncheck
           key: govulncheck-${{ runner.os }}-v1.1.4-${{ hashFiles('go.sum') }}

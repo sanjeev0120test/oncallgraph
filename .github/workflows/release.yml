@@ -46,7 +46,7 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup-go
@@ -163,7 +163,7 @@ jobs:
       github.ref_type == 'tag' &&
       (github.event_name != 'workflow_dispatch' || inputs.dry_run == 'false')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download release artifacts
         uses: actions/download-artifact@v8
         with:
