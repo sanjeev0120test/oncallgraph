@@ -1,0 +1,39 @@
+name: actionlint
+
+# Lint workflow YAML in seconds. Runs in parallel with ci/.
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+  workflow_dispatch:
+
+concurrency:
+  group: actionlint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  actionlint:
+    name: lint workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run actionlint
+        uses: raven-actions/actionlint@v2
+        with:
+          fail-on-error: true
+          # Skip apt/brew installs — keep this job under ~30s.
+          shellcheck: false
+          pyflakes: false

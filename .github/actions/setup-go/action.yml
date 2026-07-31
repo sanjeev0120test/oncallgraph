@@ -1,0 +1,10 @@
+name: Setup Go
+description: Fast, Node-24-ready Go toolchain setup with module cache
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: go.mod
+        cache: true

@@ -36,21 +36,20 @@ concurrency:
 env:
   GOTOOLCHAIN: local
   CGO_ENABLED: "0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build:
     name: build-release-binaries
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     outputs:
       version: ${{ steps.meta.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
+      - uses: ./.github/actions/setup-go
       - name: Resolve version metadata
         id: meta
         run: |
@@ -111,9 +110,7 @@ jobs:
           cp ../scripts/install.ps1 ./install.ps1
           chmod +x install.sh
           (cd .. && go list -m all) > DEPENDENCIES.txt
-          # SHA256SUMS must cover every file uploaded to the Release.
           sha256sum *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
-          # 6 archives + LICENSE + DEPENDENCIES + install.sh + install.ps1
           test "$(grep -c . SHA256SUMS)" -eq 10
           sha256sum -c SHA256SUMS
           echo "--- SHA256SUMS ---"
@@ -135,9 +132,7 @@ jobs:
             echo "release binary version stdout does not contain $VERSION" >&2
             exit 1
           fi
-          # Absolute fixture path (cwd-independent), same pattern as CI packaging simulation.
           "$bin" ask checkout --fixture "${GITHUB_WORKSPACE}/fixtures/incident_checkout" --format json >/dev/null
-          # doctor may WARN (no ollama / no state.db) but must not FAIL.
           set +e
           doctor_out="$("$bin" doctor 2>&1)"
           doctor_code=$?
@@ -145,7 +140,7 @@ jobs:
           echo "$doctor_out"
           test "$doctor_code" -eq 0
       - name: Upload release assets (artifact)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: opsgraph-release-${{ steps.meta.outputs.version }}
           path: |
@@ -163,13 +158,14 @@ jobs:
     name: publish-github-release
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     if: >-
       github.ref_type == 'tag' &&
       (github.event_name != 'workflow_dispatch' || inputs.dry_run == 'false')
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Download release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opsgraph-release-${{ needs.build.outputs.version }}
           path: dist
@@ -191,7 +187,7 @@ jobs:
           done
           sha256sum -c SHA256SUMS
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/*.tar.gz
@@ -202,7 +198,7 @@ jobs:
             dist/install.sh
             dist/install.ps1
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.build.outputs.version }}
           name: ${{ needs.build.outputs.version }}

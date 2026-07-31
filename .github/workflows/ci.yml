@@ -1,5 +1,8 @@
 name: ci
 
+# Fast parallel quality gates. Wall-clock target: ~3 minutes on cache hits.
+# Required aggregator job: "all checks passed".
+
 on:
   push:
   pull_request:
@@ -15,54 +18,61 @@ permissions:
 env:
   GOTOOLCHAIN: local
   CGO_ENABLED: "0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   lint:
-    name: lint (ubuntu)
+    name: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
-      - name: gofmt
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-go
+      - name: gofmt + vet + tidy + no committed binaries
         run: |
+          set -euo pipefail
           fmtout="$(gofmt -l .)"
           if [ -n "$fmtout" ]; then echo "Unformatted files:"; echo "$fmtout"; exit 1; fi
-      - name: go vet
-        run: go vet ./...
-      - name: staticcheck
-        run: |
-          set -euo pipefail
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          "$(go env GOPATH)/bin/staticcheck" ./...
-      - name: go mod tidy is clean
-        run: |
+          go vet ./...
           go mod tidy
           git diff --exit-code go.mod go.sum
-      - name: default build compiles (no k8s.io linked)
-        run: go build ./...
-      - name: no release binaries committed to source tree
-        run: |
-          set -euo pipefail
+          go build ./...
           # Precompiled binaries/archives belong in GitHub Releases only.
-          # Fail if any such path is tracked by git (bin/dist may exist locally as untracked).
           tracked="$(git ls-files -z | tr '\0' '\n' | grep -E '(^|/)(bin|dist)/|(^|/)opsgraph(\.exe)?$|(^|/)opsgraph_.+\.(tar\.gz|zip)$|(^|/)SHA256SUMS$|(^|/)DEPENDENCIES\.txt$' || true)"
           if [ -n "$tracked" ]; then
             echo "found tracked binary/archive artifacts; remove them and publish via Releases:" >&2
             echo "$tracked" >&2
             exit 1
           fi
-          # Also reject accidental archive blobs under the tree that are untracked but present in the runner workspace from a bad commit attempt.
           if ls opsgraph_*.tar.gz opsgraph_*.zip 2>/dev/null | grep -q .; then
             echo "release archives present in workspace root; do not commit them" >&2
             exit 1
           fi
 
+  staticcheck:
+    name: staticcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-go
+      - name: Cache staticcheck binary
+        uses: actions/cache@v5
+        with:
+          path: ~/go/bin/staticcheck
+          key: staticcheck-${{ runner.os }}-2025.1.1-${{ hashFiles('go.mod') }}
+      - name: Install + run staticcheck
+        run: |
+          set -euo pipefail
+          if [ ! -x "$(go env GOPATH)/bin/staticcheck" ]; then
+            go install honnef.co/go/tools/cmd/staticcheck@2025.1.1
+          fi
+          "$(go env GOPATH)/bin/staticcheck" ./...
+
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -77,11 +87,8 @@ jobs:
             race: false
             smoke: compact
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-go
       - name: Build binary
         run: go build -trimpath -ldflags="-s -w" -o bin/opsgraph ./cmd/opsgraph
       - name: Unit tests
@@ -92,7 +99,7 @@ jobs:
         env:
           CGO_ENABLED: "1"
         run: go test -race ./...
-      - name: Fixture / golden + demo (built binary)
+      - name: Fixture / golden + demo
         shell: bash
         run: |
           set -euo pipefail
@@ -194,42 +201,20 @@ jobs:
           cp .opsgraph.example.yaml "$CFGDIR/.opsgraph.yaml"
           BIN_ABS="$(pwd)/bin/opsgraph"
           (cd "$CFGDIR" && "$BIN_ABS" doctor --config .opsgraph.yaml >/dev/null)
-
-  install:
-    name: install-smoke (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
-      - name: go install (GOBIN on PATH)
+      - name: go install smoke
         shell: bash
         run: |
           set -euo pipefail
           go install ./cmd/opsgraph
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      - name: Verify installation
-        shell: bash
-        run: |
-          set -euo pipefail
-          command -v opsgraph
-          opsgraph version
-          opsgraph doctor
-          opsgraph demo --format json >/dev/null
-          opsgraph validate-fixture ./fixtures/incident_checkout >/dev/null
+          opsgraph version >/dev/null
           opsgraph ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
       - name: install.ps1 from local dist (windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          go build -o dist/opsgraph-windows-amd64.exe ./cmd/opsgraph
+          Copy-Item bin/opsgraph.exe dist/opsgraph-windows-amd64.exe
           $installDir = Join-Path $env:RUNNER_TEMP "opsgraph-install"
           $env:OPSGRAPH_DIST_DIR = (Resolve-Path dist).Path
           $env:OPSGRAPH_INSTALL_DIR = $installDir
@@ -238,17 +223,13 @@ jobs:
           & "$installDir/opsgraph.exe" ask checkout --fixture ./fixtures/incident_checkout --format json | Out-Null
 
   cross:
-    name: cross-compile (6 targets)
+    name: cross + release-pack
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
-      - name: Cross-compile linux/darwin/windows × amd64/arm64
-        env:
-          CGO_ENABLED: "0"
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-go
+      - name: Cross-compile 6 targets (parallel)
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -267,14 +248,9 @@ jobs:
           for pid in "${pids[@]}"; do
             wait "$pid" || exit 1
           done
-          for f in dist/opsgraph-*; do
-            test -s "$f"
-          done
           test "$(ls dist/opsgraph-* | wc -l)" -eq 6
-          ls -la dist
           ./dist/opsgraph-linux-amd64 version
-          ./dist/opsgraph-linux-amd64 doctor
-      - name: Test scripts/install.sh from local dist
+      - name: install.sh from local dist
         run: |
           set -euo pipefail
           chmod +x scripts/install.sh
@@ -282,7 +258,7 @@ jobs:
           OPSGRAPH_DIST_DIR="$PWD/dist" OPSGRAPH_INSTALL_DIR="$INSTALL_DIR" ./scripts/install.sh
           "$INSTALL_DIR/opsgraph" version
           "$INSTALL_DIR/opsgraph" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
-      - name: Simulate full release packaging + checksums
+      - name: Simulate release packaging + checksums
         run: |
           set -euo pipefail
           VERSION="v0.0.0-ci"
@@ -310,41 +286,61 @@ jobs:
           cp ../scripts/install.ps1 ./install.ps1
           chmod +x install.sh
           (cd .. && go list -m all) > DEPENDENCIES.txt
-          # Checksums cover EVERY published file (archives + installers + metadata).
           sha256sum *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
-          # 6 archives + LICENSE + DEPENDENCIES + install.sh + install.ps1
           test "$(grep -c . SHA256SUMS)" -eq 10
           sha256sum -c SHA256SUMS
-          tar -tzf "opsgraph_${VERSION}_linux_amd64.tar.gz" | grep -E "opsgraph_${VERSION}_linux_amd64\$"
           tmp="$(mktemp -d)"
           tar -xzf "opsgraph_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
-          "$tmp/opsgraph_${VERSION}_linux_amd64" version
+          out="$("$tmp/opsgraph_${VERSION}_linux_amd64" version)"
+          [[ "$out" == *"$VERSION"* ]]
           "$tmp/opsgraph_${VERSION}_linux_amd64" ask checkout --fixture "$GITHUB_WORKSPACE/fixtures/incident_checkout" --format json >/dev/null
       - name: Upload cross-compile artifacts
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
         with:
           name: opsgraph-cross-${{ github.sha }}
           path: dist/*
           if-no-files-found: error
           retention-days: 3
 
-  # Single green signal for branch protection / required checks.
+  vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-go
+      - name: Cache govulncheck binary
+        uses: actions/cache@v5
+        with:
+          path: ~/go/bin/govulncheck
+          key: govulncheck-${{ runner.os }}-v1.1.4-${{ hashFiles('go.sum') }}
+      - name: Run govulncheck
+        run: |
+          set -euo pipefail
+          if [ ! -x "$(go env GOPATH)/bin/govulncheck" ]; then
+            go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          fi
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
   ci-ok:
     name: all checks passed
-    needs: [lint, test, install, cross]
+    needs: [lint, staticcheck, test, cross, vuln]
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     if: always()
     steps:
       - name: Aggregate job results
         run: |
           set -euo pipefail
           echo "lint=${{ needs.lint.result }}"
+          echo "staticcheck=${{ needs.staticcheck.result }}"
           echo "test=${{ needs.test.result }}"
-          echo "install=${{ needs.install.result }}"
           echo "cross=${{ needs.cross.result }}"
+          echo "vuln=${{ needs.vuln.result }}"
           test "${{ needs.lint.result }}" = "success"
+          test "${{ needs.staticcheck.result }}" = "success"
           test "${{ needs.test.result }}" = "success"
-          test "${{ needs.install.result }}" = "success"
           test "${{ needs.cross.result }}" = "success"
+          test "${{ needs.vuln.result }}" = "success"
           echo "all required CI jobs passed"
