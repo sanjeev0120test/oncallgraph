@@ -1,0 +1,214 @@
+package runbook
+
+import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/opsgraph/opsgraph/internal/model"
+	"github.com/opsgraph/opsgraph/internal/store"
+)
+
+// Verifier evaluates runbook checks against current state in the store, using a
+// fixed "now" for deterministic time-based checks.
+type Verifier struct {
+	store *store.Store
+	now   time.Time
+}
+
+// NewVerifier builds a Verifier.
+func NewVerifier(s *store.Store, now time.Time) *Verifier {
+	return &Verifier{store: s, now: now.UTC()}
+}
+
+// VerifyService loads the service's runbook from the store and verifies it.
+// Returns a result with Status "missing" if there is no runbook.
+func (v *Verifier) VerifyService(serviceID string) (model.VerifyResult, error) {
+	rb, err := v.store.GetRunbook(serviceID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return model.VerifyResult{ServiceID: serviceID, Status: model.StatusMissing}, nil
+		}
+		return model.VerifyResult{}, err
+	}
+	return v.Verify(*rb)
+}
+
+// Verify evaluates every step of a parsed runbook.
+func (v *Verifier) Verify(rb model.Runbook) (model.VerifyResult, error) {
+	res := model.VerifyResult{ServiceID: rb.ServiceID, Path: rb.Path}
+	for _, step := range rb.Steps {
+		sr, err := v.verifyStep(rb.ServiceID, step)
+		if err != nil {
+			return model.VerifyResult{}, err
+		}
+		res.Steps = append(res.Steps, sr)
+	}
+	res.Status = rollup(res.Steps)
+	return res, nil
+}
+
+func rollup(steps []model.StepVerifyResult) string {
+	hasFail, hasStale := false, false
+	for _, s := range steps {
+		switch s.Status {
+		case model.StatusFail, model.StatusError:
+			hasFail = true
+		case model.StatusStale:
+			hasStale = true
+		}
+	}
+	switch {
+	case hasFail:
+		return model.StatusFail
+	case hasStale:
+		return model.StatusStale
+	default:
+		return model.StatusPass
+	}
+}
+
+func (v *Verifier) verifyStep(serviceID string, step model.RunbookStep) (model.StepVerifyResult, error) {
+	sr := model.StepVerifyResult{Number: step.Number, Text: step.Text, Check: step.Check}
+
+	check := strings.TrimSpace(step.Check)
+	if check == "" || check == "manual" {
+		sr.Status = model.StatusManual
+		sr.Message = "manual step"
+		if check == "" {
+			sr.Message = "no automated check"
+		}
+		return sr, nil
+	}
+
+	name, arg, _ := strings.Cut(check, ":")
+	switch name {
+	case "deploy_age_lt", "deploy_age_gt":
+		return v.checkDeployAge(serviceID, name, arg, sr)
+	case "k8s_deployment_exists":
+		return v.checkDeploymentExists(arg, sr)
+	case "service_healthy":
+		return v.checkServiceHealth(arg, true, sr)
+	case "service_unhealthy":
+		return v.checkServiceHealth(arg, false, sr)
+	case "alert_firing":
+		return v.checkAlertFiring(arg, sr)
+	default:
+		sr.Status = model.StatusError
+		sr.Message = fmt.Sprintf("unknown check %q", check)
+		return sr, nil
+	}
+}
+
+func (v *Verifier) checkDeployAge(serviceID, kind, arg string, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
+	dur, err := time.ParseDuration(arg)
+	if err != nil {
+		sr.Status = model.StatusError
+		sr.Message = fmt.Sprintf("invalid duration %q", arg)
+		return sr, nil
+	}
+	ch, ok, err := v.store.LatestChange(serviceID)
+	if err != nil {
+		return sr, err
+	}
+	if !ok {
+		sr.Status = model.StatusStale
+		sr.Message = "no change/deploy on record"
+		return sr, nil
+	}
+	sr.EvidenceID = ch.EvidenceID
+	age := v.now.Sub(ch.At)
+	pass := age < dur
+	if kind == "deploy_age_gt" {
+		pass = age > dur
+	}
+	if pass {
+		sr.Status = model.StatusPass
+		sr.Message = fmt.Sprintf("last change %s ago", roundDur(age))
+	} else {
+		sr.Status = model.StatusStale
+		sr.Message = fmt.Sprintf("last change %s ago (check expected %s %s)", roundDur(age), cmpWord(kind), arg)
+	}
+	return sr, nil
+}
+
+func (v *Verifier) checkDeploymentExists(name string, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
+	svc, err := v.store.GetServiceByNameOrAlias(name)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return sr, err
+	}
+	if svc != nil && hasSource(svc.Sources, "kubernetes") {
+		sr.Status = model.StatusPass
+		sr.Message = fmt.Sprintf("deployment %q present in snapshot", name)
+	} else {
+		sr.Status = model.StatusStale
+		sr.Message = fmt.Sprintf("deployment %q not found in snapshot", name)
+	}
+	return sr, nil
+}
+
+func (v *Verifier) checkServiceHealth(name string, wantHealthy bool, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
+	svc, err := v.store.GetServiceByNameOrAlias(name)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			sr.Status = model.StatusStale
+			sr.Message = fmt.Sprintf("service %q not found", name)
+			return sr, nil
+		}
+		return sr, err
+	}
+	healthy := svc.Health == model.HealthHealthy
+	unhealthy := svc.Health == model.HealthDegraded || svc.Health == model.HealthUnhealthy
+	ok := healthy
+	if !wantHealthy {
+		ok = unhealthy
+	}
+	if ok {
+		sr.Status = model.StatusPass
+	} else {
+		sr.Status = model.StatusStale
+	}
+	sr.Message = fmt.Sprintf("%s is %s", name, svc.Health)
+	return sr, nil
+}
+
+func (v *Verifier) checkAlertFiring(name string, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
+	al, ok, err := v.store.FindFiringAlert(name)
+	if err != nil {
+		return sr, err
+	}
+	if ok {
+		sr.Status = model.StatusPass
+		sr.Message = fmt.Sprintf("alert %s is firing", al.Name)
+		sr.EvidenceID = al.EvidenceID
+	} else {
+		sr.Status = model.StatusStale
+		sr.Message = fmt.Sprintf("alert %q is not firing", name)
+	}
+	return sr, nil
+}
+
+func hasSource(sources []string, s string) bool {
+	for _, x := range sources {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+func cmpWord(kind string) string {
+	if kind == "deploy_age_gt" {
+		return ">"
+	}
+	return "<"
+}
+
+func roundDur(d time.Duration) string {
+	if d < time.Minute {
+		return strconv.Itoa(int(d.Seconds())) + "s"
+	}
+	return strconv.Itoa(int(d.Minutes())) + "m"
+}

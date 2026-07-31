@@ -303,6 +303,41 @@ func (s *Store) ListEvidence(ids []string) ([]model.Evidence, error) {
 	return out, nil
 }
 
+// LatestChange returns the newest change for a service (any type), if any.
+func (s *Store) LatestChange(serviceID string) (*model.Change, bool, error) {
+	changes, err := s.ListChanges(serviceID, time.Unix(0, 0).UTC())
+	if err != nil {
+		return nil, false, err
+	}
+	if len(changes) == 0 {
+		return nil, false, nil
+	}
+	return &changes[0], true, nil
+}
+
+// FindFiringAlert returns the newest firing alert matching an alert name or a
+// service id.
+func (s *Store) FindFiringAlert(nameOrService string) (*model.Alert, bool, error) {
+	rows, err := s.db.Query(`
+SELECT id,service_id,at,severity,name,status,summary,source,evidence_id
+FROM alerts WHERE status='firing' AND (name=? OR service_id=?)
+ORDER BY at DESC, id LIMIT 1`, nameOrService, nameOrService)
+	if err != nil {
+		return nil, false, wrap("find firing alert", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, false, rows.Err()
+	}
+	var v model.Alert
+	var at string
+	if err := rows.Scan(&v.ID, &v.ServiceID, &at, &v.Severity, &v.Name, &v.Status, &v.Summary, &v.Source, &v.EvidenceID); err != nil {
+		return nil, false, wrap("scan firing alert", err)
+	}
+	v.At = parseTime(at)
+	return &v, true, nil
+}
+
 // Counts returns row counts per table (for `opsgraph status`).
 func (s *Store) Counts() (map[string]int, error) {
 	tables := []string{"services", "owners", "changes", "dependencies", "alerts", "runbooks", "evidence"}
