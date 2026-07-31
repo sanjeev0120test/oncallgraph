@@ -40,9 +40,11 @@ connectors:
     enabled: true
     snapshot: ""   # path to a k8s snapshot dir; empty => use fixture snapshot
   prometheus:
+    # Optional: local Prometheus /api/v1/alerts (disabled by default; mocked in tests).
     enabled: false
     url: http://127.0.0.1:9090
   alertmanager:
+    # Optional: local Alertmanager /api/v2/alerts (disabled by default; mocked in tests).
     enabled: false
     url: http://127.0.0.1:9093
 

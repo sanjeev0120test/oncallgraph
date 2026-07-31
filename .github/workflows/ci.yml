@@ -66,9 +66,17 @@ jobs:
         run: go run ./cmd/opsgraph demo --format json
 
   # Phase-2 only; kept disabled so default CI stays clusterless and secret-free.
+  # Enable locally with: bash hack/kind-demo.sh (needs docker + kind + kubectl).
   kind-integration:
     if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "kind integration placeholder"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+      - name: kind demo script present
+        run: test -x hack/kind-demo.sh || test -f hack/kind-demo.sh
+      - name: (disabled) run kind demo
+        run: bash hack/kind-demo.sh

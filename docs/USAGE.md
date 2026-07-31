@@ -69,6 +69,16 @@ Prints version/build metadata.
 - Locally, run the fast subset: `pwsh scripts/verify.ps1` (Windows) or
   `bash scripts/verify.sh` / `make quick` (Unix).
 
+## Optional live connectors
+
+In `.opsgraph.yaml` (see `.opsgraph.example.yaml`):
+
+- `connectors.git` — local repo scan (skips cleanly if no repo).
+- `connectors.kubernetes.snapshot` — directory with `deployments.yaml`, `events.yaml`, optional `releases.yaml` (Helm).
+- `connectors.prometheus` / `connectors.alertmanager` — disabled by default; point at a local URL when you have them.
+
+Optional cluster demo (not required for CI): `bash hack/kind-demo.sh`.
+
 ## Enabling AI (optional)
 
 1. Install [Ollama](https://ollama.com) and pull models:

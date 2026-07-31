@@ -83,10 +83,15 @@ Runbooks are plain Markdown with YAML front matter and step checks like:
 
 `opsgraph verify-runbook checkout` evaluates each check against current state and reports `pass` / `fail` / `stale` / `manual`. See [docs/RUNBOOK_FORMAT.md](docs/RUNBOOK_FORMAT.md).
 
-## Roadmap
+## Optional connectors (Phase-2)
 
-- Phase-2 (all still free/local): Prometheus + Alertmanager connectors (mock-tested), Helm release enrichment, a scripted `kind` demo.
-- Future opt-in: live Kubernetes connector via `client-go` behind a build tag.
+All still free/local and disabled by default:
+
+- **Prometheus** / **Alertmanager** — enable in `.opsgraph.yaml`; covered by httptest unit tests (no live servers in CI).
+- **Helm** — optional `releases.yaml` next to a k8s snapshot emits deploy changes.
+- **kind demo** — `bash hack/kind-demo.sh` (needs docker/kind/kubectl; CI job stays `if: false`).
+
+Future opt-in: live Kubernetes via `client-go` behind a build tag.
 
 ## License
 
