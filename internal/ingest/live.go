@@ -1,9 +1,11 @@
 package ingest
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/opsgraph/opsgraph/internal/config"
@@ -13,8 +15,8 @@ import (
 )
 
 // LiveIngest seeds the store from config and runs the enabled live connectors
-// (local git, kubernetes snapshot). configDir is used to resolve relative
-// runbook/snapshot paths. It is offline and read-only.
+// (local git, kubernetes snapshot, optional prometheus/alertmanager). configDir
+// is used to resolve relative runbook/snapshot paths. Missing git repo is skipped.
 func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now time.Time) error {
 	if err := seedFromConfig(s, cfg, configDir); err != nil {
 		return err
@@ -28,7 +30,10 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			repoPath = filepath.Join(configDir, repoPath)
 		}
 		if err := IngestGit(s, repoPath, servicePaths(cfg), since, now); err != nil {
-			return fmt.Errorf("git connector: %w", err)
+			// No repo / empty history is non-fatal — fixtures and other sources still work.
+			if !isMissingGit(err) {
+				return fmt.Errorf("git connector: %w", err)
+			}
 		}
 	}
 	if cfg.Connectors.Kubernetes.Enabled && cfg.Connectors.Kubernetes.Snapshot != "" {
@@ -36,11 +41,36 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 		if !filepath.IsAbs(snap) {
 			snap = filepath.Join(configDir, snap)
 		}
-		if err := ingestK8sFiles(s, os.DirFS(snap), "deployments.yaml", "events.yaml"); err != nil {
+		fsys := os.DirFS(snap)
+		if err := ingestK8sFiles(s, fsys, "deployments.yaml", "events.yaml"); err != nil {
 			return fmt.Errorf("kubernetes snapshot: %w", err)
+		}
+		if err := ingestHelmReleases(s, fsys, "releases.yaml"); err != nil {
+			return fmt.Errorf("helm snapshot: %w", err)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if cfg.Connectors.Prometheus.Enabled && cfg.Connectors.Prometheus.URL != "" {
+		if err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil); err != nil {
+			return fmt.Errorf("prometheus connector: %w", err)
+		}
+	}
+	if cfg.Connectors.Alertmanager.Enabled && cfg.Connectors.Alertmanager.URL != "" {
+		if err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil); err != nil {
+			return fmt.Errorf("alertmanager connector: %w", err)
 		}
 	}
 	return nil
+}
+
+func isMissingGit(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "repository does not exist") ||
+		strings.Contains(msg, "reference not found")
 }
 
 func seedFromConfig(s *store.Store, cfg *config.Config, configDir string) error {

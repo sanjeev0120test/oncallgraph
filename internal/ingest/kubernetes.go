@@ -55,7 +55,10 @@ func deploymentHealth(desired, ready int) string {
 
 // ingestK8sSnapshot reads a fixture-pack snapshot under k8s/.
 func ingestK8sSnapshot(s *store.Store, fsys fs.FS) error {
-	return ingestK8sFiles(s, fsys, "k8s/deployments.yaml", "k8s/events.yaml")
+	if err := ingestK8sFiles(s, fsys, "k8s/deployments.yaml", "k8s/events.yaml"); err != nil {
+		return err
+	}
+	return ingestHelmReleases(s, fsys, "k8s/releases.yaml")
 }
 
 // ingestK8sFiles reads the given deployment/event files (if present), updates
