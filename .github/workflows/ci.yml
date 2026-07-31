@@ -5,6 +5,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -42,12 +46,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Race + full CLI smoke only on ubuntu (fastest signal, least CI minutes).
           - os: ubuntu-latest
             race: true
+            smoke: true
           - os: macos-latest
-            race: true
+            race: false
+            smoke: false
           - os: windows-latest
             race: false
+            smoke: false
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
@@ -55,7 +63,7 @@ jobs:
           go-version: '1.25'
           cache: true
       - name: Build binary
-        run: go build -o bin/oncallgraph ./cmd/oncallgraph
+        run: go build -trimpath -ldflags="-s -w" -o bin/oncallgraph ./cmd/oncallgraph
       - name: Unit tests
         if: ${{ !matrix.race }}
         run: go test ./...
@@ -64,11 +72,16 @@ jobs:
         env:
           CGO_ENABLED: "1"
         run: go test -race ./...
-      - name: Fixture / golden tests
-        run: go run ./cmd/oncallgraph test ./fixtures/incident_checkout
-      - name: Demo (no kube/AI/Docker)
-        run: go run ./cmd/oncallgraph demo --format json
-      - name: CLI smoke
+      - name: Fixture / golden + demo (built binary)
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN=./bin/oncallgraph
+          if [ -f ./bin/oncallgraph.exe ]; then BIN=./bin/oncallgraph.exe; fi
+          "$BIN" test ./fixtures/incident_checkout
+          "$BIN" demo --format json >/dev/null
+      - name: CLI smoke (ubuntu)
+        if: ${{ matrix.smoke }}
         shell: bash
         run: |
           set -euo pipefail
@@ -108,6 +121,7 @@ jobs:
           "$BIN" owners --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" graph --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" graph --fixture ./fixtures/incident_checkout --format mermaid >/dev/null
+          "$BIN" graph --fixture ./fixtures/incident_checkout --format table >/dev/null
           "$BIN" evidence ev-change-1 --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" explain checkout --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" report checkout --fixture ./fixtures/incident_checkout >/dev/null
@@ -125,11 +139,10 @@ jobs:
           code=$?
           set -e
           test "$code" -eq 1
-          # world-class feature smoke
           "$BIN" health --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" top --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" resolve checkout-api --fixture ./fixtures/incident_checkout >/dev/null
-          "$BIN" changes --fixture ./fixtures/incident_checkout --service checkout >/dev/null
+          "$BIN" changes --fixture ./fixtures/incident_checkout --service checkout --since 2h >/dev/null
           "$BIN" alerts --fixture ./fixtures/incident_checkout --firing >/dev/null
           "$BIN" impact auth --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout >/dev/null
@@ -137,6 +150,11 @@ jobs:
           EXP="$(mktemp -d)"
           "$BIN" export checkout --fixture ./fixtures/incident_checkout --format markdown --out "$EXP/r.md" >/dev/null
           test -s "$EXP/r.md"
+          # Config load via explicit .oncallgraph.yaml (preferred name).
+          CFGDIR="$(mktemp -d)"
+          cp .oncallgraph.example.yaml "$CFGDIR/.oncallgraph.yaml"
+          BIN_ABS="$(pwd)/bin/oncallgraph"
+          (cd "$CFGDIR" && "$BIN_ABS" doctor --config .oncallgraph.yaml >/dev/null)
 
   install:
     name: install-smoke (${{ matrix.os }})
@@ -185,17 +203,23 @@ jobs:
           mkdir -p dist
           VERSION="ci-${GITHUB_SHA::7}"
           LDFLAGS="-s -w -X github.com/sanjeev0120test/oncallgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/oncallgraph/internal/version.Commit=${GITHUB_SHA} -X github.com/sanjeev0120test/oncallgraph/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          pids=()
           for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             GOOS="${pair%/*}"
             GOARCH="${pair#*/}"
             out="dist/oncallgraph-${GOOS}-${GOARCH}"
             if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
             echo "building $out"
-            GOOS="$GOOS" GOARCH="$GOARCH" go build -ldflags "$LDFLAGS" -o "$out" ./cmd/oncallgraph
-            test -s "$out"
+            GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/oncallgraph &
+            pids+=($!)
+          done
+          for pid in "${pids[@]}"; do
+            wait "$pid"
+          done
+          for f in dist/oncallgraph-*; do
+            test -s "$f"
           done
           ls -la dist
-          # Smoke-run the linux/amd64 artifact on the runner.
           ./dist/oncallgraph-linux-amd64 version
           ./dist/oncallgraph-linux-amd64 doctor
       - name: Test scripts/install.sh from local dist
@@ -206,24 +230,24 @@ jobs:
           ONCALLGRAPH_DIST_DIR="$PWD/dist" ONCALLGRAPH_INSTALL_DIR="$INSTALL_DIR" ./scripts/install.sh
           "$INSTALL_DIR/oncallgraph" version
           "$INSTALL_DIR/oncallgraph" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+      - name: Simulate release archive + install naming
+        run: |
+          set -euo pipefail
+          VERSION="v0.0.0-ci"
+          mkdir -p dist-release
+          cp dist/oncallgraph-linux-amd64 "dist-release/oncallgraph_${VERSION}_linux_amd64"
+          tar -C dist-release -czf "dist-release/oncallgraph_${VERSION}_linux_amd64.tar.gz" "oncallgraph_${VERSION}_linux_amd64"
+          rm -f "dist-release/oncallgraph_${VERSION}_linux_amd64"
+          (cd dist-release && sha256sum *.tar.gz > SHA256SUMS)
+          # Extract like install.sh release mode would.
+          tmp="$(mktemp -d)"
+          tar -xzf "dist-release/oncallgraph_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
+          "$tmp/oncallgraph_${VERSION}_linux_amd64" version
       - name: Upload cross-compile artifacts
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: oncallgraph-cross-${{ github.sha }}
           path: dist/*
           if-no-files-found: error
-          retention-days: 7
-
-  kind-integration:
-    if: false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
-      - name: kind demo script present
-        run: test -f hack/kind-demo.sh
-      - name: (disabled) run kind demo
-        run: bash hack/kind-demo.sh
+          retention-days: 3

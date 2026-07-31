@@ -17,6 +17,40 @@ func newTestStore(t *testing.T) *Store {
 	return s
 }
 
+func TestListAllChangesAndAlerts(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	if err := s.UpsertService(model.Service{ID: "a", Name: "a", Health: model.HealthHealthy}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertChange(model.Change{ID: "c2", ServiceID: "a", At: now.Add(-10 * time.Minute), Type: "commit", Summary: "newer"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertChange(model.Change{ID: "c1", ServiceID: "a", At: now.Add(-30 * time.Minute), Type: "commit", Summary: "older"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertAlert(model.Alert{ID: "al1", ServiceID: "a", At: now, Name: "A", Status: "resolved"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertAlert(model.Alert{ID: "al2", ServiceID: "a", At: now.Add(-time.Minute), Name: "B", Status: "firing"}); err != nil {
+		t.Fatal(err)
+	}
+	changes, err := s.ListAllChanges()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) != 2 || changes[0].ID != "c2" || changes[1].ID != "c1" {
+		t.Fatalf("ListAllChanges order: %+v", changes)
+	}
+	alerts, err := s.ListAllAlerts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) != 2 || alerts[0].ID != "al2" || alerts[0].Status != "firing" {
+		t.Fatalf("ListAllAlerts firing-first: %+v", alerts)
+	}
+}
+
 func TestSchemaUserVersion(t *testing.T) {
 	s := newTestStore(t)
 	v, err := s.UserVersion()

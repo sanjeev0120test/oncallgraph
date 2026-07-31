@@ -21,7 +21,7 @@ func newAlertsCmd() *cobra.Command {
 			}
 			ls, _, err := src.load(0)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			list, err := ls.store.ListAllAlerts()
@@ -31,7 +31,7 @@ func newAlertsCmd() *cobra.Command {
 			if firingOnly {
 				filtered := list[:0]
 				for _, a := range list {
-					if a.Status == "firing" {
+					if a.Status == "firing" || a.Status == "pending" {
 						filtered = append(filtered, a)
 					}
 				}
@@ -53,6 +53,6 @@ func newAlertsCmd() *cobra.Command {
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
-	cmd.Flags().BoolVar(&firingOnly, "firing", false, "only show firing alerts")
+	cmd.Flags().BoolVar(&firingOnly, "firing", false, "only show firing or pending alerts")
 	return cmd
 }

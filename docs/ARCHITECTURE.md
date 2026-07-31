@@ -1,44 +1,27 @@
 # Architecture
 
-```
-              +-------------------+
-  fixtures -->|                   |
-  local git ->|  ingest (seed +   |---> SQLite store (modernc, pure Go)
-  k8s snap  ->|  connectors)      |          |
-              +-------------------+          v
-                                        ask engine  --> output (table/json)
-                                        runbook verify        |
-                                        (deterministic)        v
-                                                          [optional] ai
-                                                     (Ollama + chromem-go RAG,
-                                                      offline fallback)
-```
+`oncallgraph` is a single static Go binary. Deterministic incident context is the core path; optional local AI enrichment never affects goldens/CI.
 
 ## Packages
 
-- `cmd/opsgraph` - cobra CLI: `ask`, `verify-runbook`, `demo`, `test`, `status`, `version`.
-- `internal/model` - shared domain types.
-- `internal/config` - `.opsgraph.yaml` loader with defaults.
-- `internal/store` - pure-Go SQLite persistence (single connection; upserts + queries).
-- `internal/ingest` - fixture parsing, k8s snapshot parser, local git connector, live seeding.
-- `internal/runbook` - Markdown parsing + deterministic check verification.
-- `internal/ask` - assembles the deterministic `AskResult` (timeline, blast radius, recommendations, evidence).
-- `internal/output` - deterministic JSON and human table rendering.
-- `internal/ai` - optional local summary (Ollama + RAG) with a deterministic offline fallback.
-- `fixtures` - embedded incident packs (used by `demo`).
+- `cmd/oncallgraph` — cobra CLI (`ask`, fleet helpers, `demo`, `test`, `status`, …).
+- `internal/model` — shared domain types (`AskResult`, services, alerts, evidence).
+- `internal/config` — `.oncallgraph.yaml` loader (legacy `.opsgraph.yaml` accepted) with defaults.
+- `internal/store` — pure-Go SQLite (`modernc.org/sqlite`), `PRAGMA user_version` gated.
+- `internal/ingest` — fixtures, git, k8s snapshot, optional Prometheus/Alertmanager/Helm.
+- `internal/ask` — blast radius, timeline, recommendations R1–R6.
+- `internal/runbook` — Markdown parse + check catalog (`oncallgraph:check=` / legacy `opsgraph:check=`).
+- `internal/ai` — optional Ollama + chromem-go RAG; stubbed in tests.
+- `internal/{score,explain,report,graphviz,pathfind,impact,fingerprint}` — enterprise helpers.
+- `fixtures/` — embedded `incident_checkout` pack for `demo`.
 
-## Determinism
+## Data flow
 
-- A **fixture clock** (`meta.yaml: now`) drives all time-based logic in demo/test.
-- All output slices are **stably sorted**; JSON is emitted with sorted map keys.
-- Golden files are compared **byte-for-byte**; line endings are pinned to LF via `.gitattributes`.
-- The `--ai` summary is **excluded** from goldens/tests (non-deterministic).
+1. Resolve source: `--fixture` (ephemeral), `--data-dir` / auto persistent store, or live config connectors.
+2. Upsert entities into SQLite.
+3. `ask` assembles owner, changes, alerts, 1-hop blast, runbook verify, timeline, recommendations, evidence.
+4. Render table or JSON via `internal/output` (`SetEscapeHTML(false)`, indent, trailing newline).
 
-## Design decisions (see PLAN.md for the living record)
+## Cross-platform
 
-- **Kubernetes v1 = pure-Go snapshot** parser; `client-go` is intentionally not
-  linked (guarded by a test). Live cluster support is a future opt-in.
-- **AI is optional and local**; a character budget (not a downloaded tokenizer)
-  keeps it fully offline.
-- **CI-heavy, local-light**: comprehensive validation runs in GitHub Actions;
-  local runs use a fast subset.
+`CGO_ENABLED=0`, `filepath` for OS paths, `fs.FS` + forward slashes for fixtures, LF via `.gitattributes`. CI covers ubuntu/macOS/windows plus linux/darwin/windows × amd64/arm64 cross-builds.

@@ -164,6 +164,7 @@
   ],
   "recommendations": [
     "Inspect the most recent deploy first: \"deploy checkout v1.4.2\" (abc123).",
+    "Investigate checkout health (degraded) and stabilize before further changes.",
     "Check upstream auth (unhealthy) before changing checkout.",
     "Acknowledge firing alert CheckoutErrorRateHigh and correlate it with the recent change.",
     "Runbook runbooks/checkout.md is stale - review step(s) 2.",

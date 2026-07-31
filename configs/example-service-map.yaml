@@ -1,5 +1,5 @@
 # Example standalone service map you can adapt for a real environment.
-# Point `opsgraph --config` at a full .opsgraph.yaml; this file is a reference
+# Point `oncallgraph --config` at a full .oncallgraph.yaml; this file is a reference
 # for how to describe services, owners, and dependencies.
 version: 1
 services:

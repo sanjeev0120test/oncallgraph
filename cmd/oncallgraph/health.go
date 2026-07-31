@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/sanjeev0120test/oncallgraph/internal/model"
 	"github.com/sanjeev0120test/oncallgraph/internal/output"
 	"github.com/spf13/cobra"
@@ -19,7 +21,7 @@ func newHealthCmd() *cobra.Command {
 			}
 			ls, _, err := src.load(0)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			svcs, err := ls.store.ListServices()
@@ -45,7 +47,12 @@ func newHealthCmd() *cobra.Command {
 			}
 			cmd.Printf("FLEET HEALTH  (%d services)\n", out.Total)
 			for _, k := range []string{model.HealthUnhealthy, model.HealthDegraded, model.HealthUnknown, model.HealthHealthy} {
-				cmd.Printf("  %-12s %d\n", k, counts[k])
+				ids := by[k]
+				if len(ids) == 0 {
+					cmd.Printf("  %-12s %d\n", k, counts[k])
+					continue
+				}
+				cmd.Printf("  %-12s %d  (%s)\n", k, counts[k], strings.Join(ids, ", "))
 			}
 			return nil
 		},

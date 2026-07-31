@@ -24,11 +24,11 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 
 if (Test-Path ./fixtures/incident_checkout) {
     Write-Host "==> fixture/golden test" -ForegroundColor Cyan
-    go run ./cmd/oncallgraph test ./fixtures/incident_checkout
+    & ./bin/oncallgraph.exe test ./fixtures/incident_checkout
     if ($LASTEXITCODE -ne 0) { exit 1 }
 
     Write-Host "==> demo" -ForegroundColor Cyan
-    go run ./cmd/oncallgraph demo --format json | Out-Null
+    & ./bin/oncallgraph.exe demo --format json | Out-Null
     if ($LASTEXITCODE -ne 0) { exit 1 }
 }
 

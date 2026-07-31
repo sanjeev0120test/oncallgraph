@@ -20,7 +20,7 @@ func newWhyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ls, cfg, err := src.load(since)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			if since == 0 {

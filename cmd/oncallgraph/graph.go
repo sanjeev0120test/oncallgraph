@@ -10,15 +10,17 @@ func newGraphCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
 		Use:   "graph",
-		Short: "Render the service dependency graph (ascii or mermaid)",
+		Short: "Render the service dependency graph (ascii/table or mermaid)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if format != "ascii" && format != "mermaid" {
-				return fail(2, "invalid --format %q (want ascii|mermaid)", format)
+			switch format {
+			case "ascii", "table", "mermaid":
+			default:
+				return fail(2, "invalid --format %q (want ascii|table|mermaid)", format)
 			}
 			ls, _, err := src.load(0)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			svcs, err := ls.store.ListServices()
@@ -37,9 +39,7 @@ func newGraphCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&src.fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&src.configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&src.dataDir, "data-dir", "", "persistent store directory")
-	cmd.Flags().StringVar(&format, "format", "ascii", "output format: ascii|mermaid")
+	bindSourceFlags(cmd, &src)
+	cmd.Flags().StringVar(&format, "format", "ascii", "output format: ascii|table|mermaid")
 	return cmd
 }

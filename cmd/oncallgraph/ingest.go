@@ -40,7 +40,7 @@ func newIngestCmd() *cobra.Command {
 			default:
 				effPath := resolveConfigPath(configPath)
 				if effPath == "" {
-					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
+					return fail(2, "no data source: pass --fixture <pack> or add a .oncallgraph.yaml")
 				}
 				err = ingest.LiveIngest(s, cfg, filepath.Dir(effPath), now.Add(-cfg.Since()), now)
 			}
@@ -66,7 +66,7 @@ func newIngestCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (default: ./.opsgraph.yaml if present)")
-	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory (default: config data_dir or .opsgraph/data)")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .oncallgraph.yaml (legacy .opsgraph.yaml also accepted)")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory (default: config data_dir or .oncallgraph/data)")
 	return cmd
 }

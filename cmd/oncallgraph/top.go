@@ -27,7 +27,7 @@ func newTopCmd() *cobra.Command {
 			}
 			ls, cfg, err := src.load(since)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			if since == 0 {
@@ -44,9 +44,12 @@ func newTopCmd() *cobra.Command {
 				Level   string `json:"level"`
 			}
 			rows := make([]row, 0, len(svcs))
+			skipped := 0
 			for _, s := range svcs {
 				res, err := askService(ls, s.ID, since)
 				if err != nil {
+					skipped++
+					cmd.PrintErrf("warning: skip %s: %v\n", s.ID, err)
 					continue
 				}
 				sc := score.Compute(res)
@@ -67,6 +70,9 @@ func newTopCmd() *cobra.Command {
 			cmd.Printf("%-4s %-16s %-12s %-6s %s\n", "#", "SERVICE", "HEALTH", "SCORE", "LEVEL")
 			for i, r := range rows {
 				cmd.Printf("%-4d %-16s %-12s %-6d %s\n", i+1, r.Service, r.Health, r.Score, r.Level)
+			}
+			if skipped > 0 {
+				cmd.Printf("\n(%d service(s) skipped due to errors)\n", skipped)
 			}
 			return nil
 		},

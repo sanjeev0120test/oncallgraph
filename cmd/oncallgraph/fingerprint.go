@@ -24,7 +24,7 @@ func newFingerprintCmd() *cobra.Command {
 			}
 			ls, cfg, err := src.load(since)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			if since == 0 {

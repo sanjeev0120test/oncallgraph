@@ -1,65 +1,46 @@
 # Runbook format
 
-Runbooks are plain Markdown with optional YAML front matter and inline check
-annotations. `opsgraph` parses numbered steps and evaluates each check against
-current incident state.
+Runbooks are Markdown with optional YAML front matter and HTML-comment check
+annotations. `oncallgraph` parses numbered steps and evaluates each check against
+the current store.
 
 ## Front matter
 
-```markdown
+```yaml
 ---
 service: checkout
 owner: payments
-aliases: [checkout-api, checkout-service]
+aliases: [checkout-api]
 ---
 ```
 
-- `service` (required): the service id this runbook belongs to.
-- `owner` (optional): owner id.
-- `aliases` (optional): alternate names.
+## Checks
 
-## Steps and checks
-
-A step is a Markdown numbered list item. An optional check is an HTML comment
-placed on a following line and binds to the nearest preceding step:
+Prefer `oncallgraph:check=…` (legacy `opsgraph:check=…` still works). A check
+binds to the nearest preceding numbered step.
 
 ```markdown
-1. A deploy in the last hour is the most likely trigger; inspect it first.
-<!-- opsgraph:check=deploy_age_lt:60m -->
+1. Confirm a recent deploy.
+<!-- oncallgraph:check=deploy_age_lt:60m -->
 
-2. Confirm checkout has recovered and is healthy before closing out.
-<!-- opsgraph:check=service_healthy:checkout -->
+2. Service must be healthy.
+<!-- oncallgraph:check=service_healthy:checkout -->
 
-3. Page the payments on-call.
-<!-- opsgraph:check=manual -->
+3. Human follow-up.
+<!-- oncallgraph:check=manual -->
 ```
 
-A step with no annotation is treated as `manual`.
+### Catalog
 
-## Supported checks
+| Check | Pass when |
+|-------|-----------|
+| `deploy_age_lt:Xm` / `deploy_age_gt:Xm` | Newest change age vs window |
+| `k8s_deployment_exists:name` | Deployment present in snapshot |
+| `service_healthy:name` / `service_unhealthy:name` | Health matches |
+| `alert_firing:name` | Alert status is `firing` |
+| `manual` | Always manual (never fails the step) |
 
-| Check                              | Passes when...                                        |
-|------------------------------------|-------------------------------------------------------|
-| `deploy_age_lt:<dur>`              | the latest change/deploy is younger than `<dur>`      |
-| `deploy_age_gt:<dur>`              | the latest change/deploy is older than `<dur>`        |
-| `k8s_deployment_exists:<name>`     | a deployment for `<name>` is in the snapshot          |
-| `service_healthy:<name>`           | `<name>` health is `healthy`                          |
-| `service_unhealthy:<name>`         | `<name>` health is `degraded` or `unhealthy`          |
-| `alert_firing:<name>`              | an alert named `<name>` (or on service `<name>`) fires|
-| `manual`                           | never automated; always reported as `manual`          |
+### Roll-up
 
-Durations use Go syntax: `30m`, `1h`, `90m`, etc.
-
-## Step and rollup statuses
-
-Each step resolves to one of: `pass`, `stale`, `manual`, `error`.
-- A **state mismatch** (e.g. `service_healthy` when the service is degraded)
-  reports `stale` - the runbook's assumption no longer holds.
-- An **unknown check** or bad argument reports `error`.
-
-The runbook rollup is:
-- `fail` if any step is `error`,
-- else `stale` if any step is `stale`,
-- else `pass`.
-
-`missing` is reported when a service has no runbook.
+- Step: failing deploy/health/k8s/alert checks → `stale`; other failing non-manual → `fail`; parse error → `error`; `manual` → `manual`.
+- Runbook: any `fail`/`error` → `fail`; else any `stale` → `stale`; else `pass`; missing runbook → `missing`.

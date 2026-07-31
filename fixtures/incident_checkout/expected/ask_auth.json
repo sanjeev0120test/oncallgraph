@@ -74,6 +74,7 @@
     }
   ],
   "recommendations": [
+    "Investigate auth health (unhealthy) and stabilize before further changes.",
     "Notify owner Identity Team.",
     "Write a short handoff note with evidence IDs before closing the incident."
   ],

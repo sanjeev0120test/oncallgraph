@@ -36,28 +36,36 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			}
 		}
 	}
-	if cfg.Connectors.Kubernetes.Enabled && cfg.Connectors.Kubernetes.Snapshot != "" {
-		snap := cfg.Connectors.Kubernetes.Snapshot
-		if !filepath.IsAbs(snap) {
-			snap = filepath.Join(configDir, snap)
-		}
-		fsys := os.DirFS(snap)
-		if err := ingestK8sFiles(s, fsys, "deployments.yaml", "events.yaml"); err != nil {
-			return fmt.Errorf("kubernetes snapshot: %w", err)
-		}
-		if err := ingestHelmReleases(s, fsys, "releases.yaml"); err != nil {
-			return fmt.Errorf("helm snapshot: %w", err)
+	if cfg.Connectors.Kubernetes.Enabled {
+		if cfg.Connectors.Kubernetes.Snapshot == "" {
+			fmt.Fprintln(os.Stderr, "warning: kubernetes connector enabled but snapshot path is empty; skipping")
+		} else {
+			snap := cfg.Connectors.Kubernetes.Snapshot
+			if !filepath.IsAbs(snap) {
+				snap = filepath.Join(configDir, snap)
+			}
+			fsys := os.DirFS(snap)
+			if err := ingestK8sFiles(s, fsys, "deployments.yaml", "events.yaml"); err != nil {
+				return fmt.Errorf("kubernetes snapshot: %w", err)
+			}
+			if err := ingestHelmReleases(s, fsys, "releases.yaml"); err != nil {
+				return fmt.Errorf("helm snapshot: %w", err)
+			}
 		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if cfg.Connectors.Prometheus.Enabled && cfg.Connectors.Prometheus.URL != "" {
-		if err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil); err != nil {
+	if cfg.Connectors.Prometheus.Enabled {
+		if cfg.Connectors.Prometheus.URL == "" {
+			fmt.Fprintln(os.Stderr, "warning: prometheus connector enabled but url is empty; skipping")
+		} else if err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil); err != nil {
 			return fmt.Errorf("prometheus connector: %w", err)
 		}
 	}
-	if cfg.Connectors.Alertmanager.Enabled && cfg.Connectors.Alertmanager.URL != "" {
-		if err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil); err != nil {
+	if cfg.Connectors.Alertmanager.Enabled {
+		if cfg.Connectors.Alertmanager.URL == "" {
+			fmt.Fprintln(os.Stderr, "warning: alertmanager connector enabled but url is empty; skipping")
+		} else if err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil); err != nil {
 			return fmt.Errorf("alertmanager connector: %w", err)
 		}
 	}
@@ -87,6 +95,9 @@ func seedFromConfig(s *store.Store, cfg *config.Config, configDir string) error 
 			return err
 		}
 		for _, dep := range sc.DependsOn {
+			if err := ensureServiceStub(s, dep); err != nil {
+				return err
+			}
 			if err := s.UpsertDependency(model.Dependency{
 				FromServiceID: id, ToServiceID: dep, Type: "unknown", Source: "config",
 			}); err != nil {
@@ -110,7 +121,8 @@ func seedRunbook(s *store.Store, rbPath, configDir string) error {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil // a missing runbook is not fatal
+			fmt.Fprintf(os.Stderr, "warning: runbook %q not found; skipping\n", p)
+			return nil
 		}
 		return fmt.Errorf("read runbook %q: %w", p, err)
 	}
@@ -119,6 +131,7 @@ func seedRunbook(s *store.Store, rbPath, configDir string) error {
 		return err
 	}
 	if rb.ServiceID == "" {
+		fmt.Fprintf(os.Stderr, "warning: runbook %q has empty service in front matter; skipping\n", p)
 		return nil
 	}
 	return s.UpsertRunbook(rb)

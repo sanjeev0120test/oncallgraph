@@ -49,12 +49,23 @@ func newDoctorCmd() *cobra.Command {
 				} else {
 					warnf("persistent_db", "no state.db yet (run ingest)")
 				}
-				gitPath := cfg.Connectors.Git.RepoPath
-				if gitPath == "" {
-					gitPath = "."
+				if !cfg.Connectors.Git.Enabled {
+					warnf("git_repo", "connector disabled")
+				} else {
+					gitPath := cfg.Connectors.Git.RepoPath
+					if gitPath == "" {
+						gitPath = "."
+					}
+					gitDir := filepath.Join(gitPath, ".git")
+					gitOK := pathExists(gitDir)
+					if gitOK {
+						check("git_repo", true, gitPath)
+					} else if pathExists(gitPath) {
+						warnf("git_repo", gitPath+" exists but has no .git (not a repository)")
+					} else {
+						check("git_repo", false, gitPath+" missing")
+					}
 				}
-				gitOK := pathExists(filepath.Join(gitPath, ".git")) || pathExists(gitPath)
-				check("git_repo", gitOK, gitPath)
 				if probeOllama(context.Background(), cfg.AI.OllamaURL) {
 					check("ollama", true, cfg.AI.OllamaURL)
 				} else {
@@ -72,7 +83,7 @@ func newDoctorCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .oncallgraph.yaml (legacy .opsgraph.yaml also accepted)")
 	return cmd
 }
 

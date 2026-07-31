@@ -1,4 +1,4 @@
-# opsgraph Makefile
+# oncallgraph Makefile
 # Philosophy: CI does the heavy validation (race, matrix, coverage). Locally,
 # use `make quick` (fast) so your machine stays responsive.
 
@@ -58,4 +58,5 @@ cross: ## Cross-compile release binaries (linux/darwin/windows × amd64/arm64)
 	GOOS=windows GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-arm64.exe $(PKG)
 
 clean: ## Remove build artifacts
-	rm -rf $(BIN_DIR) dist cover.out
+	go clean
+	-rm -rf $(BIN_DIR) dist cover.out

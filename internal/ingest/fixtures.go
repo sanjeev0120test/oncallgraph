@@ -1,12 +1,29 @@
 package ingest
 
 import (
+	"errors"
 	"io/fs"
 	"time"
 
 	"github.com/sanjeev0120test/oncallgraph/internal/model"
 	"github.com/sanjeev0120test/oncallgraph/internal/store"
 )
+
+// ensureServiceStub inserts a placeholder service for dependency endpoints that
+// have no Service row yet (e.g. fixture redis). Existing rows are left alone.
+func ensureServiceStub(s *store.Store, id string) error {
+	if id == "" {
+		return nil
+	}
+	if _, err := s.GetService(id); err == nil {
+		return nil
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return err
+	}
+	return s.UpsertService(model.Service{
+		ID: id, Name: id, Health: model.HealthUnknown, Sources: []string{"dependency"},
+	})
+}
 
 // --- fixture file schemas (yaml-tagged, converted to model types) ---
 
@@ -171,6 +188,11 @@ func ingestDeps(s *store.Store, fsys fs.FS) error {
 		src := v.Source
 		if src == "" {
 			src = "fixture"
+		}
+		for _, id := range []string{v.From, v.To} {
+			if err := ensureServiceStub(s, id); err != nil {
+				return err
+			}
 		}
 		if err := s.UpsertDependency(model.Dependency{
 			FromServiceID: v.From, ToServiceID: v.To, Type: v.Type, Source: src,

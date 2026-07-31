@@ -29,7 +29,7 @@ func Open(dataDir string) (*Store, error) {
 // OpenTemp opens an isolated store in a temp directory. The returned cleanup
 // closes the DB and removes the directory; use it for demo/test/--fixture runs.
 func OpenTemp() (*Store, func(), error) {
-	dir, err := os.MkdirTemp("", "opsgraph-")
+	dir, err := os.MkdirTemp("", "oncallgraph-")
 	if err != nil {
 		return nil, nil, fmt.Errorf("create temp dir: %w", err)
 	}
@@ -145,8 +145,19 @@ CREATE TABLE IF NOT EXISTS evidence (
 	}
 	// Best-effort column add for stores created before service_id existed.
 	_, _ = s.db.Exec(`ALTER TABLE evidence ADD COLUMN service_id TEXT`)
-	if _, err := s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", SchemaVersion)); err != nil {
-		return fmt.Errorf("set user_version: %w", err)
+
+	var ver int
+	if err := s.db.QueryRow(`PRAGMA user_version`).Scan(&ver); err != nil {
+		return fmt.Errorf("read user_version: %w", err)
+	}
+	if ver > SchemaVersion {
+		return fmt.Errorf("database schema v%d is newer than this binary (supports v%d); upgrade oncallgraph", ver, SchemaVersion)
+	}
+	// Future: apply migrations for ver < SchemaVersion here.
+	if ver != SchemaVersion {
+		if _, err := s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", SchemaVersion)); err != nil {
+			return fmt.Errorf("set user_version: %w", err)
+		}
 	}
 	return nil
 }

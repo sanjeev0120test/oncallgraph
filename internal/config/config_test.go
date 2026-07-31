@@ -42,6 +42,72 @@ func TestLoadMalformedIsError(t *testing.T) {
 	}
 }
 
+func TestLoadImplicitOncallgraphYAML(t *testing.T) {
+	dir := t.TempDir()
+	cwd, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	_ = os.Chdir(dir)
+
+	content := `version: 1
+default_since: 15m
+services:
+  checkout:
+    aliases: ["checkout-api"]
+`
+	if err := os.WriteFile(".oncallgraph.yaml", []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Since() != 15*time.Minute {
+		t.Fatalf("since = %v, want 15m", cfg.Since())
+	}
+	if _, ok := cfg.Services["checkout"]; !ok {
+		t.Fatalf("expected checkout service from .oncallgraph.yaml: %+v", cfg.Services)
+	}
+}
+
+func TestLoadPrefersOncallgraphOverLegacy(t *testing.T) {
+	dir := t.TempDir()
+	cwd, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	_ = os.Chdir(dir)
+
+	if err := os.WriteFile(".oncallgraph.yaml", []byte("default_since: 10m\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(".opsgraph.yaml", []byte("default_since: 45m\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Since() != 10*time.Minute {
+		t.Fatalf("since = %v, want 10m from .oncallgraph.yaml", cfg.Since())
+	}
+}
+
+func TestLoadLegacyOpsgraphYAML(t *testing.T) {
+	dir := t.TempDir()
+	cwd, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	_ = os.Chdir(dir)
+
+	if err := os.WriteFile(".opsgraph.yaml", []byte("default_since: 45m\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Since() != 45*time.Minute {
+		t.Fatalf("since = %v, want 45m from legacy file", cfg.Since())
+	}
+}
+
 func TestLoadValid(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "ok.yaml")
 	content := `version: 1

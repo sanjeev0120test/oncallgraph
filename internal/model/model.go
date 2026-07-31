@@ -1,4 +1,4 @@
-// Package model holds the core domain types shared across opsgraph.
+// Package model holds the core domain types shared across oncallgraph.
 package model
 
 import "time"
@@ -101,7 +101,7 @@ type TimelineEvent struct {
 	Severity   string    `json:"severity,omitempty"`
 }
 
-// AskResult is the full answer for `opsgraph ask <service>`.
+// AskResult is the full answer for `oncallgraph ask <service>`.
 type AskResult struct {
 	Service         Service         `json:"service"`
 	Owner           *Owner          `json:"owner,omitempty"`

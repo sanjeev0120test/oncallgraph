@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/sanjeev0120test/oncallgraph/internal/output"
 	"github.com/sanjeev0120test/oncallgraph/internal/store"
@@ -21,7 +22,7 @@ func newResolveCmd() *cobra.Command {
 			}
 			ls, _, err := src.load(0)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			svc, err := ls.store.GetServiceByNameOrAlias(args[0])
@@ -45,6 +46,9 @@ func newResolveCmd() *cobra.Command {
 			cmd.Printf("QUERY    %s\n", out.Query)
 			cmd.Printf("ID       %s\n", out.ID)
 			cmd.Printf("NAME     %s\n", out.Name)
+			if len(out.Aliases) > 0 {
+				cmd.Printf("ALIASES  %s\n", strings.Join(out.Aliases, ", "))
+			}
 			cmd.Printf("HEALTH   %s\n", out.Health)
 			if out.OwnerID != "" {
 				cmd.Printf("OWNER    %s\n", out.OwnerID)

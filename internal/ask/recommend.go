@@ -15,17 +15,24 @@ const r1ChangeWindow = 30 * time.Minute
 
 const r6Handoff = "Write a short handoff note with evidence IDs before closing the incident."
 
-// recommend produces deterministic, ordered next-step recommendations (R1–R6).
+// recommend produces deterministic, ordered next-step recommendations (R1–R6+).
 func recommend(res model.AskResult) []string {
 	var recs []string
 
 	// R1: most recent change within a fixed 30m threshold is the prime suspect.
+	r1Fired := false
 	if c, ok := recentChange(res); ok {
+		r1Fired = true
 		ref := c.Revision
 		if ref == "" {
 			ref = c.ID
 		}
 		recs = append(recs, fmt.Sprintf("Inspect the most recent %s first: %q (%s).", changeNoun(c.Type), c.Summary, ref))
+	}
+
+	// R1b: queried service itself is unhealthy/degraded.
+	if res.Service.Health == model.HealthDegraded || res.Service.Health == model.HealthUnhealthy {
+		recs = append(recs, fmt.Sprintf("Investigate %s health (%s) and stabilize before further changes.", res.Service.ID, res.Service.Health))
 	}
 
 	// R2: unhealthy upstreams block safe changes (id order from Upstream).
@@ -35,9 +42,17 @@ func recommend(res model.AskResult) []string {
 		}
 	}
 
-	// R3: firing alerts need acknowledgement.
-	if fa := firstFiring(res.Alerts); fa != nil {
-		recs = append(recs, fmt.Sprintf("Acknowledge firing alert %s and correlate it with the recent change.", fa.Name))
+	// R3: firing/pending alerts need acknowledgement.
+	if fa := firstActiveAlert(res.Alerts); fa != nil {
+		label := fa.Status
+		if label == "" {
+			label = "firing"
+		}
+		if r1Fired {
+			recs = append(recs, fmt.Sprintf("Acknowledge %s alert %s and correlate it with the recent change.", label, fa.Name))
+		} else {
+			recs = append(recs, fmt.Sprintf("Acknowledge %s alert %s and investigate related signals.", label, fa.Name))
+		}
 	}
 
 	// R4: a stale/failed runbook must be fixed.
@@ -46,7 +61,7 @@ func recommend(res model.AskResult) []string {
 		recs = append(recs, fmt.Sprintf("Runbook %s is %s - review step(s) %s.", rb.Path, rb.Status, steps))
 	}
 
-	// R5: always loop in the owner when known.
+	// R5: loop in the owner when known; otherwise ask to assign one.
 	if res.Owner != nil {
 		who := res.Owner.Name
 		if who == "" {
@@ -56,6 +71,8 @@ func recommend(res model.AskResult) []string {
 			who += " <" + res.Owner.Email + ">"
 		}
 		recs = append(recs, fmt.Sprintf("Notify owner %s.", who))
+	} else if res.Service.ID != "" {
+		recs = append(recs, fmt.Sprintf("Assign an owner for %s.", res.Service.ID))
 	}
 
 	// R6: always appended so every answer ends with a stable handoff step.
@@ -87,9 +104,10 @@ func changeNoun(t string) string {
 	}
 }
 
-func firstFiring(alerts []model.Alert) *model.Alert {
+func firstActiveAlert(alerts []model.Alert) *model.Alert {
 	for i := range alerts {
-		if alerts[i].Status == "firing" {
+		switch alerts[i].Status {
+		case "firing", "pending":
 			return &alerts[i]
 		}
 	}

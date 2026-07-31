@@ -1,90 +1,104 @@
 # Usage
 
-`opsgraph` is a single static binary. Build it once:
+`oncallgraph` is a single static binary. Build it once:
 
 ```bash
-go build -o bin/opsgraph ./cmd/opsgraph   # or: make build
+go build -o bin/oncallgraph ./cmd/oncallgraph   # or: make build
 ```
 
-All commands accept `--format table|json` (default `table`).
+Most inspection commands accept `--format table|json` (default `table`).
+Exceptions: `graph` (`ascii|table|mermaid`), `export` (`json|markdown`), `watch`/`why`/`doctor` (text).
 
-## Commands
+## Core commands
 
-### `opsgraph demo`
-Runs the full built-in `incident_checkout` scenario end to end. No config, no network.
+### `oncallgraph demo`
+Runs the built-in `incident_checkout` scenario end to end. No config, no network.
 
 ```bash
-opsgraph demo
-opsgraph demo --format json
-opsgraph demo --ai            # adds a local AI summary (offline fallback if Ollama absent)
+oncallgraph demo
+oncallgraph demo --format json
+oncallgraph demo --ai            # local AI summary (offline fallback if Ollama absent)
 ```
 
-### `opsgraph ask <service>`
-The main command: evidence-backed context for a service.
+### `oncallgraph ask <service>`
+Evidence-backed context for a service.
 
 ```bash
 # From a fixture pack (deterministic, offline):
-opsgraph ask checkout --fixture fixtures/incident_checkout
+oncallgraph ask checkout --fixture fixtures/incident_checkout
 
-# From live sources described in .opsgraph.yaml (local git + k8s snapshot):
-opsgraph ask checkout --since 90m
-opsgraph ask checkout --format json --ai
+# From live sources described in .oncallgraph.yaml (local git + k8s snapshot):
+oncallgraph ask checkout --since 90m
+oncallgraph ask checkout --format json --ai
 ```
 
-Flags: `--fixture`, `--config`, `--since <dur>`, `--runbook` (default true), `--ai`, `--format`.
+Flags: `--fixture`, `--config`, `--data-dir`, `--since`, `--runbook` (default true), `--ai`, `--format`.
 
-Exit codes: `0` success, `1` service not found, `2` usage/config error.
+Exit codes: `0` success, `1` service not found / empty store, `2` usage/config error.
 
-### `opsgraph verify-runbook <service>`
+### `oncallgraph verify-runbook <service>`
 Checks whether a runbook is still valid against current state.
 
 ```bash
-opsgraph verify-runbook checkout --fixture fixtures/incident_checkout
+oncallgraph verify-runbook checkout --fixture fixtures/incident_checkout
 ```
 
-Exit codes: `0` pass, `1` stale/fail, `2` missing/error.
+Exit codes: `0` pass, `1` stale/fail/missing, `2` usage/error.
 
-### `opsgraph test <fixture-dir>`
-Ingests a fixture pack and compares `ask`/`verify` output against the pack's
-`expected/*.json` golden files. `--update` regenerates them.
+### `oncallgraph test <fixture-dir>`
+Compares `ask`/`verify` output against the pack's `expected/*.json` goldens.
 
 ```bash
-opsgraph test ./fixtures/incident_checkout
-opsgraph test ./fixtures/incident_checkout --update
+oncallgraph test ./fixtures/incident_checkout
+oncallgraph test ./fixtures/incident_checkout --update
 ```
 
-### `opsgraph status`
-Shows connector configuration and ingested data counts.
+### `oncallgraph status` / `oncallgraph doctor` / `oncallgraph version`
+Store counts, environment checks, and build metadata.
 
-```bash
-opsgraph status --fixture fixtures/incident_checkout
-```
+## Fleet / incident helpers
 
-### `opsgraph version`
-Prints version/build metadata.
+| Command | Purpose |
+|---------|---------|
+| `services`, `owners`, `health`, `top` | Inventory and ranking |
+| `blast` | 1-hop upstream/downstream |
+| `impact` | Recursive downstream impact |
+| `changes`, `alerts`, `timeline`, `evidence` | Signal browsers |
+| `explain`, `why`, `score`, `fingerprint` | Hypotheses / severity |
+| `path`, `graph`, `compare`, `who`, `resolve` | Topology / ownership |
+| `report`, `export` | Markdown/JSON handoff |
+| `watch` | Poll until healthy (live/persistent sources) |
+| `validate-fixture`, `completion` | Pack checks / shell completion |
 
 ## Validation
 
-- Heavy validation runs in GitHub Actions (3-OS matrix, race, goldens).
-- Locally, run the fast subset: `pwsh scripts/verify.ps1` (Windows) or
-  `bash scripts/verify.sh` / `make quick` (Unix).
+- Heavy validation runs in GitHub Actions (3-OS matrix, race on ubuntu, cross-compile 6 targets, install smoke).
+- Locally: `pwsh scripts/verify.ps1` (Windows) or `bash scripts/verify.sh` / `make quick` (Unix).
 
 ## Optional live connectors
 
-In `.opsgraph.yaml` (see `.opsgraph.example.yaml`):
+In `.oncallgraph.yaml` (see `.oncallgraph.example.yaml`; legacy `.opsgraph.yaml` still accepted):
 
-- `connectors.git` — local repo scan (skips cleanly if no repo).
-- `connectors.kubernetes.snapshot` — directory with `deployments.yaml`, `events.yaml`, optional `releases.yaml` (Helm).
-- `connectors.prometheus` / `connectors.alertmanager` — disabled by default; point at a local URL when you have them.
+- `connectors.git` — local repo scan
+- `connectors.kubernetes.snapshot` — `deployments.yaml` / `events.yaml` / optional Helm `releases.yaml`
+- `connectors.prometheus` / `connectors.alertmanager` — disabled by default
 
-Optional cluster demo (not required for CI): `bash hack/kind-demo.sh`.
+Optional cluster demo: `bash hack/kind-demo.sh`.
+
+## Install
+
+```bash
+# From a GitHub Release (Linux/macOS; Windows zip supported):
+curl -fsSL https://raw.githubusercontent.com/sanjeev0120test/oncallgraph/main/scripts/install.sh | bash
+
+# Windows PowerShell:
+irm https://raw.githubusercontent.com/sanjeev0120test/oncallgraph/main/scripts/install.ps1 | iex
+
+# Or: go install github.com/sanjeev0120test/oncallgraph/cmd/oncallgraph@latest
+```
 
 ## Enabling AI (optional)
 
-1. Install [Ollama](https://ollama.com) and pull models:
-   ```bash
-   ollama pull qwen2.5:7b
-   ollama pull nomic-embed-text
-   ```
-2. Set `ai.enabled: true` in `.opsgraph.yaml` (or pass `--ai`).
+1. Install [Ollama](https://ollama.com) and pull models (`qwen2.5:7b`, `nomic-embed-text`).
+2. Set `ai.enabled: true` in `.oncallgraph.yaml` (or pass `--ai`).
 3. If Ollama is unavailable, `--ai` degrades to a deterministic offline summary.

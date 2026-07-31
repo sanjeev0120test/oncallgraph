@@ -36,11 +36,15 @@ func newStatusCmd() *cobra.Command {
 
 			cmd.Println("CONNECTORS")
 			cmd.Printf("  fixtures:     %v\n", cfg.Connectors.Fixtures.Enabled)
-			gitOK := pathExists(cfg.Connectors.Git.RepoPath)
-			cmd.Printf("  git:          %v (repo %q exists=%v)\n", cfg.Connectors.Git.Enabled, cfg.Connectors.Git.RepoPath, gitOK)
+			gitPath := cfg.Connectors.Git.RepoPath
+			if gitPath == "" {
+				gitPath = "."
+			}
+			gitOK := pathExists(filepath.Join(gitPath, ".git"))
+			cmd.Printf("  git:          %v (repo %q has_git=%v)\n", cfg.Connectors.Git.Enabled, gitPath, gitOK)
 			cmd.Printf("  kubernetes:   %v (snapshot %q)\n", cfg.Connectors.Kubernetes.Enabled, cfg.Connectors.Kubernetes.Snapshot)
-			cmd.Printf("  prometheus:   %v (phase-2)\n", cfg.Connectors.Prometheus.Enabled)
-			cmd.Printf("  alertmanager: %v (phase-2)\n", cfg.Connectors.Alertmanager.Enabled)
+			cmd.Printf("  prometheus:   %v (url %q)\n", cfg.Connectors.Prometheus.Enabled, cfg.Connectors.Prometheus.URL)
+			cmd.Printf("  alertmanager: %v (url %q)\n", cfg.Connectors.Alertmanager.Enabled, cfg.Connectors.Alertmanager.URL)
 
 			ollamaOK := probeOllama(cmd.Context(), cfg.AI.OllamaURL)
 			cmd.Printf("AI\n  enabled: %v  model: %s  embed: %s  url: %s  reachable: %v\n",
@@ -54,7 +58,7 @@ func newStatusCmd() *cobra.Command {
 			} else if effPath := resolveConfigPath(configPath); effPath != "" {
 				ls, err = storeFromConfig(cfg, dirOf(effPath), cfg.Since(), time.Now().UTC())
 			} else {
-				cmd.Println("\nNo data source (pass --fixture <pack>, run `oncallgraph ingest`, or add .opsgraph.yaml) - showing config only.")
+				cmd.Println("\nNo data source (pass --fixture <pack>, run `oncallgraph ingest`, or add .oncallgraph.yaml) - showing config only.")
 				return nil
 			}
 			if err != nil {
@@ -86,7 +90,7 @@ func newStatusCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (default: ./.opsgraph.yaml if present)")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .oncallgraph.yaml (legacy .opsgraph.yaml also accepted)")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory")
 	return cmd
 }
@@ -101,11 +105,11 @@ func sortedKeys(m map[string]int) []string {
 }
 
 func dirOf(p string) string {
-	base := filepath.Base(p)
-	if base == ".oncallgraph.yaml" || base == ".opsgraph.yaml" {
+	d := filepath.Dir(p)
+	if d == "" {
 		return "."
 	}
-	return filepath.Dir(p)
+	return d
 }
 
 func pathExists(p string) bool {

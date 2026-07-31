@@ -65,7 +65,7 @@ func newAskCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (default: ./.opsgraph.yaml if present)")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .oncallgraph.yaml (legacy .opsgraph.yaml also accepted)")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "read from a persistent store (from `oncallgraph ingest`)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window (default: config default_since or 60m)")

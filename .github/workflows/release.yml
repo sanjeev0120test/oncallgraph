@@ -7,19 +7,23 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Build artifacts without publishing a GitHub Release'
+        description: 'Build artifacts without publishing (always true for non-tag dispatch)'
         required: false
-        default: 'false'
+        default: 'true'
         type: choice
         options:
-          - 'false'
           - 'true'
+          - 'false'
 
 # Least privilege for secure delivery: release upload + provenance only.
 permissions:
   contents: write
   id-token: write
   attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   GOTOOLCHAIN: local
@@ -87,6 +91,7 @@ jobs:
           # Include a frozen dependency inventory for supply-chain review (no network).
           (cd .. && go list -m all) > DEPENDENCIES.txt
           cp ../scripts/install.sh ./install.sh
+          cp ../scripts/install.ps1 ./install.ps1
           chmod +x install.sh
           cat SHA256SUMS
       - name: Upload release assets (artifact)
@@ -99,6 +104,7 @@ jobs:
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
             dist/install.sh
+            dist/install.ps1
           if-no-files-found: error
           retention-days: 14
 
@@ -125,6 +131,7 @@ jobs:
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
             dist/install.sh
+            dist/install.ps1
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -137,6 +144,7 @@ jobs:
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
             dist/install.sh
+            dist/install.ps1
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

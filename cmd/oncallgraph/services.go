@@ -19,7 +19,7 @@ func newServicesCmd() *cobra.Command {
 			}
 			ls, _, err := src.load(0)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			svcs, err := ls.store.ListServices()
@@ -61,9 +61,7 @@ func newServicesCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&src.fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&src.configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&src.dataDir, "data-dir", "", "persistent store directory")
+	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&health, "health", "", "filter by health: healthy|degraded|unhealthy|unknown")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd

@@ -4,7 +4,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/sanjeev0120test/oncallgraph/internal/ask"
 	"github.com/sanjeev0120test/oncallgraph/internal/output"
@@ -30,11 +32,11 @@ func newExportCmd() *cobra.Command {
 				if format != "json" {
 					ext = "md"
 				}
-				outPath = args[0] + "-incident." + ext
+				outPath = sanitizeFileStem(args[0]) + "-incident." + ext
 			}
 			ls, cfg, err := src.load(since)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			if since == 0 {
@@ -73,4 +75,20 @@ func newExportCmd() *cobra.Command {
 	cmd.Flags().StringVar(&outPath, "out", "", "output file path (default: <service>-incident.json|md)")
 	cmd.Flags().StringVar(&format, "format", "markdown", "output format: json|markdown")
 	return cmd
+}
+
+func sanitizeFileStem(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	out := strings.Trim(b.String(), "_")
+	if out == "" {
+		return "service"
+	}
+	return out
 }

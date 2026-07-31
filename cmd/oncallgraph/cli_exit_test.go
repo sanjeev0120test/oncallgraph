@@ -52,7 +52,7 @@ func TestCLIExitAskUnknownService(t *testing.T) {
 }
 
 func TestCLIExitAskNoSource(t *testing.T) {
-	// No --fixture and no .opsgraph.yaml in the test CWD (cmd/oncallgraph).
+	// No --fixture and no .oncallgraph.yaml in the test CWD (cmd/oncallgraph).
 	_, _, code := runRoot(t, "ask", "checkout")
 	if code != 2 {
 		t.Fatalf("ask without source exit = %d, want 2", code)

@@ -13,6 +13,7 @@ func newChangesCmd() *cobra.Command {
 	var format string
 	var service string
 	var limit int
+	var since time.Duration
 	cmd := &cobra.Command{
 		Use:   "changes",
 		Short: "List recent changes (optionally filtered by service)",
@@ -24,11 +25,15 @@ func newChangesCmd() *cobra.Command {
 			if limit <= 0 {
 				limit = 20
 			}
-			ls, _, err := src.load(0)
+			ls, cfg, err := src.load(since)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
+			if since == 0 {
+				since = cfg.Since()
+			}
+			cutoff := ls.now.Add(-since)
 
 			var list []model.Change
 			if service != "" {
@@ -36,14 +41,20 @@ func newChangesCmd() *cobra.Command {
 				if err != nil {
 					return fail(1, "service %q not found", service)
 				}
-				list, err = ls.store.ListChanges(svc.ID, time.Unix(0, 0).UTC())
+				list, err = ls.store.ListChanges(svc.ID, cutoff)
 				if err != nil {
 					return fail(2, "%v", err)
 				}
 			} else {
-				list, err = ls.store.ListAllChanges()
+				all, err := ls.store.ListAllChanges()
 				if err != nil {
 					return fail(2, "%v", err)
+				}
+				for _, c := range all {
+					if c.At.Before(cutoff) {
+						continue
+					}
+					list = append(list, c)
 				}
 			}
 			if len(list) > limit {
@@ -62,5 +73,6 @@ func newChangesCmd() *cobra.Command {
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	cmd.Flags().StringVar(&service, "service", "", "filter to one service name/alias")
 	cmd.Flags().IntVar(&limit, "limit", 20, "max changes to show")
+	cmd.Flags().DurationVar(&since, "since", 0, "lookback window (default: config default_since or 60m)")
 	return cmd
 }

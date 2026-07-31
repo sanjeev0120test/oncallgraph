@@ -25,7 +25,7 @@ func newScoreCmd() *cobra.Command {
 			}
 			ls, cfg, err := src.load(since)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			if since == 0 {
@@ -61,9 +61,7 @@ func newScoreCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&src.fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&src.configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&src.dataDir, "data-dir", "", "persistent store directory")
+	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd

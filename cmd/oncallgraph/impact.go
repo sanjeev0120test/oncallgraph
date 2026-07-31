@@ -15,6 +15,7 @@ func newImpactCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "impact <service>",
 		Short: "Show recursive downstream impact if a service fails",
+		Long:  "Walks the dependency graph transitively to list every downstream service that would be impacted. For 1-hop neighbors only, use `oncallgraph blast`.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validFormat(format); err != nil {
@@ -22,7 +23,7 @@ func newImpactCmd() *cobra.Command {
 			}
 			ls, _, err := src.load(0)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			svc, err := ls.store.GetServiceByNameOrAlias(args[0])

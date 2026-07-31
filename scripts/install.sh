@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Install oncallgraph from a GitHub Release (or a local dist/ directory).
 # Free, no accounts, verifies SHA256 when SHA256SUMS is present.
+# Set ONCALLGRAPH_INSECURE=1 to skip checksum verification (not recommended).
 set -euo pipefail
 
 REPO="${ONCALLGRAPH_REPO:-sanjeev0120test/oncallgraph}"
 VERSION="${ONCALLGRAPH_VERSION:-latest}"
 INSTALL_DIR="${ONCALLGRAPH_INSTALL_DIR:-${HOME}/.local/bin}"
 DIST_DIR="${ONCALLGRAPH_DIST_DIR:-}"
+INSECURE="${ONCALLGRAPH_INSECURE:-0}"
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 arch="$(uname -m)"
@@ -21,6 +23,34 @@ case "$os" in
   *) echo "unsupported os: $os" >&2; exit 1 ;;
 esac
 
+verify_asset_sha256() {
+  local sums_file="$1"
+  local asset_name="$2"
+  local asset_path="$3"
+  local line want got
+  line="$(grep -E "[* ]${asset_name}\$" "$sums_file" | head -n1 || true)"
+  if [[ -z "$line" ]]; then
+    echo "SHA256SUMS has no entry for ${asset_name}" >&2
+    return 1
+  fi
+  want="$(echo "$line" | awk '{print $1}')"
+  if command -v sha256sum >/dev/null 2>&1; then
+    got="$(sha256sum "$asset_path" | awk '{print $1}')"
+  elif command -v shasum >/dev/null 2>&1; then
+    got="$(shasum -a 256 "$asset_path" | awk '{print $1}')"
+  else
+    echo "no sha256sum/shasum available for verification" >&2
+    return 1
+  fi
+  if [[ "$want" != "$got" ]]; then
+    echo "SHA256 mismatch for ${asset_name}" >&2
+    echo "  want: $want" >&2
+    echo "  got:  $got" >&2
+    return 1
+  fi
+  echo "checksum ok: ${asset_name}"
+}
+
 tmp="$(mktemp -d)"
 cleanup() { rm -rf "$tmp"; }
 trap cleanup EXIT
@@ -33,6 +63,9 @@ if [[ -n "$DIST_DIR" ]]; then
     exit 1
   fi
   bin="$tmp/oncallgraph"
+  if [[ "$os" == windows ]]; then
+    bin="$tmp/oncallgraph.exe"
+  fi
   cp "$src" "$bin"
 else
   if [[ "$VERSION" == "latest" ]]; then
@@ -44,21 +77,46 @@ else
     echo "could not resolve release tag for ${REPO}" >&2
     exit 1
   fi
-  asset="oncallgraph_${tag}_${os}_${arch}.tar.gz"
+  if [[ "$os" == windows ]]; then
+    asset="oncallgraph_${tag}_${os}_${arch}.zip"
+  else
+    asset="oncallgraph_${tag}_${os}_${arch}.tar.gz"
+  fi
   url="https://github.com/${REPO}/releases/download/${tag}/${asset}"
   echo "downloading ${url}"
   curl -fsSL -o "$tmp/${asset}" "$url"
-  curl -fsSL -o "$tmp/SHA256SUMS" "https://github.com/${REPO}/releases/download/${tag}/SHA256SUMS" || true
-  if [[ -f "$tmp/SHA256SUMS" ]]; then
-    (cd "$tmp" && sha256sum -c SHA256SUMS --ignore-missing)
+  if [[ "$INSECURE" != "1" ]]; then
+    if ! curl -fsSL -o "$tmp/SHA256SUMS" "https://github.com/${REPO}/releases/download/${tag}/SHA256SUMS"; then
+      echo "failed to download SHA256SUMS (set ONCALLGRAPH_INSECURE=1 to skip)" >&2
+      exit 1
+    fi
+    if [[ ! -s "$tmp/SHA256SUMS" ]]; then
+      echo "SHA256SUMS is empty" >&2
+      exit 1
+    fi
+    verify_asset_sha256 "$tmp/SHA256SUMS" "$asset" "$tmp/${asset}"
+  else
+    echo "warning: skipping checksum verification (ONCALLGRAPH_INSECURE=1)" >&2
   fi
-  tar -xzf "$tmp/${asset}" -C "$tmp"
-  bin="$(ls -1 "$tmp"/oncallgraph_${tag}_${os}_${arch} | head -n1)"
+  if [[ "$os" == windows ]]; then
+    if command -v unzip >/dev/null 2>&1; then
+      unzip -q -o "$tmp/${asset}" -d "$tmp"
+    else
+      powershell.exe -NoProfile -Command "Expand-Archive -Path '$tmp/${asset}' -DestinationPath '$tmp' -Force"
+    fi
+    bin="$(ls -1 "$tmp"/oncallgraph_${tag}_${os}_${arch}.exe | head -n1)"
+  else
+    tar -xzf "$tmp/${asset}" -C "$tmp"
+    bin="$(ls -1 "$tmp"/oncallgraph_${tag}_${os}_${arch} | head -n1)"
+  fi
 fi
 
-chmod +x "$bin"
+chmod +x "$bin" 2>/dev/null || true
 mkdir -p "$INSTALL_DIR"
 dest="${INSTALL_DIR}/oncallgraph"
+if [[ "$os" == windows ]]; then
+  dest="${INSTALL_DIR}/oncallgraph.exe"
+fi
 cp "$bin" "$dest"
 echo "installed ${dest}"
 "$dest" version

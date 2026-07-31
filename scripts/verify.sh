@@ -19,9 +19,9 @@ go test ./...
 
 if [ -d ./fixtures/incident_checkout ]; then
   echo "==> fixture/golden test"
-  go run ./cmd/oncallgraph test ./fixtures/incident_checkout
+  ./bin/oncallgraph test ./fixtures/incident_checkout
   echo "==> demo"
-  go run ./cmd/oncallgraph demo --format json >/dev/null
+  ./bin/oncallgraph demo --format json >/dev/null
 fi
 
 echo "OK - local validation passed"

@@ -15,7 +15,8 @@ func newBlastCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
 		Use:   "blast <service>",
-		Short: "Show upstream/downstream blast radius for a service",
+		Short: "Show 1-hop upstream/downstream blast radius for a service",
+		Long:  "Shows immediate (1-hop) upstream and downstream neighbors. For recursive downstream impact, use `oncallgraph impact`.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validFormat(format); err != nil {
@@ -23,7 +24,7 @@ func newBlastCmd() *cobra.Command {
 			}
 			ls, cfg, err := src.load(since)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			if since == 0 {
@@ -55,14 +56,14 @@ func newBlastCmd() *cobra.Command {
 				return output.JSON(cmd.OutOrStdout(), out)
 			}
 			cmd.Printf("SERVICE     %s (%s)\n", out.Service, out.Health)
-			cmd.Println("UPSTREAM")
+			cmd.Println("UPSTREAM (1-hop)")
 			if len(out.Upstream) == 0 {
 				cmd.Println("  (none)")
 			}
 			for _, u := range out.Upstream {
 				cmd.Printf("  %-16s %s\n", u["id"], u["health"])
 			}
-			cmd.Println("DOWNSTREAM")
+			cmd.Println("DOWNSTREAM (1-hop)")
 			if len(out.Downstream) == 0 {
 				cmd.Println("  (none)")
 			}
@@ -72,9 +73,7 @@ func newBlastCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&src.fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&src.configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&src.dataDir, "data-dir", "", "persistent store directory")
+	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd

@@ -88,7 +88,7 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 	case "resolved", "suppressed":
 		status = "resolved"
 	case "pending":
-		status = "firing" // treat pending as actionable
+		status = "pending"
 	}
 	if at.IsZero() {
 		at = time.Now().UTC()
@@ -103,7 +103,7 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 		return err
 	}
 	return s.UpsertEvidence(model.Evidence{
-		ID: evID, Source: source, At: at.UTC(), Kind: "alert", Summary: summary, RawRef: name,
+		ID: evID, Source: source, At: at.UTC(), Kind: "alert", Summary: summary, RawRef: name, ServiceID: svcID,
 	})
 }
 

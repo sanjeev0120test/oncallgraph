@@ -19,7 +19,7 @@ func newReportCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ls, cfg, err := src.load(since)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
 			if since == 0 {
@@ -36,9 +36,7 @@ func newReportCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&src.fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&src.configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&src.dataDir, "data-dir", "", "persistent store directory")
+	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	return cmd
 }

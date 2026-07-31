@@ -1,5 +1,6 @@
-// Package config loads and represents the optional .opsgraph.yaml file.
-// Everything has sensible defaults so demo/test work with no config at all.
+// Package config loads and represents the optional .oncallgraph.yaml file
+// (legacy .opsgraph.yaml is still accepted). Everything has sensible defaults
+// so demo/test work with no config at all.
 package config
 
 import (
@@ -76,7 +77,7 @@ type K8sConnector struct {
 	Snapshot string `yaml:"snapshot"`
 }
 
-// URLConnector is a connector reachable at a URL (phase-2).
+// URLConnector is a connector reachable at a URL.
 type URLConnector struct {
 	Enabled bool   `yaml:"enabled"`
 	URL     string `yaml:"url"`
@@ -90,6 +91,9 @@ type AIConfig struct {
 	EmbedModel string `yaml:"embed_model"`
 	Timeout    string `yaml:"timeout"`
 }
+
+// DefaultConfigCandidates are tried (in order) when Load("") is called.
+var DefaultConfigCandidates = []string{".oncallgraph.yaml", ".opsgraph.yaml"}
 
 // Default returns a Config with built-in defaults (used when no file exists).
 func Default() *Config {
@@ -113,28 +117,41 @@ func Default() *Config {
 	}
 }
 
-// Load reads config from path. If path is empty it tries ".opsgraph.yaml";
-// if that does not exist it returns Default(). A malformed file is an error.
+// Load reads config from path. If path is empty it tries
+// .oncallgraph.yaml then legacy .opsgraph.yaml; if neither exists it
+// returns Default(). A malformed file is an error.
 func Load(path string) (*Config, error) {
 	explicit := path != ""
-	if path == "" {
-		path = ".opsgraph.yaml"
+	candidates := []string{path}
+	if !explicit {
+		candidates = DefaultConfigCandidates
 	}
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) && !explicit {
-			return Default(), nil
+	var lastNotExist error
+	for _, candidate := range candidates {
+		data, err := os.ReadFile(candidate)
+		if err != nil {
+			if os.IsNotExist(err) {
+				lastNotExist = err
+				continue
+			}
+			return nil, fmt.Errorf("read config %q: %w", candidate, err)
 		}
-		return nil, fmt.Errorf("read config %q: %w", path, err)
+		cfg := Default()
+		if err := yaml.Unmarshal(data, cfg); err != nil {
+			return nil, fmt.Errorf("parse config %q: %w", candidate, err)
+		}
+		cfg.applyDefaults()
+		return cfg, nil
 	}
 
-	cfg := Default()
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("parse config %q: %w", path, err)
+	if !explicit && lastNotExist != nil {
+		return Default(), nil
 	}
-	cfg.applyDefaults()
-	return cfg, nil
+	if explicit {
+		return nil, fmt.Errorf("read config %q: %w", path, lastNotExist)
+	}
+	return Default(), nil
 }
 
 func (c *Config) applyDefaults() {

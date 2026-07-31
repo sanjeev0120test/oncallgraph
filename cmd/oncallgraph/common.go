@@ -138,7 +138,7 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 	}
 	effPath := resolveConfigPath(configPath)
 	if effPath == "" {
-		return nil, fmt.Errorf("no data source: pass --fixture <pack>, run `oncallgraph ingest`, or add a .opsgraph.yaml")
+		return nil, fmt.Errorf("no data source: pass --fixture <pack>, run `oncallgraph ingest`, or add a .oncallgraph.yaml")
 	}
 	return storeFromConfig(cfg, dirOf(effPath), since, time.Now().UTC())
 }

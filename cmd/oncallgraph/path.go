@@ -1,8 +1,11 @@
 package main
 
 import (
+	"errors"
+
 	"github.com/sanjeev0120test/oncallgraph/internal/output"
 	"github.com/sanjeev0120test/oncallgraph/internal/pathfind"
+	"github.com/sanjeev0120test/oncallgraph/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -19,14 +22,28 @@ func newPathCmd() *cobra.Command {
 			}
 			ls, _, err := src.load(0)
 			if err != nil {
-				return fail(2, "%v", err)
+				return failSource(err)
 			}
 			defer ls.cleanup()
+			from, err := ls.store.GetServiceByNameOrAlias(args[0])
+			if err != nil {
+				if errors.Is(err, store.ErrNotFound) {
+					return fail(1, "service %q not found", args[0])
+				}
+				return fail(2, "%v", err)
+			}
+			to, err := ls.store.GetServiceByNameOrAlias(args[1])
+			if err != nil {
+				if errors.Is(err, store.ErrNotFound) {
+					return fail(1, "service %q not found", args[1])
+				}
+				return fail(2, "%v", err)
+			}
 			deps, err := ls.store.ListAllDependencies()
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-			p, err := pathfind.Shortest(deps, args[0], args[1])
+			p, err := pathfind.Shortest(deps, from.ID, to.ID)
 			if err != nil {
 				return fail(1, "%v", err)
 			}
@@ -38,9 +55,7 @@ func newPathCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&src.fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&src.configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&src.dataDir, "data-dir", "", "persistent store directory")
+	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
 }
