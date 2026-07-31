@@ -1,0 +1,64 @@
+name: cli-contract
+
+# Exit-code + stdout contracts for the shipped CLI. Parallel; usually <45s.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: cli-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GOTOOLCHAIN: local
+  CGO_ENABLED: "0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  contract:
+    name: exit codes + version stdout
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-go
+      - name: Assert CLI contracts
+        run: |
+          set -euo pipefail
+          go build -trimpath -ldflags="-s -w -X github.com/sanjeev0120test/opsgraph/internal/version.Version=contract-ci" -o bin/opsgraph ./cmd/opsgraph
+          BIN=./bin/opsgraph
+
+          # version must go to stdout (not stderr) for install/release smoke.
+          out="$("$BIN" version 2>/tmp/version.err)"
+          echo "stdout=$out"
+          if [ -s /tmp/version.err ]; then
+            echo "version wrote to stderr:" >&2
+            cat /tmp/version.err >&2
+            exit 1
+          fi
+          [[ "$out" == *"contract-ci"* ]]
+
+          # 0 = success
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+
+          # 1 = not found / verification failed
+          set +e
+          "$BIN" ask nosuch --fixture ./fixtures/incident_checkout >/dev/null 2>/tmp/err1
+          c1=$?
+          set -e
+          test "$c1" -eq 1
+
+          # 2 = invalid usage / missing source
+          set +e
+          "$BIN" ask checkout >/dev/null 2>/tmp/err2
+          c2=$?
+          set -e
+          test "$c2" -eq 2
+
+          # doctor: warnings OK, failures not
+          "$BIN" doctor >/dev/null

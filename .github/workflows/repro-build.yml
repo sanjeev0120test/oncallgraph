@@ -1,0 +1,45 @@
+name: repro-build
+
+# Same inputs → same linux/amd64 binary hash. Parallel; usually <60s.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: repro-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GOTOOLCHAIN: local
+  CGO_ENABLED: "0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  reproducible:
+    name: linux/amd64 hash match
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-go
+      - name: Build twice with identical ldflags
+        run: |
+          set -euo pipefail
+          VERSION="repro"
+          COMMIT="${GITHUB_SHA}"
+          DATE="1970-01-01T00:00:00Z"
+          LDFLAGS="-s -w -buildid= -X github.com/sanjeev0120test/opsgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/opsgraph/internal/version.Commit=${COMMIT} -X github.com/sanjeev0120test/opsgraph/internal/version.Date=${DATE}"
+          mkdir -p /tmp/repro
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o /tmp/repro/a ./cmd/opsgraph
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o /tmp/repro/b ./cmd/opsgraph
+          sha_a="$(sha256sum /tmp/repro/a | awk '{print $1}')"
+          sha_b="$(sha256sum /tmp/repro/b | awk '{print $1}')"
+          echo "a=$sha_a"
+          echo "b=$sha_b"
+          test "$sha_a" = "$sha_b"
+          /tmp/repro/a version | grep -F "$VERSION"
