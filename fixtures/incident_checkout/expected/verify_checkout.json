@@ -8,7 +8,7 @@
       "text": "A deploy in the last hour is the most likely trigger; inspect it first.",
       "check": "deploy_age_lt:60m",
       "status": "pass",
-      "message": "last change 22m ago",
+      "message": "last deploy 22m ago",
       "evidence_id": "ev-change-1"
     },
     {

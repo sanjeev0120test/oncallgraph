@@ -100,7 +100,7 @@
         "text": "A deploy in the last hour is the most likely trigger; inspect it first.",
         "check": "deploy_age_lt:60m",
         "status": "pass",
-        "message": "last change 22m ago",
+        "message": "last deploy 22m ago",
         "evidence_id": "ev-change-1"
       },
       {
@@ -125,6 +125,12 @@
       "kind": "health",
       "summary": "checkout is degraded",
       "service_id": "checkout"
+    },
+    {
+      "at": "2026-07-31T12:00:00Z",
+      "kind": "health",
+      "summary": "upstream auth is unhealthy",
+      "service_id": "auth"
     },
     {
       "at": "2026-07-31T12:00:00Z",
@@ -162,8 +168,20 @@
       "evidence_id": "ev-k8s-rollout-checkout"
     }
   ],
+  "correlations": [
+    {
+      "kind": "change_then_alert",
+      "summary": "deploy \"deploy checkout v1.4.2\" preceded alert CheckoutErrorRateHigh by 7m",
+      "change_id": "ch-deploy-checkout",
+      "change_evidence_id": "ev-change-1",
+      "alert_id": "al-checkout-errorrate",
+      "alert_evidence_id": "ev-alert-1",
+      "gap": "7m"
+    }
+  ],
   "recommendations": [
     "Inspect the most recent deploy first: \"deploy checkout v1.4.2\" (abc123).",
+    "Correlate change→alert: deploy \"deploy checkout v1.4.2\" preceded alert CheckoutErrorRateHigh by 7m.",
     "Investigate checkout health (degraded) and stabilize before further changes.",
     "Check upstream auth (unhealthy) before changing checkout.",
     "Acknowledge firing alert CheckoutErrorRateHigh and correlate it with the recent change.",

@@ -9,11 +9,22 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
-// r1ChangeWindow is the fixed lookback for recommendation R1. Independent of
-// --since so a wide query window does not falsely elevate an old change.
-const r1ChangeWindow = 30 * time.Minute
+// SuspectChangeWindow is the fixed lookback for R1 / explain / why / score /
+// fingerprint. Independent of --since so a wide query window does not falsely
+// elevate an old change.
+const SuspectChangeWindow = 30 * time.Minute
+
+// Kept for call sites inside this package.
+const r1ChangeWindow = SuspectChangeWindow
 
 const r6Handoff = "Write a short handoff note with evidence IDs before closing the incident."
+
+// RecentSuspectChange returns the newest change within SuspectChangeWindow of
+// GeneratedAt, or false when none qualify. Used by explain/why/score/fingerprint
+// so they agree with recommendation R1.
+func RecentSuspectChange(res model.AskResult) (model.Change, bool) {
+	return recentChange(res)
+}
 
 // recommend produces deterministic, ordered next-step recommendations (R1–R6+).
 func recommend(res model.AskResult) []string {
@@ -28,6 +39,10 @@ func recommend(res model.AskResult) []string {
 			ref = c.ID
 		}
 		recs = append(recs, fmt.Sprintf("Inspect the most recent %s first: %q (%s).", changeNoun(c.Type), c.Summary, ref))
+	}
+	if len(res.Correlations) > 0 {
+		c := res.Correlations[0]
+		recs = append(recs, fmt.Sprintf("Correlate change→alert: %s.", c.Summary))
 	}
 
 	// R1b: queried service itself is unhealthy/degraded.

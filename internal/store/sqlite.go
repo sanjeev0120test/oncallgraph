@@ -338,6 +338,29 @@ func (s *Store) LatestChange(serviceID string) (*model.Change, bool, error) {
 	return &changes[0], true, nil
 }
 
+// LatestDeployOrRollout returns the newest deploy or rollout for a service.
+// Used by deploy_age_* runbook checks so a fresh git commit cannot fake a deploy.
+func (s *Store) LatestDeployOrRollout(serviceID string) (*model.Change, bool, error) {
+	rows, err := s.db.Query(`
+SELECT id,service_id,at,type,summary,author,revision,source,evidence_id
+FROM changes WHERE service_id=? AND type IN ('deploy','rollout')
+ORDER BY at DESC, id LIMIT 1`, serviceID)
+	if err != nil {
+		return nil, false, wrap("latest deploy/rollout", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, false, rows.Err()
+	}
+	var v model.Change
+	var at string
+	if err := rows.Scan(&v.ID, &v.ServiceID, &at, &v.Type, &v.Summary, &v.Author, &v.Revision, &v.Source, &v.EvidenceID); err != nil {
+		return nil, false, wrap("scan deploy/rollout", err)
+	}
+	v.At = parseTime(at)
+	return &v, true, nil
+}
+
 // FindFiringAlert returns the newest active (firing/pending) alert matching an
 // alert name or a service id.
 func (s *Store) FindFiringAlert(nameOrService string) (*model.Alert, bool, error) {

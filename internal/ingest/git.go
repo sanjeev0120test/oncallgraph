@@ -69,7 +69,7 @@ func recordCommit(s *store.Store, c *object.Commit, serviceID string) error {
 		return err
 	}
 	return s.UpsertEvidence(model.Evidence{
-		ID: evID, Source: "git", At: at, Kind: "commit", Summary: summary, RawRef: c.Hash.String(),
+		ID: evID, ServiceID: serviceID, Source: "git", At: at, Kind: "commit", Summary: summary, RawRef: c.Hash.String(),
 	})
 }
 

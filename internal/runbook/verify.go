@@ -109,13 +109,13 @@ func (v *Verifier) checkDeployAge(serviceID, kind, arg string, sr model.StepVeri
 		sr.Message = fmt.Sprintf("invalid duration %q", arg)
 		return sr, nil
 	}
-	ch, ok, err := v.store.LatestChange(serviceID)
+	ch, ok, err := v.store.LatestDeployOrRollout(serviceID)
 	if err != nil {
 		return sr, err
 	}
 	if !ok {
 		sr.Status = model.StatusStale
-		sr.Message = "no change/deploy on record"
+		sr.Message = "no deploy/rollout on record"
 		return sr, nil
 	}
 	sr.EvidenceID = ch.EvidenceID
@@ -126,10 +126,10 @@ func (v *Verifier) checkDeployAge(serviceID, kind, arg string, sr model.StepVeri
 	}
 	if pass {
 		sr.Status = model.StatusPass
-		sr.Message = fmt.Sprintf("last change %s ago", roundDur(age))
+		sr.Message = fmt.Sprintf("last %s %s ago", ch.Type, roundDur(age))
 	} else {
 		sr.Status = model.StatusStale
-		sr.Message = fmt.Sprintf("last change %s ago (check expected %s %s)", roundDur(age), cmpWord(kind), arg)
+		sr.Message = fmt.Sprintf("last %s %s ago (check expected %s %s)", ch.Type, roundDur(age), cmpWord(kind), arg)
 	}
 	return sr, nil
 }

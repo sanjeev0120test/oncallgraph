@@ -89,6 +89,7 @@ func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 	if res.Evidence, err = collectEvidence(s, res); err != nil {
 		return model.AskResult{}, err
 	}
+	res.Correlations = correlate(res)
 	res.Timeline = buildTimeline(res, now)
 	res.Recommendations = recommend(res)
 	return res, nil
@@ -176,6 +177,15 @@ func buildTimeline(res model.AskResult, now time.Time) []model.TimelineEvent {
 	events = append(events, model.TimelineEvent{
 		At: now, Kind: "health", Summary: res.Service.ID + " is " + res.Service.Health, ServiceID: res.Service.ID,
 	})
+	for _, u := range res.Upstream {
+		if u.Health == model.HealthUnhealthy || u.Health == model.HealthDegraded {
+			events = append(events, model.TimelineEvent{
+				At: now, Kind: "health",
+				Summary:   "upstream " + u.ID + " is " + u.Health,
+				ServiceID: u.ID,
+			})
+		}
+	}
 	if res.RunbookResult != nil {
 		events = append(events, model.TimelineEvent{
 			At: now, Kind: "runbook",

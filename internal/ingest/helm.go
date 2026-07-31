@@ -63,6 +63,6 @@ func emitHelmDeploy(s *store.Store, r helmRelease) error {
 		return err
 	}
 	return s.UpsertEvidence(model.Evidence{
-		ID: evID, Source: "helm", At: at, Kind: "deploy", Summary: summary, RawRef: rev,
+		ID: evID, ServiceID: r.ServiceID, Source: "helm", At: at, Kind: "deploy", Summary: summary, RawRef: rev,
 	})
 }

@@ -39,6 +39,19 @@ func Markdown(res model.AskResult) string {
 	for _, a := range res.Alerts {
 		fmt.Fprintf(&b, "- **%s** (%s, %s) [%s]\n", a.Name, a.Severity, a.Status, a.EvidenceID)
 	}
+	if len(res.Correlations) > 0 {
+		b.WriteString("\n## Correlations\n")
+		for _, c := range res.Correlations {
+			fmt.Fprintf(&b, "- %s", c.Summary)
+			if c.ChangeEvidence != "" {
+				fmt.Fprintf(&b, " [%s]", c.ChangeEvidence)
+			}
+			if c.AlertEvidence != "" {
+				fmt.Fprintf(&b, " [%s]", c.AlertEvidence)
+			}
+			b.WriteString("\n")
+		}
+	}
 	b.WriteString("\n## Blast radius\n")
 	b.WriteString("- Upstream: " + joinSvc(res.Upstream) + "\n")
 	b.WriteString("- Downstream: " + joinSvc(res.Downstream) + "\n")

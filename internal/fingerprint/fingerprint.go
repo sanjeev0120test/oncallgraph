@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
@@ -18,7 +19,8 @@ type Result struct {
 	Inputs      []string `json:"inputs"`
 }
 
-// Of returns a short hex fingerprint from health, firing alerts, and recent changes.
+// Of returns a short hex fingerprint from health, firing alerts, and recent
+// suspect-window changes (same 30m window as recommendation R1).
 func Of(res model.AskResult) Result {
 	var parts []string
 	parts = append(parts, "service="+res.Service.ID)
@@ -29,6 +31,10 @@ func Of(res model.AskResult) Result {
 		}
 	}
 	for _, c := range res.Changes {
+		// When GeneratedAt is set, only suspect-window changes count (align with R1).
+		if !res.GeneratedAt.IsZero() && res.GeneratedAt.Sub(c.At) > ask.SuspectChangeWindow {
+			continue
+		}
 		ref := c.Revision
 		if ref == "" {
 			ref = c.ID

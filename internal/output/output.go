@@ -61,6 +61,23 @@ func Table(w io.Writer, res model.AskResult) error {
 
 	p("BLAST     upstream: %s   downstream: %s\n", svcList(res.Upstream), svcList(res.Downstream))
 
+	if len(res.Correlations) > 0 {
+		for i, c := range res.Correlations {
+			label := "LINKED"
+			if i > 0 {
+				label = "      "
+			}
+			p("%s    %s", label, c.Summary)
+			if c.ChangeEvidence != "" {
+				p(" [%s]", c.ChangeEvidence)
+			}
+			if c.AlertEvidence != "" {
+				p(" [%s]", c.AlertEvidence)
+			}
+			p("\n")
+		}
+	}
+
 	if res.RunbookResult != nil {
 		rb := res.RunbookResult
 		p("RUNBOOK   %s -> %s (%s)\n", rb.Path, strings.ToUpper(rb.Status), stepTally(rb.Steps))

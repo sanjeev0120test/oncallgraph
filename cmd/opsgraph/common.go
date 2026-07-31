@@ -147,6 +147,13 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 		if counts["services"] > 0 {
 			return storeFromDataDir(dir, time.Now().UTC())
 		}
+		// Preferred path exists but is empty — try legacy rename dir before failing.
+		legacy := ".oncallgraph/data"
+		if dir != legacy {
+			if lc, lerr := peekCounts(legacy); lerr == nil && lc["services"] > 0 {
+				return storeFromDataDir(legacy, time.Now().UTC())
+			}
+		}
 		// state.db exists but is empty — do not silently fall back to live config.
 		return nil, fmt.Errorf("%w at %s: run `opsgraph ingest` first or pass `--fixture`", ErrEmptyStore, dir)
 	}

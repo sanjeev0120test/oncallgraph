@@ -1,7 +1,10 @@
 // Package score computes a deterministic incident severity score from AskResult.
 package score
 
-import "github.com/sanjeev0120test/opsgraph/internal/model"
+import (
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+)
 
 // Result is a 0–100 severity score with a stable breakdown.
 type Result struct {
@@ -44,9 +47,13 @@ func Compute(res model.AskResult) Result {
 		b["firing_alerts"] = 35
 	}
 
-	if len(res.Changes) > 0 {
+	if _, ok := ask.RecentSuspectChange(res); ok {
 		b["recent_change"] = 15
-		highlights = append(highlights, "recent change in window")
+		highlights = append(highlights, "recent change in suspect window")
+	}
+	if len(res.Correlations) > 0 {
+		b["change_alert_link"] = 10
+		highlights = append(highlights, "change preceded firing alert")
 	}
 
 	unhealthyUp := 0

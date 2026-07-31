@@ -57,6 +57,7 @@ func TestNewFeatureCommands(t *testing.T) {
 		{"impact", []string{"impact", "auth", "--fixture", fx}, 0, "checkout"},
 		{"fingerprint", []string{"fingerprint", "checkout", "--fixture", fx}, 0, "inc_"},
 		{"why", []string{"why", "checkout", "--fixture", fx}, 0, "prime suspect"},
+		{"handoff", []string{"handoff", "checkout", "--fixture", fx}, 0, "# Handoff"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -45,6 +45,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newImpactCmd())
 	root.AddCommand(newFingerprintCmd())
 	root.AddCommand(newWhyCmd())
+	root.AddCommand(newHandoffCmd())
 	root.AddCommand(newExportCmd())
 	root.AddCommand(newDoctorCmd())
 	root.AddCommand(newValidateFixtureCmd())

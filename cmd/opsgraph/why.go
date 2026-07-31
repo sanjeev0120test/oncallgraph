@@ -44,12 +44,14 @@ func newWhyCmd() *cobra.Command {
 
 func whyLine(res model.AskResult) string {
 	line := fmt.Sprintf("%s is %s", res.Service.ID, res.Service.Health)
-	if len(res.Changes) > 0 {
-		c := res.Changes[0]
+	if c, ok := ask.RecentSuspectChange(res); ok {
 		line += fmt.Sprintf("; prime suspect %s %q", c.Type, c.Summary)
 		if c.EvidenceID != "" {
 			line += " [" + c.EvidenceID + "]"
 		}
+	}
+	if len(res.Correlations) > 0 {
+		line += "; " + res.Correlations[0].Summary
 	}
 	for _, u := range res.Upstream {
 		if u.Health == model.HealthUnhealthy || u.Health == model.HealthDegraded {

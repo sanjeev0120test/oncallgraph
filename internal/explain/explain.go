@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
@@ -21,8 +22,7 @@ func Narrative(res model.AskResult) string {
 	}
 	b.WriteString(".\n\n")
 
-	if len(res.Changes) > 0 {
-		c := res.Changes[0]
+	if c, ok := ask.RecentSuspectChange(res); ok {
 		fmt.Fprintf(&b, "Prime suspect: the most recent %s %q", c.Type, c.Summary)
 		if c.Revision != "" {
 			fmt.Fprintf(&b, " (%s)", c.Revision)
@@ -36,6 +36,10 @@ func Narrative(res model.AskResult) string {
 		b.WriteString(".\n")
 	} else {
 		b.WriteString("No recent changes were found in the lookback window.\n")
+	}
+
+	if len(res.Correlations) > 0 {
+		fmt.Fprintf(&b, "Linked evidence: %s.\n", res.Correlations[0].Summary)
 	}
 
 	firing := []string{}

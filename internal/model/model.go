@@ -99,11 +99,23 @@ type Evidence struct {
 // TimelineEvent is a point on the incident timeline.
 type TimelineEvent struct {
 	At         time.Time `json:"at"`
-	Kind       string    `json:"kind"` // change|alert|health|runbook
+	Kind       string    `json:"kind"` // change|alert|health|runbook|k8s-event
 	Summary    string    `json:"summary"`
 	ServiceID  string    `json:"service_id,omitempty"`
 	EvidenceID string    `json:"evidence_id,omitempty"`
 	Severity   string    `json:"severity,omitempty"`
+}
+
+// Correlation links a preceding change to a later active alert when the gap
+// is short enough to be causally plausible (deterministic, evidence-backed).
+type Correlation struct {
+	Kind           string `json:"kind"` // change_then_alert
+	Summary        string `json:"summary"`
+	ChangeID       string `json:"change_id,omitempty"`
+	ChangeEvidence string `json:"change_evidence_id,omitempty"`
+	AlertID        string `json:"alert_id,omitempty"`
+	AlertEvidence  string `json:"alert_evidence_id,omitempty"`
+	Gap            string `json:"gap"` // e.g. "7m"
 }
 
 // AskResult is the full answer for `opsgraph ask <service>`.
@@ -118,6 +130,7 @@ type AskResult struct {
 	Downstream      []Service       `json:"downstream"`
 	RunbookResult   *VerifyResult   `json:"runbook,omitempty"`
 	Timeline        []TimelineEvent `json:"timeline"`
+	Correlations    []Correlation   `json:"correlations,omitempty"`
 	Recommendations []string        `json:"recommendations"`
 	Evidence        []Evidence      `json:"evidence"`
 	AISummary       string          `json:"ai_summary,omitempty"`

@@ -9,10 +9,12 @@ import (
 )
 
 func TestComputeCheckoutLike(t *testing.T) {
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
 	res := model.AskResult{
-		Service: model.Service{ID: "checkout", Health: model.HealthDegraded},
-		Changes: []model.Change{{ID: "c1", At: time.Now()}},
-		Alerts:  []model.Alert{{Name: "CheckoutErrorRateHigh", Severity: "critical", Status: "firing"}},
+		Service:     model.Service{ID: "checkout", Health: model.HealthDegraded},
+		GeneratedAt: now,
+		Changes:     []model.Change{{ID: "c1", At: now.Add(-10 * time.Minute)}},
+		Alerts:      []model.Alert{{Name: "CheckoutErrorRateHigh", Severity: "critical", Status: "firing"}},
 		Upstream: []model.Service{
 			{ID: "auth", Health: model.HealthUnhealthy},
 		},
