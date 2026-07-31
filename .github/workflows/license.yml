@@ -24,6 +24,8 @@ jobs:
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Check LICENSE and ignore rules
         run: |
           set -euo pipefail

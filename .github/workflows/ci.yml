@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-go
       - name: gofmt + vet + tidy + no committed binaries
         run: |
@@ -55,6 +57,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-go
       - name: Cache staticcheck binary
         uses: actions/cache@v6
@@ -88,6 +92,8 @@ jobs:
             smoke: compact
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-go
       - name: Build binary
         shell: bash
@@ -235,6 +241,8 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-go
       - name: Cross-compile 6 targets (parallel)
         run: |
@@ -319,6 +327,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-go
       - name: Cache govulncheck binary
         uses: actions/cache@v6

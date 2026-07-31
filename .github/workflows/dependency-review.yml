@@ -25,6 +25,8 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Dependency review
         id: review
         continue-on-error: true

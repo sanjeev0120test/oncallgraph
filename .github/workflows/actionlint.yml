@@ -30,6 +30,8 @@ jobs:
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Run actionlint
         uses: raven-actions/actionlint@v2
         with:

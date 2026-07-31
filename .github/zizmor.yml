@@ -1,0 +1,10 @@
+# Dependabot keeps major tags current; require ref pins (not SHA) for speed/maintainability.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "*": ref-pin
+  # softprops/action-gh-release is intentional for multi-asset GitHub Releases.
+  superfluous-actions:
+    ignore:
+      - release.yml
