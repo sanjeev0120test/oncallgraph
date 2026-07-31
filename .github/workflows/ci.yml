@@ -10,7 +10,6 @@ permissions:
 
 env:
   GOTOOLCHAIN: local
-  CGO_ENABLED: "0"
 
 jobs:
   lint:
@@ -33,7 +32,7 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
       - name: default build compiles (no k8s.io linked)
-        run: go build ./...
+        run: CGO_ENABLED=0 go build ./...
 
   test:
     name: test (${{ matrix.os }})
@@ -55,13 +54,14 @@ jobs:
           go-version: '1.25'
           cache: true
       - name: Build binary
-        run: go build -o bin/opsgraph ./cmd/opsgraph
+        run: CGO_ENABLED=0 go build -o bin/opsgraph ./cmd/opsgraph
       - name: Unit tests
         if: ${{ !matrix.race }}
         run: go test ./...
       - name: Unit tests (race)
         if: ${{ matrix.race }}
-        run: go test -race ./...
+        # -race needs cgo; keep product builds CGO_ENABLED=0 above.
+        run: CGO_ENABLED=1 go test -race ./...
       - name: Fixture / golden tests
         run: go run ./cmd/opsgraph test ./fixtures/incident_checkout
       - name: Demo (no kube/AI/Docker)
@@ -90,6 +90,8 @@ jobs:
           go-version: '1.25'
           cache: true
       - name: Cross-compile release targets
+        env:
+          CGO_ENABLED: "0"
         run: |
           set -euo pipefail
           mkdir -p dist
