@@ -25,9 +25,7 @@ on:
           - 'false'
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -43,6 +41,8 @@ jobs:
     name: build-release-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.meta.outputs.version }}
     steps:
@@ -74,12 +74,13 @@ jobs:
           go run ./cmd/opsgraph test ./fixtures/incident_checkout
           go run ./cmd/opsgraph demo --format json >/dev/null
       - name: Build multi-arch release binaries
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          COMMIT: ${{ steps.meta.outputs.commit }}
+          DATE: ${{ steps.meta.outputs.date }}
         run: |
           set -euo pipefail
           mkdir -p dist
-          VERSION="${{ steps.meta.outputs.version }}"
-          COMMIT="${{ steps.meta.outputs.commit }}"
-          DATE="${{ steps.meta.outputs.date }}"
           LDFLAGS="-s -w -X github.com/sanjeev0120test/opsgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/opsgraph/internal/version.Commit=${COMMIT} -X github.com/sanjeev0120test/opsgraph/internal/version.Date=${DATE}"
           pids=()
           for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
@@ -117,9 +118,10 @@ jobs:
           echo "--- SHA256SUMS ---"
           cat SHA256SUMS
       - name: Smoke-test linux/amd64 release archive
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.meta.outputs.version }}"
           VERSION="${VERSION//$'\r'/}"
           archive="dist/opsgraph_${VERSION}_linux_amd64.tar.gz"
           test -s "$archive"
@@ -160,6 +162,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     if: >-
       github.ref_type == 'tag' &&
       (github.event_name != 'workflow_dispatch' || inputs.dry_run == 'false')
@@ -173,9 +179,10 @@ jobs:
           name: opsgraph-release-${{ needs.build.outputs.version }}
           path: dist
       - name: Verify release asset set
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
-          VERSION="${{ needs.build.outputs.version }}"
           cd dist
           for f in \
             "opsgraph_${VERSION}_linux_amd64.tar.gz" \
