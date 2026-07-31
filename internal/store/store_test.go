@@ -1,0 +1,102 @@
+package store
+
+import (
+	"testing"
+	"time"
+
+	"github.com/opsgraph/opsgraph/internal/model"
+)
+
+func newTestStore(t *testing.T) *Store {
+	t.Helper()
+	s, cleanup, err := OpenTemp()
+	if err != nil {
+		t.Fatalf("OpenTemp: %v", err)
+	}
+	t.Cleanup(cleanup)
+	return s
+}
+
+func TestUpsertIsIdempotent(t *testing.T) {
+	s := newTestStore(t)
+	svc := model.Service{ID: "checkout", Name: "checkout", Aliases: []string{"checkout-api"}, Health: model.HealthDegraded}
+	for i := 0; i < 3; i++ {
+		if err := s.UpsertService(svc); err != nil {
+			t.Fatalf("upsert: %v", err)
+		}
+	}
+	all, err := s.ListServices()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("want 1 service after repeated upsert, got %d", len(all))
+	}
+	if all[0].Health != model.HealthDegraded || len(all[0].Aliases) != 1 {
+		t.Fatalf("round-trip mismatch: %+v", all[0])
+	}
+}
+
+func TestGetServiceByNameOrAlias(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.UpsertService(model.Service{ID: "checkout", Name: "checkout", Aliases: []string{"checkout-api", "checkout-service"}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{"checkout", "CHECKOUT-API", "checkout-service"} {
+		got, err := s.GetServiceByNameOrAlias(q)
+		if err != nil {
+			t.Fatalf("resolve %q: %v", q, err)
+		}
+		if got.ID != "checkout" {
+			t.Fatalf("resolve %q => %q", q, got.ID)
+		}
+	}
+	if _, err := s.GetServiceByNameOrAlias("nope"); err != ErrNotFound {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+}
+
+func TestListChangesSinceWindow(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(s.UpsertChange(model.Change{ID: "c1", ServiceID: "checkout", At: now.Add(-10 * time.Minute), Type: "deploy", Summary: "recent"}))
+	must(s.UpsertChange(model.Change{ID: "c2", ServiceID: "checkout", At: now.Add(-2 * time.Hour), Type: "commit", Summary: "old"}))
+
+	got, err := s.ListChanges("checkout", now.Add(-60*time.Minute))
+	must(err)
+	if len(got) != 1 || got[0].ID != "c1" {
+		t.Fatalf("window filter failed: %+v", got)
+	}
+}
+
+func TestListEvidenceSorted(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	_ = s.UpsertEvidence(model.Evidence{ID: "ev-2", At: now, Summary: "b"})
+	_ = s.UpsertEvidence(model.Evidence{ID: "ev-1", At: now.Add(-time.Minute), Summary: "a"})
+	got, err := s.ListEvidence([]string{"ev-2", "ev-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].ID != "ev-1" || got[1].ID != "ev-2" {
+		t.Fatalf("evidence not sorted by (at,id): %+v", got)
+	}
+}
+
+func TestDependenciesBothDirections(t *testing.T) {
+	s := newTestStore(t)
+	_ = s.UpsertDependency(model.Dependency{FromServiceID: "checkout", ToServiceID: "auth", Type: "http"})
+	_ = s.UpsertDependency(model.Dependency{FromServiceID: "order", ToServiceID: "checkout", Type: "http"})
+	got, err := s.ListDependencies("checkout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want 2 edges touching checkout, got %d: %+v", len(got), got)
+	}
+}

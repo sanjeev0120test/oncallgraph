@@ -1,0 +1,146 @@
+// Package model holds the core domain types shared across opsgraph.
+package model
+
+import "time"
+
+// Health values.
+const (
+	HealthHealthy   = "healthy"
+	HealthDegraded  = "degraded"
+	HealthUnhealthy = "unhealthy"
+	HealthUnknown   = "unknown"
+)
+
+// Service is a logical service in the incident graph.
+type Service struct {
+	ID      string            `json:"id"`
+	Name    string            `json:"name"`
+	Aliases []string          `json:"aliases,omitempty"`
+	OwnerID string            `json:"owner_id,omitempty"`
+	Health  string            `json:"health"` // healthy|degraded|unhealthy|unknown
+	Labels  map[string]string `json:"labels,omitempty"`
+	Sources []string          `json:"sources,omitempty"`
+}
+
+// Owner is a team or person responsible for services.
+type Owner struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Team  string `json:"team,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+// Change is something that happened to a service (commit, deploy, rollout).
+type Change struct {
+	ID         string    `json:"id"`
+	ServiceID  string    `json:"service_id"`
+	At         time.Time `json:"at"`
+	Type       string    `json:"type"` // commit|deploy|rollout
+	Summary    string    `json:"summary"`
+	Author     string    `json:"author,omitempty"`
+	Revision   string    `json:"revision,omitempty"`
+	Source     string    `json:"source"` // git|kubernetes|fixture
+	EvidenceID string    `json:"evidence_id"`
+}
+
+// Dependency is a directed edge: From depends on To (From calls To).
+type Dependency struct {
+	FromServiceID string `json:"from_service_id"`
+	ToServiceID   string `json:"to_service_id"`
+	Type          string `json:"type"` // http|grpc|queue|db|unknown
+	Source        string `json:"source"`
+}
+
+// Alert is a firing or resolved alert linked to a service.
+type Alert struct {
+	ID         string    `json:"id"`
+	ServiceID  string    `json:"service_id"`
+	At         time.Time `json:"at"`
+	Severity   string    `json:"severity"` // critical|warning|info
+	Name       string    `json:"name"`
+	Status     string    `json:"status"` // firing|resolved
+	Summary    string    `json:"summary"`
+	Source     string    `json:"source"`
+	EvidenceID string    `json:"evidence_id"`
+}
+
+// Runbook is a parsed operational runbook for a service.
+type Runbook struct {
+	ID        string        `json:"id"`
+	ServiceID string        `json:"service_id"`
+	Path      string        `json:"path"`
+	OwnerID   string        `json:"owner_id,omitempty"`
+	Steps     []RunbookStep `json:"steps"`
+}
+
+// RunbookStep is a single numbered step with an optional check expression.
+type RunbookStep struct {
+	Number int    `json:"number"`
+	Text   string `json:"text"`
+	Check  string `json:"check"` // raw check expression
+}
+
+// Evidence is a referenceable fact backing a change/alert/timeline entry.
+type Evidence struct {
+	ID      string    `json:"id"`
+	Source  string    `json:"source"`
+	At      time.Time `json:"at"`
+	Kind    string    `json:"kind"`
+	Summary string    `json:"summary"`
+	RawRef  string    `json:"raw_ref,omitempty"`
+}
+
+// TimelineEvent is a point on the incident timeline.
+type TimelineEvent struct {
+	At         time.Time `json:"at"`
+	Kind       string    `json:"kind"` // change|alert|health|runbook
+	Summary    string    `json:"summary"`
+	ServiceID  string    `json:"service_id,omitempty"`
+	EvidenceID string    `json:"evidence_id,omitempty"`
+	Severity   string    `json:"severity,omitempty"`
+}
+
+// AskResult is the full answer for `opsgraph ask <service>`.
+type AskResult struct {
+	Service         Service         `json:"service"`
+	Owner           *Owner          `json:"owner,omitempty"`
+	Window          string          `json:"window"`
+	GeneratedAt     time.Time       `json:"generated_at"`
+	Changes         []Change        `json:"changes"`
+	Alerts          []Alert         `json:"alerts"`
+	Upstream        []Service       `json:"upstream"`
+	Downstream      []Service       `json:"downstream"`
+	RunbookResult   *VerifyResult   `json:"runbook,omitempty"`
+	Timeline        []TimelineEvent `json:"timeline"`
+	Recommendations []string        `json:"recommendations"`
+	Evidence        []Evidence      `json:"evidence"`
+	AISummary       string          `json:"ai_summary,omitempty"`
+}
+
+// VerifyResult is the result of verifying a runbook.
+type VerifyResult struct {
+	ServiceID string             `json:"service_id"`
+	Path      string             `json:"path"`
+	Status    string             `json:"status"` // pass|fail|stale|missing
+	Steps     []StepVerifyResult `json:"steps"`
+}
+
+// StepVerifyResult is the result of evaluating one runbook step.
+type StepVerifyResult struct {
+	Number     int    `json:"number"`
+	Text       string `json:"text"`
+	Check      string `json:"check"`
+	Status     string `json:"status"` // pass|fail|stale|manual|error
+	Message    string `json:"message"`
+	EvidenceID string `json:"evidence_id,omitempty"`
+}
+
+// Verify status constants.
+const (
+	StatusPass    = "pass"
+	StatusFail    = "fail"
+	StatusStale   = "stale"
+	StatusManual  = "manual"
+	StatusMissing = "missing"
+	StatusError   = "error"
+)
