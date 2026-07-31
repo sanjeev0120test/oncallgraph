@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # Fast local validation for Windows - keeps your laptop responsive.
-# Heavy checks (race, 3-OS matrix, coverage) run in GitHub Actions instead.
+# Heavy checks (race, 3-OS matrix, cross-compile) run in GitHub Actions instead.
 $ErrorActionPreference = "Stop"
 $env:CGO_ENABLED = "0"
 

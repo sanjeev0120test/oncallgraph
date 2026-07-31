@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fast local validation for Unix - keeps things quick.
-# Heavy checks (race, 3-OS matrix, coverage) run in GitHub Actions instead.
+# Heavy checks (race, 3-OS matrix, cross-compile) run in GitHub Actions instead.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export CGO_ENABLED=0

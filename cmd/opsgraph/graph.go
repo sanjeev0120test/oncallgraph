@@ -10,11 +10,12 @@ func newGraphCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
 		Use:   "graph",
-		Short: "Render the service dependency graph (ascii/table or mermaid)",
+		Short: "Render the service dependency graph (ascii or mermaid)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			switch format {
 			case "ascii", "table", "mermaid":
+				// table is an alias for ascii (shared --format vocabulary).
 			default:
 				return fail(2, "invalid --format %q (want ascii|table|mermaid)", format)
 			}

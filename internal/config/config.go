@@ -106,7 +106,7 @@ func Default() *Config {
 		Connectors: Connectors{
 			Fixtures:   ToggledConnector{Enabled: true},
 			Git:        GitConnector{Enabled: true, RepoPath: "."},
-			Kubernetes: K8sConnector{Enabled: true},
+			Kubernetes: K8sConnector{Enabled: false}, // enable when snapshot path is set
 		},
 		AI: AIConfig{
 			OllamaURL:  "http://127.0.0.1:11434",

@@ -171,6 +171,33 @@ func (s *Store) UserVersion() (int, error) {
 	return v, nil
 }
 
+// Reset deletes all entity rows so a subsequent ingest fully replaces prior state.
+// Schema and user_version are preserved.
+func (s *Store) Reset() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return wrap("begin reset", err)
+	}
+	for _, q := range []string{
+		`DELETE FROM evidence`,
+		`DELETE FROM runbooks`,
+		`DELETE FROM alerts`,
+		`DELETE FROM dependencies`,
+		`DELETE FROM changes`,
+		`DELETE FROM services`,
+		`DELETE FROM owners`,
+	} {
+		if _, err := tx.Exec(q); err != nil {
+			_ = tx.Rollback()
+			return wrap("reset "+q, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return wrap("commit reset", err)
+	}
+	return nil
+}
+
 // --- helpers ---
 
 func fmtTime(t time.Time) string {

@@ -14,14 +14,15 @@ services:
     k8s:
       deployments: ["checkout"]
       namespaces: ["default", "demo"]
-    runbook: runbooks/checkout.md
+    # Paths are relative to the config file's directory.
+    runbook: configs/runbooks/checkout.md
     depends_on: ["auth", "redis"]
   auth:
     aliases: ["auth-svc", "auth-service"]
     owner: identity
     k8s:
       deployments: ["auth"]
-    runbook: runbooks/auth.md
+    runbook: fixtures/incident_checkout/runbooks/auth.md
 
 owners:
   payments:
@@ -37,9 +38,9 @@ connectors:
     enabled: true
     repo_path: .
   kubernetes:
-    # v1 uses a checked-in snapshot; live cluster support is a future opt-in.
-    enabled: true
-    snapshot: ""   # path to a k8s snapshot dir; empty => use fixture snapshot
+    # Pure-Go snapshot parser (no client-go). Disabled until a snapshot path is set.
+    enabled: false
+    snapshot: "" # e.g. fixtures/incident_checkout/k8s
   prometheus:
     # Optional: local Prometheus /api/v1/alerts (disabled by default; mocked in tests).
     enabled: false

@@ -51,6 +51,35 @@ func TestListAllChangesAndAlerts(t *testing.T) {
 	}
 }
 
+func TestResetClearsEntities(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.UpsertService(model.Service{ID: "a", Name: "a", Health: model.HealthHealthy}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertOwner(model.Owner{ID: "o", Name: "O"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	counts, err := s.Counts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, v := range counts {
+		if v != 0 {
+			t.Fatalf("after Reset %s=%d, want 0", k, v)
+		}
+	}
+	v, err := s.UserVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != SchemaVersion {
+		t.Fatalf("schema version lost after Reset: %d", v)
+	}
+}
+
 func TestSchemaUserVersion(t *testing.T) {
 	s := newTestStore(t)
 	v, err := s.UserVersion()

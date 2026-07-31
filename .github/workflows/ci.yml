@@ -42,14 +42,13 @@ jobs:
         run: |
           set -euo pipefail
           # Precompiled binaries/archives belong in GitHub Releases only.
-          if find . -type f \( -name 'opsgraph' -o -name 'opsgraph.exe' -o -name 'opsgraph_*.tar.gz' -o -name 'opsgraph_*.zip' -o -name 'oncallgraph*' \) \
-              ! -path './.git/*' ! -path './bin/*' ! -path './dist/*' ! -path './cmd/*' ! -path './scripts/*' \
-              | grep -E '.' ; then
-            echo "found committed binary/archive artifacts; remove them and publish via Releases" >&2
+          # Fail if any such path is tracked by git (bin/dist may exist locally as untracked).
+          tracked="$(git ls-files -z | tr '\0' '\n' | grep -E '(^|/)(bin|dist)/|(^|/)opsgraph(\.exe)?$|(^|/)opsgraph_.+\.(tar\.gz|zip)$|(^|/)SHA256SUMS$|(^|/)oncallgraph' || true)"
+          if [ -n "$tracked" ]; then
+            echo "found tracked binary/archive artifacts; remove them and publish via Releases:" >&2
+            echo "$tracked" >&2
             exit 1
           fi
-          test ! -f SHA256SUMS
-          test ! -d dist || test -z "$(ls -A dist 2>/dev/null || true)"
 
   test:
     name: test (${{ matrix.os }})
@@ -68,6 +67,7 @@ jobs:
           - os: windows-latest
             race: false
             smoke: false
+            win_smoke: true
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
@@ -92,6 +92,25 @@ jobs:
           if [ -f ./bin/opsgraph.exe ]; then BIN=./bin/opsgraph.exe; fi
           "$BIN" test ./fixtures/incident_checkout
           "$BIN" demo --format json >/dev/null
+      - name: Windows exit-code smoke
+        if: ${{ matrix.win_smoke }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN=./bin/opsgraph.exe
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          set +e
+          "$BIN" ask nosuch --fixture ./fixtures/incident_checkout >/dev/null
+          code=$?
+          set -e
+          test "$code" -eq 1
+          "$BIN" path checkout-api auth --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" validate-fixture ./fixtures/incident_checkout >/dev/null
+          DATA="$(mktemp -d)"
+          "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
+          "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
+          # Re-ingest replaces stale rows (fixture path always --replace).
+          "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
       - name: CLI smoke (ubuntu)
         if: ${{ matrix.smoke }}
         shell: bash
@@ -197,6 +216,18 @@ jobs:
           opsgraph demo --format json >/dev/null
           opsgraph validate-fixture ./fixtures/incident_checkout >/dev/null
           opsgraph ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+      - name: install.ps1 from local dist (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          go build -o dist/opsgraph-windows-amd64.exe ./cmd/opsgraph
+          $installDir = Join-Path $env:RUNNER_TEMP "opsgraph-install"
+          $env:OPSGRAPH_DIST_DIR = (Resolve-Path dist).Path
+          $env:OPSGRAPH_INSTALL_DIR = $installDir
+          ./scripts/install.ps1
+          & "$installDir/opsgraph.exe" version
+          & "$installDir/opsgraph.exe" ask checkout --fixture ./fixtures/incident_checkout --format json | Out-Null
 
   cross:
     name: cross-compile (6 targets)

@@ -8,6 +8,7 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/ingest"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 func newValidateFixtureCmd() *cobra.Command {
@@ -30,6 +31,31 @@ func newValidateFixtureCmd() *cobra.Command {
 			if len(missing) > 0 {
 				return fail(1, "missing required files: %v", missing)
 			}
+			if _, err := os.Stat(filepath.Join(dir, "runbooks")); err != nil {
+				cmd.PrintErrln("warning: no runbooks/ directory (opsgraph test may skip verify goldens)")
+			}
+			if matches, _ := filepath.Glob(filepath.Join(dir, "expected", "*.json")); len(matches) == 0 {
+				cmd.PrintErrln("warning: no expected/*.json goldens (opsgraph test has nothing to compare)")
+			}
+
+			// Referential check against declared services.yaml IDs (before stub synthesis).
+			declared, err := declaredServiceIDs(filepath.Join(dir, "services.yaml"))
+			if err != nil {
+				return fail(1, "services.yaml: %v", err)
+			}
+			depPairs, err := declaredDependencies(filepath.Join(dir, "dependencies.yaml"))
+			if err != nil {
+				return fail(1, "dependencies.yaml: %v", err)
+			}
+			for _, d := range depPairs {
+				if !declared[d.from] {
+					return fail(1, "dependency from undeclared service %q (add it to services.yaml)", d.from)
+				}
+				if !declared[d.to] {
+					cmd.Printf("note: dependency target %q is not in services.yaml (will be synthesized as unknown)\n", d.to)
+				}
+			}
+
 			s, cleanup, err := store.OpenTemp()
 			if err != nil {
 				return fail(2, "%v", err)
@@ -57,18 +83,6 @@ func newValidateFixtureCmd() *cobra.Command {
 			for _, svc := range svcs {
 				known[svc.ID] = true
 			}
-			deps, err := s.ListAllDependencies()
-			if err != nil {
-				return fail(2, "%v", err)
-			}
-			for _, d := range deps {
-				if !known[d.FromServiceID] {
-					return fail(1, "dependency from unknown service %q", d.FromServiceID)
-				}
-				if !known[d.ToServiceID] {
-					return fail(1, "dependency to unknown service %q (synthesize or declare it)", d.ToServiceID)
-				}
-			}
 			changes, err := s.ListAllChanges()
 			if err != nil {
 				return fail(2, "%v", err)
@@ -94,4 +108,49 @@ func newValidateFixtureCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+type depPair struct{ from, to string }
+
+func declaredServiceIDs(path string) (map[string]bool, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var f struct {
+		Services []struct {
+			ID string `yaml:"id"`
+		} `yaml:"services"`
+	}
+	if err := yaml.Unmarshal(data, &f); err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, s := range f.Services {
+		if s.ID != "" {
+			out[s.ID] = true
+		}
+	}
+	return out, nil
+}
+
+func declaredDependencies(path string) ([]depPair, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var f struct {
+		Dependencies []struct {
+			From string `yaml:"from"`
+			To   string `yaml:"to"`
+		} `yaml:"dependencies"`
+	}
+	if err := yaml.Unmarshal(data, &f); err != nil {
+		return nil, err
+	}
+	var out []depPair
+	for _, d := range f.Dependencies {
+		out = append(out, depPair{from: d.From, to: d.To})
+	}
+	return out, nil
 }

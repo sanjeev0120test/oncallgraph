@@ -1,5 +1,6 @@
-// Package ingest loads incident data from fixtures (and, later, live sources)
-// into the store. The fixture path is fully deterministic and offline.
+// Package ingest loads incident data from fixtures and live connectors
+// (git, k8s snapshot, optional prometheus/alertmanager) into the store.
+// The fixture path is fully deterministic and offline.
 package ingest
 
 import (

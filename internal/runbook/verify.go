@@ -181,11 +181,15 @@ func (v *Verifier) checkAlertFiring(name string, sr model.StepVerifyResult) (mod
 	}
 	if ok {
 		sr.Status = model.StatusPass
-		sr.Message = fmt.Sprintf("alert %s is firing", al.Name)
+		status := al.Status
+		if status == "" {
+			status = "firing"
+		}
+		sr.Message = fmt.Sprintf("alert %s is %s", al.Name, status)
 		sr.EvidenceID = al.EvidenceID
 	} else {
 		sr.Status = model.StatusStale
-		sr.Message = fmt.Sprintf("alert %q is not firing", name)
+		sr.Message = fmt.Sprintf("alert %q is not active (firing/pending)", name)
 	}
 	return sr, nil
 }

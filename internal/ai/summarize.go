@@ -22,8 +22,8 @@ func LocalSummary(res model.AskResult) string {
 		b.WriteString(", the prime suspect.")
 	}
 
-	if fa := firstFiring(res.Alerts); fa != "" {
-		fmt.Fprintf(&b, " Alert %s is firing.", fa)
+	if name, status := firstActiveAlert(res.Alerts); name != "" {
+		fmt.Fprintf(&b, " Alert %s is %s.", name, status)
 	}
 
 	var unhealthy []string
@@ -50,13 +50,17 @@ func LocalSummary(res model.AskResult) string {
 	return b.String()
 }
 
-func firstFiring(alerts []model.Alert) string {
+func firstActiveAlert(alerts []model.Alert) (name, status string) {
 	for _, a := range alerts {
 		if model.AlertActive(a.Status) {
-			return a.Name
+			st := a.Status
+			if st == "" {
+				st = "firing"
+			}
+			return a.Name, st
 		}
 	}
-	return ""
+	return "", ""
 }
 
 func plural(n int) string {

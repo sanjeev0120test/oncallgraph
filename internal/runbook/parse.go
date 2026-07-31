@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
@@ -49,8 +50,12 @@ func Parse(data []byte, path string) (model.Runbook, FrontMatter, error) {
 		line := sc.Text()
 
 		if m := stepRe.FindStringSubmatch(line); m != nil {
+			num, err := strconv.Atoi(m[1])
+			if err != nil || num <= 0 {
+				num = len(rb.Steps) + 1
+			}
 			rb.Steps = append(rb.Steps, model.RunbookStep{
-				Number: len(rb.Steps) + 1,
+				Number: num,
 				Text:   strings.TrimSpace(m[2]),
 			})
 			curr = len(rb.Steps) - 1

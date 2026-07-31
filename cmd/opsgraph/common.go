@@ -143,8 +143,12 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 	}
 	// Prefer an already-ingested persistent store when present.
 	dir := resolveDataDir("", cfg)
-	if counts, err := peekCounts(dir); err == nil && counts["services"] > 0 {
-		return storeFromDataDir(dir, time.Now().UTC())
+	if counts, err := peekCounts(dir); err == nil {
+		if counts["services"] > 0 {
+			return storeFromDataDir(dir, time.Now().UTC())
+		}
+		// state.db exists but is empty — do not silently fall back to live config.
+		return nil, fmt.Errorf("%w at %s: run `opsgraph ingest` first or pass `--fixture`", ErrEmptyStore, dir)
 	}
 	effPath := resolveConfigPath(configPath)
 	if effPath == "" {

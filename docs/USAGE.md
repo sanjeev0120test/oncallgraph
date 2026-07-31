@@ -91,14 +91,22 @@ Precompiled binaries are published only in **GitHub Releases** (never committed
 to the git source tree). Each `v*` tag builds linux/darwin/windows × amd64/arm64
 archives, `SHA256SUMS`, provenance attestation, and install scripts.
 
+Prefer the **attested release copies** of the installers (same tag as the binary):
+
 ```bash
-# From a GitHub Release (Linux/macOS; Windows zip supported):
-curl -fsSL https://raw.githubusercontent.com/sanjeev0120test/opsgraph/main/scripts/install.sh | bash
+# Linux/macOS — pin VERSION to a release tag (example: v0.1.1)
+VERSION=v0.1.1
+curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/install.sh" -o install.sh
+chmod +x install.sh
+OPSGRAPH_VERSION="$VERSION" ./install.sh
 
-# Windows PowerShell:
-irm https://raw.githubusercontent.com/sanjeev0120test/opsgraph/main/scripts/install.ps1 | iex
+# Windows PowerShell
+$Version = "v0.1.1"
+Invoke-WebRequest "https://github.com/sanjeev0120test/opsgraph/releases/download/$Version/install.ps1" -OutFile install.ps1
+$env:OPSGRAPH_VERSION = $Version
+./install.ps1
 
-# Or from source:
+# From source (no release binary):
 go install github.com/sanjeev0120test/opsgraph/cmd/opsgraph@latest
 ```
 

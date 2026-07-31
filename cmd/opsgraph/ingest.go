@@ -16,6 +16,7 @@ func newIngestCmd() *cobra.Command {
 		fixture    string
 		configPath string
 		dataDir    string
+		replace    bool
 	)
 	cmd := &cobra.Command{
 		Use:   "ingest",
@@ -32,6 +33,14 @@ func newIngestCmd() *cobra.Command {
 				return fail(2, "%v", err)
 			}
 			defer s.Close()
+
+			// Fixture packs are complete snapshots: always replace so removed
+			// entities do not linger. Live ingest replaces only with --replace.
+			if replace || fixture != "" {
+				if err := s.Reset(); err != nil {
+					return fail(2, "reset store: %v", err)
+				}
+			}
 
 			now := time.Now().UTC()
 			switch {
@@ -68,5 +77,6 @@ func newIngestCmd() *cobra.Command {
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (legacy .oncallgraph.yaml also accepted)")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory (default: config data_dir or .opsgraph/data)")
+	cmd.Flags().BoolVar(&replace, "replace", false, "clear the store before ingest (fixture ingest always replaces)")
 	return cmd
 }

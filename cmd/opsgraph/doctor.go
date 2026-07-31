@@ -42,6 +42,11 @@ func newDoctorCmd() *cobra.Command {
 			cfg, err := config.Load(configPath)
 			check("config_load", err == nil, errOrOK(err))
 			if err == nil {
+				if configPath == "" && resolveConfigPath("") == "" {
+					warnf("config_file", "no .opsgraph.yaml (using built-in defaults)")
+				} else if eff := resolveConfigPath(configPath); eff != "" {
+					check("config_file", true, eff)
+				}
 				dir := resolveDataDir("", cfg)
 				db := filepath.Join(dir, "state.db")
 				if pathExists(db) {

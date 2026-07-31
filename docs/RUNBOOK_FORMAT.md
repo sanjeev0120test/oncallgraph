@@ -37,7 +37,7 @@ binds to the nearest preceding numbered step.
 | `deploy_age_lt:Xm` / `deploy_age_gt:Xm` | Newest change age vs window |
 | `k8s_deployment_exists:name` | Deployment present in snapshot |
 | `service_healthy:name` / `service_unhealthy:name` | Health matches |
-| `alert_firing:name` | Alert status is `firing` |
+| `alert_firing:name` | Alert status is `firing` or `pending` (active) |
 | `manual` | Always manual (never fails the step) |
 
 ### Roll-up
