@@ -14,16 +14,12 @@ import (
 )
 
 // JSON writes res as indented, deterministic JSON with a trailing newline.
+// HTML characters (<, >, &) are left literal so goldens stay human-readable.
 func JSON(w io.Writer, v any) error {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	if _, err := w.Write(b); err != nil {
-		return err
-	}
-	_, err = io.WriteString(w, "\n")
-	return err
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
 }
 
 // Table writes a compact human-readable summary of an AskResult.

@@ -148,7 +148,8 @@
     "Check upstream auth (unhealthy) before changing checkout.",
     "Acknowledge firing alert CheckoutErrorRateHigh and correlate it with the recent change.",
     "Runbook runbooks/checkout.md is stale - review step(s) 2.",
-    "Notify owner Payments Team \u003cpayments@example.com\u003e."
+    "Notify owner Payments Team <payments@example.com>.",
+    "Write a short handoff note with evidence IDs before closing the incident."
   ],
   "evidence": [
     {

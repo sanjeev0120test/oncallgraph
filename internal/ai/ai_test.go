@@ -44,10 +44,14 @@ func TestSummarizeDisabledFallsBackToLocal(t *testing.T) {
 func TestSummarizeUnreachableFallsBackToLocal(t *testing.T) {
 	cfg := config.Default()
 	cfg.AI.Enabled = true
-	cfg.AI.OllamaURL = "http://127.0.0.1:1" // nothing listening -> connection refused
-	cfg.AI.Timeout = "3s"
+	// Use a cancelled context so the Ollama attempt fails immediately with no
+	// real network dependency (CI stays offline-deterministic).
+	cfg.AI.OllamaURL = "http://127.0.0.1:9"
+	cfg.AI.Timeout = "50ms"
 	res := sampleResult()
-	if got := Summarize(context.Background(), cfg, res); got != LocalSummary(res) {
-		t.Fatalf("unreachable Ollama should degrade to LocalSummary, got:\n%s", got)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if got := Summarize(ctx, cfg, res); got != LocalSummary(res) {
+		t.Fatalf("cancelled/unreachable Ollama should degrade to LocalSummary, got:\n%s", got)
 	}
 }

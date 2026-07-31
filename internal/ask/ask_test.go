@@ -82,8 +82,12 @@ func TestAskContent(t *testing.T) {
 		t.Fatalf("runbook result = %+v", res.RunbookResult)
 	}
 
-	if len(res.Recommendations) == 0 || !strings.Contains(res.Recommendations[0], "most recent") {
+	if len(res.Recommendations) < 2 || !strings.Contains(res.Recommendations[0], "most recent") {
 		t.Fatalf("recommendations = %+v", res.Recommendations)
+	}
+	last := res.Recommendations[len(res.Recommendations)-1]
+	if !strings.Contains(last, "handoff note") {
+		t.Fatalf("R6 handoff missing from recommendations: %+v", res.Recommendations)
 	}
 
 	haveEv := map[string]bool{}

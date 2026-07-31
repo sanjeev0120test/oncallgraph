@@ -74,3 +74,43 @@ func TestVerifyMissingRunbook(t *testing.T) {
 		t.Fatalf("order runbook status = %q, want missing", res.Status)
 	}
 }
+
+func TestVerifyUnknownCheckRollsUpFail(t *testing.T) {
+	s, now := loadFixture(t)
+	rb := model.Runbook{
+		ID: "rb-fail", ServiceID: "checkout", Path: "synthetic.md",
+		Steps: []model.RunbookStep{
+			{Number: 1, Text: "unknown check", Check: "not_a_real_check:x"},
+		},
+	}
+	res, err := runbook.NewVerifier(s, now).Verify(rb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != model.StatusFail {
+		t.Fatalf("status = %q, want fail", res.Status)
+	}
+	if res.Steps[0].Status != model.StatusError {
+		t.Fatalf("step status = %q, want error", res.Steps[0].Status)
+	}
+}
+
+func TestVerifyInvalidDeployAgeRollsUpFail(t *testing.T) {
+	s, now := loadFixture(t)
+	rb := model.Runbook{
+		ID: "rb-bad-dur", ServiceID: "checkout", Path: "synthetic.md",
+		Steps: []model.RunbookStep{
+			{Number: 1, Text: "bad duration", Check: "deploy_age_lt:nope"},
+		},
+	}
+	res, err := runbook.NewVerifier(s, now).Verify(rb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != model.StatusFail {
+		t.Fatalf("status = %q, want fail", res.Status)
+	}
+	if res.Steps[0].Status != model.StatusError {
+		t.Fatalf("step status = %q, want error", res.Steps[0].Status)
+	}
+}

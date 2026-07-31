@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"time"
 
@@ -18,7 +19,7 @@ func newVerifyRunbookCmd() *cobra.Command {
 		format     string
 	)
 	cmd := &cobra.Command{
-		Use:   "verify-runbook <service>",
+		Use:   "verify-runbook <service-or-file>",
 		Short: "Check whether a service's runbook is still valid",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,14 +45,9 @@ func newVerifyRunbookCmd() *cobra.Command {
 			}
 			defer ls.cleanup()
 
-			// Resolve alias/name to a canonical id first.
-			svc, err := ls.store.GetServiceByNameOrAlias(args[0])
+			res, err := verifyTarget(ls, args[0])
 			if err != nil {
-				return fail(1, "service %q not found", args[0])
-			}
-			res, err := runbook.NewVerifier(ls.store, ls.now).VerifyService(svc.ID)
-			if err != nil {
-				return fail(2, "%v", err)
+				return err
 			}
 
 			if format == "json" {
@@ -76,6 +72,39 @@ func newVerifyRunbookCmd() *cobra.Command {
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (default: ./.opsgraph.yaml if present)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
+}
+
+// verifyTarget resolves args[0] as an existing file path first, else as a
+// service name/alias against the loaded store.
+func verifyTarget(ls *loadedStore, target string) (model.VerifyResult, error) {
+	if st, err := os.Stat(target); err == nil && !st.IsDir() {
+		data, err := os.ReadFile(target)
+		if err != nil {
+			return model.VerifyResult{}, fail(2, "read runbook %q: %v", target, err)
+		}
+		rb, _, err := runbook.Parse(data, filepath.ToSlash(target))
+		if err != nil {
+			return model.VerifyResult{}, fail(2, "parse runbook %q: %v", target, err)
+		}
+		if rb.ServiceID == "" {
+			return model.VerifyResult{}, fail(2, "runbook %q has no service in front matter", target)
+		}
+		res, err := runbook.NewVerifier(ls.store, ls.now).Verify(rb)
+		if err != nil {
+			return model.VerifyResult{}, fail(2, "%v", err)
+		}
+		return res, nil
+	}
+
+	svc, err := ls.store.GetServiceByNameOrAlias(target)
+	if err != nil {
+		return model.VerifyResult{}, fail(1, "service %q not found", target)
+	}
+	res, err := runbook.NewVerifier(ls.store, ls.now).VerifyService(svc.ID)
+	if err != nil {
+		return model.VerifyResult{}, fail(2, "%v", err)
+	}
+	return res, nil
 }
 
 type statusErr string

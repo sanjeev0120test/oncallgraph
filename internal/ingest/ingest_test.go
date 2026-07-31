@@ -1,6 +1,8 @@
 package ingest_test
 
 import (
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -84,5 +86,34 @@ func TestIngestCheckoutFixture(t *testing.T) {
 	}
 	if len(ev) != 3 {
 		t.Fatalf("want 3 evidence rows, got %d: %+v", len(ev), ev)
+	}
+}
+
+func TestIngestFixtureDirAbsolutePath(t *testing.T) {
+	// Exercises OS-native absolute paths (incl. Windows backslashes via Abs).
+	rel := filepath.Join("..", "..", "fixtures", "incident_checkout")
+	abs, err := filepath.Abs(rel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	now, err := ingest.IngestFixtureDir(s, abs)
+	if err != nil {
+		t.Fatalf("IngestFixtureDir(%q) on %s: %v", abs, runtime.GOOS, err)
+	}
+	want := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	if !now.Equal(want) {
+		t.Fatalf("fixture now = %v, want %v", now, want)
+	}
+	svc, err := s.GetServiceByNameOrAlias("checkout-api")
+	if err != nil {
+		t.Fatalf("resolve alias after abs-path ingest: %v", err)
+	}
+	if svc.ID != "checkout" {
+		t.Fatalf("got %q", svc.ID)
 	}
 }

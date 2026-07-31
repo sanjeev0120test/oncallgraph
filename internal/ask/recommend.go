@@ -4,17 +4,23 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/opsgraph/opsgraph/internal/model"
 )
 
-// recommend produces deterministic, ordered next-step recommendations.
+// r1ChangeWindow is the fixed lookback for recommendation R1. Independent of
+// --since so a wide query window does not falsely elevate an old change.
+const r1ChangeWindow = 30 * time.Minute
+
+const r6Handoff = "Write a short handoff note with evidence IDs before closing the incident."
+
+// recommend produces deterministic, ordered next-step recommendations (R1–R6).
 func recommend(res model.AskResult) []string {
 	var recs []string
 
-	// R1: most recent change is the prime suspect.
-	if len(res.Changes) > 0 {
-		c := res.Changes[0]
+	// R1: most recent change within a fixed 30m threshold is the prime suspect.
+	if c, ok := recentChange(res); ok {
 		ref := c.Revision
 		if ref == "" {
 			ref = c.ID
@@ -40,7 +46,7 @@ func recommend(res model.AskResult) []string {
 		recs = append(recs, fmt.Sprintf("Runbook %s is %s - review step(s) %s.", rb.Path, rb.Status, steps))
 	}
 
-	// R5: always loop in the owner.
+	// R5: always loop in the owner when known.
 	if res.Owner != nil {
 		who := res.Owner.Name
 		if who == "" {
@@ -52,10 +58,20 @@ func recommend(res model.AskResult) []string {
 		recs = append(recs, fmt.Sprintf("Notify owner %s.", who))
 	}
 
-	if len(recs) == 0 {
-		recs = append(recs, "No changes, alerts, or unhealthy dependencies in window; monitor and confirm scope.")
-	}
+	// R6: always appended so every answer ends with a stable handoff step.
+	recs = append(recs, r6Handoff)
 	return recs
+}
+
+func recentChange(res model.AskResult) (model.Change, bool) {
+	if len(res.Changes) == 0 || res.GeneratedAt.IsZero() {
+		return model.Change{}, false
+	}
+	c := res.Changes[0]
+	if res.GeneratedAt.Sub(c.At) > r1ChangeWindow {
+		return model.Change{}, false
+	}
+	return c, true
 }
 
 func changeNoun(t string) string {

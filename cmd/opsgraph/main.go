@@ -2,9 +2,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 // exitError lets subcommands control the process exit code while still
@@ -41,7 +44,11 @@ func exitCodeFor(err error) int {
 }
 
 func main() {
-	err := newRootCmd().Execute()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	root := newRootCmd()
+	err := root.ExecuteContext(ctx)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "opsgraph:", err)
 	}

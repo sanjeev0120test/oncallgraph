@@ -61,7 +61,8 @@
   },
   "timeline": [],
   "recommendations": [
-    "Notify owner Identity Team."
+    "Notify owner Identity Team.",
+    "Write a short handoff note with evidence IDs before closing the incident."
   ],
   "evidence": []
 }
