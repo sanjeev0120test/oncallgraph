@@ -4,14 +4,13 @@
 # Set OPSGRAPH_INSECURE=1 to skip checksum verification (not recommended).
 set -euo pipefail
 
-# Prefer OPSGRAPH_*; accept ONCALLGRAPH_* aliases from the brief rename period.
-REPO="${OPSGRAPH_REPO:-${ONCALLGRAPH_REPO:-sanjeev0120test/opsgraph}}"
-VERSION="${OPSGRAPH_VERSION:-${ONCALLGRAPH_VERSION:-latest}}"
-INSTALL_DIR="${OPSGRAPH_INSTALL_DIR:-${ONCALLGRAPH_INSTALL_DIR:-${HOME}/.local/bin}}"
-DIST_DIR="${OPSGRAPH_DIST_DIR:-${ONCALLGRAPH_DIST_DIR:-}}"
+REPO="${OPSGRAPH_REPO:-sanjeev0120test/opsgraph}"
+VERSION="${OPSGRAPH_VERSION:-latest}"
+INSTALL_DIR="${OPSGRAPH_INSTALL_DIR:-${HOME}/.local/bin}"
+DIST_DIR="${OPSGRAPH_DIST_DIR:-}"
 # Local release-layout dir (archives + SHA256SUMS), same shape as GitHub Releases.
-RELEASE_DIR="${OPSGRAPH_RELEASE_DIR:-${ONCALLGRAPH_RELEASE_DIR:-}}"
-INSECURE="${OPSGRAPH_INSECURE:-${ONCALLGRAPH_INSECURE:-0}}"
+RELEASE_DIR="${OPSGRAPH_RELEASE_DIR:-}"
+INSECURE="${OPSGRAPH_INSECURE:-0}"
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 arch="$(uname -m)"

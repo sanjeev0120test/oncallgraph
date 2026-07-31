@@ -16,7 +16,7 @@ aliases: [checkout-api]
 
 ## Checks
 
-Prefer `opsgraph:check=…` (legacy `oncallgraph:check=…` still works). A check
+Annotate steps with `opsgraph:check=…`. A check
 binds to the nearest preceding numbered step.
 
 ```markdown

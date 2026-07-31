@@ -90,7 +90,7 @@ func newStatusCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (legacy .oncallgraph.yaml also accepted)")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory")
 	return cmd
 }

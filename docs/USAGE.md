@@ -77,7 +77,7 @@ Store counts, environment checks, and build metadata.
 
 ## Optional live connectors
 
-In `.opsgraph.yaml` (see `.opsgraph.example.yaml`; legacy `.oncallgraph.yaml` still accepted):
+In `.opsgraph.yaml` (see `.opsgraph.example.yaml`):
 
 - `connectors.git` — local repo scan
 - `connectors.kubernetes.snapshot` — `deployments.yaml` / `events.yaml` / optional Helm `releases.yaml`

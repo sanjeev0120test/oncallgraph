@@ -63,22 +63,18 @@ func embeddedCheckout() (*loadedStore, error) {
 }
 
 // resolveConfigPath returns the config path to use: the explicit flag, or
-// ./.opsgraph.yaml / legacy ./.oncallgraph.yaml if present, or "".
+// ./.opsgraph.yaml if present, or "".
 func resolveConfigPath(configPath string) string {
 	if configPath != "" {
 		return configPath
 	}
-	for _, candidate := range []string{".opsgraph.yaml", ".oncallgraph.yaml"} {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
+	if _, err := os.Stat(".opsgraph.yaml"); err == nil {
+		return ".opsgraph.yaml"
 	}
 	return ""
 }
 
 // resolveDataDir picks --data-dir, else config.data_dir, else the default.
-// When using the built-in default and only a brief-rename legacy store exists
-// (.oncallgraph/data), that path is used so users are not silently reset.
 func resolveDataDir(flag string, cfg *config.Config) string {
 	if flag != "" {
 		return flag
@@ -86,15 +82,7 @@ func resolveDataDir(flag string, cfg *config.Config) string {
 	if cfg != nil && cfg.DataDir != "" && cfg.DataDir != config.DefaultDataDir {
 		return cfg.DataDir
 	}
-	preferred := config.DefaultDataDir
-	legacy := ".oncallgraph/data"
-	if _, err := os.Stat(filepath.Join(preferred, "state.db")); err == nil {
-		return preferred
-	}
-	if _, err := os.Stat(filepath.Join(legacy, "state.db")); err == nil {
-		return legacy
-	}
-	return preferred
+	return config.DefaultDataDir
 }
 
 // storeFromDataDir opens the persistent store under dataDir (no re-ingest).
@@ -146,13 +134,6 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 	if counts, err := peekCounts(dir); err == nil {
 		if counts["services"] > 0 {
 			return storeFromDataDir(dir, time.Now().UTC())
-		}
-		// Preferred path exists but is empty — try legacy rename dir before failing.
-		legacy := ".oncallgraph/data"
-		if dir != legacy {
-			if lc, lerr := peekCounts(legacy); lerr == nil && lc["services"] > 0 {
-				return storeFromDataDir(legacy, time.Now().UTC())
-			}
 		}
 		// state.db exists but is empty — do not silently fall back to live config.
 		return nil, fmt.Errorf("%w at %s: run `opsgraph ingest` first or pass `--fixture`", ErrEmptyStore, dir)

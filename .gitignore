@@ -20,7 +20,6 @@ DEPENDENCIES.txt
 
 # --- Runtime data / SQLite state ---
 /.opsgraph/
-/.oncallgraph/
 *.db
 *.db-wal
 *.db-shm

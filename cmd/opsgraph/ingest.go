@@ -75,7 +75,7 @@ func newIngestCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (legacy .oncallgraph.yaml also accepted)")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory (default: config data_dir or .opsgraph/data)")
 	cmd.Flags().BoolVar(&replace, "replace", false, "clear the store before ingest (fixture ingest always replaces)")
 	return cmd

@@ -23,8 +23,7 @@ type FrontMatter struct {
 
 var (
 	stepRe = regexp.MustCompile(`^\s*(\d+)\.\s+(.*\S)\s*$`)
-	// Accept opsgraph:check= and brief-rename legacy oncallgraph:check=.
-	checkRe = regexp.MustCompile(`(?:opsgraph|oncallgraph):check=([^\s]+)\s*-->`)
+	checkRe = regexp.MustCompile(`opsgraph:check=([^\s]+)\s*-->`)
 )
 
 // Parse parses a runbook's bytes. path is stored on the result for reference.

@@ -88,7 +88,7 @@ func newDoctorCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (legacy .oncallgraph.yaml also accepted)")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
 	return cmd
 }
 

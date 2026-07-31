@@ -2,11 +2,11 @@
 # Free, no accounts. Verifies SHA256 when SHA256SUMS is present.
 $ErrorActionPreference = "Stop"
 
-$Repo = if ($env:OPSGRAPH_REPO) { $env:OPSGRAPH_REPO } elseif ($env:ONCALLGRAPH_REPO) { $env:ONCALLGRAPH_REPO } else { "sanjeev0120test/opsgraph" }
-$Version = if ($env:OPSGRAPH_VERSION) { $env:OPSGRAPH_VERSION } elseif ($env:ONCALLGRAPH_VERSION) { $env:ONCALLGRAPH_VERSION } else { "latest" }
-$InstallDir = if ($env:OPSGRAPH_INSTALL_DIR) { $env:OPSGRAPH_INSTALL_DIR } elseif ($env:ONCALLGRAPH_INSTALL_DIR) { $env:ONCALLGRAPH_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "opsgraph\bin" }
-$DistDir = if ($env:OPSGRAPH_DIST_DIR) { $env:OPSGRAPH_DIST_DIR } else { $env:ONCALLGRAPH_DIST_DIR }
-$ReleaseDir = if ($env:OPSGRAPH_RELEASE_DIR) { $env:OPSGRAPH_RELEASE_DIR } else { $env:ONCALLGRAPH_RELEASE_DIR }
+$Repo = if ($env:OPSGRAPH_REPO) { $env:OPSGRAPH_REPO } else { "sanjeev0120test/opsgraph" }
+$Version = if ($env:OPSGRAPH_VERSION) { $env:OPSGRAPH_VERSION } else { "latest" }
+$InstallDir = if ($env:OPSGRAPH_INSTALL_DIR) { $env:OPSGRAPH_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "opsgraph\bin" }
+$DistDir = $env:OPSGRAPH_DIST_DIR
+$ReleaseDir = $env:OPSGRAPH_RELEASE_DIR
 
 $arch = $env:PROCESSOR_ARCHITECTURE
 switch -Regex ($arch) {
@@ -23,7 +23,7 @@ function Install-FromArchive {
     [string]$SumsPath
   )
   $asset = Split-Path $ZipPath -Leaf
-  if ($env:OPSGRAPH_INSECURE -ne "1" -and $env:ONCALLGRAPH_INSECURE -ne "1") {
+  if ($env:OPSGRAPH_INSECURE -ne "1") {
     if (-not (Test-Path $SumsPath) -or -not (Get-Item $SumsPath).Length) {
       throw "SHA256SUMS missing or empty (set OPSGRAPH_INSECURE=1 to skip)"
     }

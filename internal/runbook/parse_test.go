@@ -6,7 +6,7 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/runbook"
 )
 
-func TestParseOpsgraphAndLegacyOncallgraphChecks(t *testing.T) {
+func TestParseOpsgraphChecks(t *testing.T) {
 	md := []byte(`---
 service: checkout
 ---
@@ -14,8 +14,8 @@ service: checkout
 1. Prefer the canonical annotation.
 <!-- opsgraph:check=deploy_age_lt:60m -->
 
-2. Brief-rename legacy annotation still works.
-<!-- oncallgraph:check=manual -->
+2. Manual step.
+<!-- opsgraph:check=manual -->
 `)
 	rb, fm, err := runbook.Parse(md, "runbooks/checkout.md")
 	if err != nil {

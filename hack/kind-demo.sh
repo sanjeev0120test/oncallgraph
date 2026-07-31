@@ -4,7 +4,7 @@
 # Prerequisites: docker, kind, kubectl. Free and local only.
 set -euo pipefail
 
-CLUSTER="${OPSGRAPH_KIND_CLUSTER:-${ONCALLGRAPH_KIND_CLUSTER:-opsgraph-demo}}"
+CLUSTER="${OPSGRAPH_KIND_CLUSTER:-opsgraph-demo}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SNAP="$(mktemp -d "${TMPDIR:-/tmp}/opsgraph-snap.XXXXXX")"
 trap 'rm -rf "$SNAP"' EXIT

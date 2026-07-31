@@ -68,7 +68,7 @@ services:
 	}
 }
 
-func TestLoadPrefersOpsgraphOverOncallgraphLegacy(t *testing.T) {
+func TestLoadDefaultOpsgraphYAML(t *testing.T) {
 	dir := t.TempDir()
 	cwd, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
@@ -77,33 +77,12 @@ func TestLoadPrefersOpsgraphOverOncallgraphLegacy(t *testing.T) {
 	if err := os.WriteFile(".opsgraph.yaml", []byte("default_since: 10m\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(".oncallgraph.yaml", []byte("default_since: 45m\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	cfg, err := Load("")
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 	if cfg.Since() != 10*time.Minute {
 		t.Fatalf("since = %v, want 10m from .opsgraph.yaml", cfg.Since())
-	}
-}
-
-func TestLoadLegacyOncallgraphYAML(t *testing.T) {
-	dir := t.TempDir()
-	cwd, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
-	_ = os.Chdir(dir)
-
-	if err := os.WriteFile(".oncallgraph.yaml", []byte("default_since: 45m\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.Since() != 45*time.Minute {
-		t.Fatalf("since = %v, want 45m from legacy file", cfg.Since())
 	}
 }
 
