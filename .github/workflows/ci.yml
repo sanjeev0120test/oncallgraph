@@ -119,6 +119,29 @@ jobs:
           "$BIN" version >/dev/null
           # --ai degrades offline (must not fail)
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json >/dev/null
+          # enterprise feature smoke (offline, deterministic)
+          "$BIN" services --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" owners --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" graph --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" graph --fixture ./fixtures/incident_checkout --format mermaid >/dev/null
+          "$BIN" evidence ev-change-1 --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" explain checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" report checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" score checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" who checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" timeline checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" path order auth --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" blast checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" doctor >/dev/null
+          "$BIN" validate-fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" completion bash >/dev/null
+          set +e
+          "$BIN" watch checkout --fixture ./fixtures/incident_checkout --interval 1ms --timeout 5ms >/dev/null
+          code=$?
+          set -e
+          test "$code" -eq 1
+
 
   cross:
     name: cross-compile
