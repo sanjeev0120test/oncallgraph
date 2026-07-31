@@ -11,7 +11,7 @@ import (
 )
 
 // DefaultDataDir is used when config omits data_dir.
-const DefaultDataDir = ".opsgraph/data"
+const DefaultDataDir = ".oncallgraph/data"
 
 // DefaultSince is used when config omits default_since.
 const DefaultSince = time.Hour

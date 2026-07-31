@@ -5,9 +5,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/ask"
-	"github.com/opsgraph/opsgraph/internal/output"
-	"github.com/opsgraph/opsgraph/internal/score"
+	"github.com/sanjeev0120test/oncallgraph/internal/ask"
+	"github.com/sanjeev0120test/oncallgraph/internal/output"
+	"github.com/sanjeev0120test/oncallgraph/internal/score"
 	"github.com/spf13/cobra"
 )
 

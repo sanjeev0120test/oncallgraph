@@ -3,7 +3,7 @@ package version
 
 // These are overridden at build time with:
 //
-//	-ldflags "-X github.com/opsgraph/opsgraph/internal/version.Version=..."
+//	-ldflags "-X github.com/sanjeev0120test/oncallgraph/internal/version.Version=..."
 var (
 	Version = "dev"
 	Commit  = "none"

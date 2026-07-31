@@ -29,7 +29,7 @@ func TestNewFeatureCommands(t *testing.T) {
 		{"watch-timeout", []string{"watch", "checkout", "--fixture", fx, "--interval", "1ms", "--timeout", "5ms"}, 1, "degraded"},
 		{"doctor", []string{"doctor"}, 0, "summary:"},
 		{"validate", []string{"validate-fixture", fx}, 0, "valid"},
-		{"completion", []string{"completion", "bash"}, 0, "opsgraph"},
+		{"completion", []string{"completion", "bash"}, 0, "oncallgraph"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

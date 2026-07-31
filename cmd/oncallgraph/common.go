@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/opsgraph/opsgraph/fixtures"
-	"github.com/opsgraph/opsgraph/internal/config"
-	"github.com/opsgraph/opsgraph/internal/ingest"
-	"github.com/opsgraph/opsgraph/internal/store"
+	"github.com/sanjeev0120test/oncallgraph/fixtures"
+	"github.com/sanjeev0120test/oncallgraph/internal/config"
+	"github.com/sanjeev0120test/oncallgraph/internal/ingest"
+	"github.com/sanjeev0120test/oncallgraph/internal/store"
 )
 
 // ErrEmptyStore means a persistent --data-dir has no services yet.
@@ -63,13 +63,15 @@ func embeddedCheckout() (*loadedStore, error) {
 }
 
 // resolveConfigPath returns the config path to use: the explicit flag, or
-// ./.opsgraph.yaml if it exists, or "" if there is no config.
+// ./.oncallgraph.yaml / legacy ./.opsgraph.yaml if present, or "".
 func resolveConfigPath(configPath string) string {
 	if configPath != "" {
 		return configPath
 	}
-	if _, err := os.Stat(".opsgraph.yaml"); err == nil {
-		return ".opsgraph.yaml"
+	for _, candidate := range []string{".oncallgraph.yaml", ".opsgraph.yaml"} {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
 	}
 	return ""
 }
@@ -125,7 +127,7 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 		}
 		if counts["services"] == 0 {
 			ls.cleanup()
-			return nil, fmt.Errorf("%w at %s: run `opsgraph ingest` first or pass `--fixture`", ErrEmptyStore, dataDirFlag)
+			return nil, fmt.Errorf("%w at %s: run `oncallgraph ingest` first or pass `--fixture`", ErrEmptyStore, dataDirFlag)
 		}
 		return ls, nil
 	}
@@ -136,7 +138,7 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 	}
 	effPath := resolveConfigPath(configPath)
 	if effPath == "" {
-		return nil, fmt.Errorf("no data source: pass --fixture <pack>, run `opsgraph ingest`, or add a .opsgraph.yaml")
+		return nil, fmt.Errorf("no data source: pass --fixture <pack>, run `oncallgraph ingest`, or add a .opsgraph.yaml")
 	}
 	return storeFromConfig(cfg, dirOf(effPath), since, time.Now().UTC())
 }

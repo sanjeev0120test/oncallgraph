@@ -11,8 +11,8 @@ func newCompletionCmd() *cobra.Command {
 		Long: `Generate completion scripts for your shell.
 
 Examples:
-  opsgraph completion bash > /etc/bash_completion.d/opsgraph
-  opsgraph completion powershell | Out-String | Invoke-Expression
+  oncallgraph completion bash > /etc/bash_completion.d/oncallgraph
+  oncallgraph completion powershell | Out-String | Invoke-Expression
 `,
 		Args:      cobra.ExactArgs(1),
 		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},

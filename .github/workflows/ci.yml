@@ -10,6 +10,7 @@ permissions:
 
 env:
   GOTOOLCHAIN: local
+  CGO_ENABLED: "0"
 
 jobs:
   lint:
@@ -32,8 +33,6 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
       - name: default build compiles (no k8s.io linked)
-        env:
-          CGO_ENABLED: "0"
         run: go build ./...
 
   test:
@@ -56,70 +55,55 @@ jobs:
           go-version: '1.25'
           cache: true
       - name: Build binary
-        env:
-          CGO_ENABLED: "0"
-        run: go build -o bin/opsgraph ./cmd/opsgraph
+        run: go build -o bin/oncallgraph ./cmd/oncallgraph
       - name: Unit tests
         if: ${{ !matrix.race }}
         run: go test ./...
       - name: Unit tests (race)
         if: ${{ matrix.race }}
-        # -race needs cgo; keep product builds CGO_ENABLED=0 above.
         env:
           CGO_ENABLED: "1"
         run: go test -race ./...
       - name: Fixture / golden tests
-        run: go run ./cmd/opsgraph test ./fixtures/incident_checkout
+        run: go run ./cmd/oncallgraph test ./fixtures/incident_checkout
       - name: Demo (no kube/AI/Docker)
-        run: go run ./cmd/opsgraph demo --format json
-      - name: CLI smoke (ask + verify-runbook exit codes)
+        run: go run ./cmd/oncallgraph demo --format json
+      - name: CLI smoke
         shell: bash
         run: |
           set -euo pipefail
-          # Use the built binary: `go run` collapses non-1 exit codes to 1.
-          BIN=./bin/opsgraph
-          if [ -f ./bin/opsgraph.exe ]; then BIN=./bin/opsgraph.exe; fi
-          # ask success even when runbook is stale
+          BIN=./bin/oncallgraph
+          if [ -f ./bin/oncallgraph.exe ]; then BIN=./bin/oncallgraph.exe; fi
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
-          # ask unknown service => 1
           set +e
           "$BIN" ask nosuch --fixture ./fixtures/incident_checkout >/dev/null
           code=$?
           set -e
           test "$code" -eq 1
-          # ask with no data source => 2
           set +e
           "$BIN" ask checkout >/dev/null
           code=$?
           set -e
           test "$code" -eq 2
-          # stale runbook => exit 1
           set +e
           "$BIN" verify-runbook checkout --fixture ./fixtures/incident_checkout >/dev/null
           code=$?
           set -e
           test "$code" -eq 1
-          # healthy auth runbook => exit 0
           "$BIN" verify-runbook auth --fixture ./fixtures/incident_checkout >/dev/null
-          # missing runbook => exit 1
           set +e
           "$BIN" verify-runbook order --fixture ./fixtures/incident_checkout >/dev/null
           code=$?
           set -e
           test "$code" -eq 1
-          # verify by file path => exit 0
           "$BIN" verify-runbook ./fixtures/incident_checkout/runbooks/auth.md --fixture ./fixtures/incident_checkout >/dev/null
-          # ingest + ask via persistent data-dir
           DATA="$(mktemp -d)"
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" status --data-dir "$DATA" >/dev/null
-          # status / version smoke
           "$BIN" status >/dev/null
           "$BIN" version >/dev/null
-          # --ai degrades offline (must not fail)
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json >/dev/null
-          # enterprise feature smoke (offline, deterministic)
           "$BIN" services --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" owners --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" graph --fixture ./fixtures/incident_checkout >/dev/null
@@ -142,9 +126,38 @@ jobs:
           set -e
           test "$code" -eq 1
 
+  install:
+    name: install-smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+      - name: go install (GOBIN on PATH)
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install ./cmd/oncallgraph
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Verify installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v oncallgraph
+          oncallgraph version
+          oncallgraph doctor
+          oncallgraph demo --format json >/dev/null
+          oncallgraph validate-fixture ./fixtures/incident_checkout >/dev/null
+          oncallgraph ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
 
   cross:
-    name: cross-compile
+    name: cross-compile (6 targets)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -152,24 +165,35 @@ jobs:
         with:
           go-version: '1.25'
           cache: true
-      - name: Cross-compile release targets
+      - name: Cross-compile linux/darwin/windows × amd64/arm64
         env:
           CGO_ENABLED: "0"
         run: |
           set -euo pipefail
           mkdir -p dist
-          for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+          VERSION="ci-${GITHUB_SHA::7}"
+          LDFLAGS="-s -w -X github.com/sanjeev0120test/oncallgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/oncallgraph/internal/version.Commit=${GITHUB_SHA} -X github.com/sanjeev0120test/oncallgraph/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             GOOS="${pair%/*}"
             GOARCH="${pair#*/}"
-            out="dist/opsgraph-${GOOS}-${GOARCH}"
+            out="dist/oncallgraph-${GOOS}-${GOARCH}"
             if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
             echo "building $out"
-            GOOS="$GOOS" GOARCH="$GOARCH" go build -o "$out" ./cmd/opsgraph
+            GOOS="$GOOS" GOARCH="$GOARCH" go build -ldflags "$LDFLAGS" -o "$out" ./cmd/oncallgraph
+            test -s "$out"
           done
           ls -la dist
+          # Smoke-run the linux/amd64 artifact on the runner.
+          ./dist/oncallgraph-linux-amd64 version
+          ./dist/oncallgraph-linux-amd64 doctor
+      - name: Upload cross-compile artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: oncallgraph-cross-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
 
-  # Phase-2 only; kept disabled so default CI stays clusterless and secret-free.
-  # Enable locally with: bash hack/kind-demo.sh (needs docker + kind + kubectl).
   kind-integration:
     if: false
     runs-on: ubuntu-latest

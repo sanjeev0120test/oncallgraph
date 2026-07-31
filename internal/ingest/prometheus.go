@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/model"
-	"github.com/opsgraph/opsgraph/internal/store"
+	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/oncallgraph/internal/store"
 )
 
 // IngestPrometheus fetches /api/v1/alerts and upserts firing/pending alerts.

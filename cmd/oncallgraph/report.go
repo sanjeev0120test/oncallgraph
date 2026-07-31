@@ -4,17 +4,17 @@ import (
 	"errors"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/ask"
-	"github.com/opsgraph/opsgraph/internal/explain"
+	"github.com/sanjeev0120test/oncallgraph/internal/ask"
+	"github.com/sanjeev0120test/oncallgraph/internal/report"
 	"github.com/spf13/cobra"
 )
 
-func newExplainCmd() *cobra.Command {
+func newReportCmd() *cobra.Command {
 	var src sourceFlags
 	var since time.Duration
 	cmd := &cobra.Command{
-		Use:   "explain <service>",
-		Short: "Deterministic root-cause narrative for a service",
+		Use:   "report <service>",
+		Short: "Export a markdown incident report for a service",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ls, cfg, err := src.load(since)
@@ -32,7 +32,7 @@ func newExplainCmd() *cobra.Command {
 				}
 				return fail(2, "%v", err)
 			}
-			cmd.Print(explain.Narrative(res))
+			cmd.Print(report.Markdown(res))
 			return nil
 		},
 	}

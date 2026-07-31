@@ -4,10 +4,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/opsgraph/opsgraph/internal/config"
-	"github.com/opsgraph/opsgraph/internal/model"
-	"github.com/opsgraph/opsgraph/internal/output"
-	"github.com/opsgraph/opsgraph/internal/runbook"
+	"github.com/sanjeev0120test/oncallgraph/internal/config"
+	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/oncallgraph/internal/output"
+	"github.com/sanjeev0120test/oncallgraph/internal/runbook"
 	"github.com/spf13/cobra"
 )
 
@@ -61,7 +61,7 @@ func newVerifyRunbookCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (default: ./.opsgraph.yaml if present)")
-	cmd.Flags().StringVar(&dataDir, "data-dir", "", "read from a persistent store (from `opsgraph ingest`)")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "read from a persistent store (from `oncallgraph ingest`)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
 }

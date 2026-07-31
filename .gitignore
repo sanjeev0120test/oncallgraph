@@ -1,4 +1,4 @@
-# --- opsgraph local-only planning docs (never pushed, always kept locally) ---
+# --- oncallgraph local-only planning docs (never pushed, always kept locally) ---
 PLAN.md
 AGENTS.md
 
@@ -12,6 +12,7 @@ cover.out
 coverage.*
 
 # --- Runtime data / SQLite state ---
+/.oncallgraph/
 /.opsgraph/
 *.db
 *.db-wal

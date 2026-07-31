@@ -1,0 +1,132 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build artifacts without publishing a GitHub Release'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+# Least privilege for secure delivery: release upload + provenance only.
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  GOTOOLCHAIN: local
+  CGO_ENABLED: "0"
+
+jobs:
+  build:
+    name: build-release-binaries
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+      - name: Resolve version metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="dev-${GITHUB_SHA::7}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "commit=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Run unit + fixture gates before packaging
+        run: |
+          set -euo pipefail
+          go test ./...
+          go run ./cmd/oncallgraph test ./fixtures/incident_checkout
+          go run ./cmd/oncallgraph demo --format json >/dev/null
+      - name: Build multi-arch release binaries
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          VERSION="${{ steps.meta.outputs.version }}"
+          COMMIT="${{ steps.meta.outputs.commit }}"
+          DATE="${{ steps.meta.outputs.date }}"
+          LDFLAGS="-s -w -X github.com/sanjeev0120test/oncallgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/oncallgraph/internal/version.Commit=${COMMIT} -X github.com/sanjeev0120test/oncallgraph/internal/version.Date=${DATE}"
+          for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            GOOS="${pair%/*}"
+            GOARCH="${pair#*/}"
+            out="dist/oncallgraph_${VERSION}_${GOOS}_${GOARCH}"
+            if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
+            echo "building $out"
+            GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/oncallgraph
+            test -s "$out"
+          done
+          cd dist
+          for f in oncallgraph_${VERSION}_linux_* oncallgraph_${VERSION}_darwin_*; do
+            tar -czf "${f}.tar.gz" "$f"
+            rm -f "$f"
+          done
+          for f in oncallgraph_${VERSION}_windows_*.exe; do
+            zip -q "${f%.exe}.zip" "$f"
+            rm -f "$f"
+          done
+          sha256sum *.tar.gz *.zip > SHA256SUMS
+          cat SHA256SUMS
+      - name: Upload release assets (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: oncallgraph-release-${{ steps.meta.outputs.version }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: publish-github-release
+    needs: build
+    runs-on: ubuntu-latest
+    if: >-
+      github.ref_type == 'tag' &&
+      (github.event_name != 'workflow_dispatch' || inputs.dry_run == 'false')
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: oncallgraph-release-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.version }}
+          name: ${{ needs.build.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

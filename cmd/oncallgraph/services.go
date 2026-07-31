@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/opsgraph/opsgraph/internal/output"
+	"github.com/sanjeev0120test/oncallgraph/internal/output"
 	"github.com/spf13/cobra"
 )
 

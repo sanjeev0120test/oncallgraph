@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/opsgraph/opsgraph/fixtures"
-	"github.com/opsgraph/opsgraph/internal/config"
-	"github.com/opsgraph/opsgraph/internal/version"
+	"github.com/sanjeev0120test/oncallgraph/fixtures"
+	"github.com/sanjeev0120test/oncallgraph/internal/config"
+	"github.com/sanjeev0120test/oncallgraph/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +17,7 @@ func newDoctorCmd() *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Run offline health checks for the local opsgraph environment",
+		Short: "Run offline health checks for the local oncallgraph environment",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			okN, warnN, failN := 0, 0, 0
@@ -36,7 +36,7 @@ func newDoctorCmd() *cobra.Command {
 				cmd.Printf("[WARN] %-18s %s\n", name, detail)
 			}
 
-			check("binary", true, fmt.Sprintf("opsgraph %s (%s/%s)", version.String(), runtime.GOOS, runtime.GOARCH))
+			check("binary", true, fmt.Sprintf("oncallgraph %s (%s/%s)", version.String(), runtime.GOOS, runtime.GOARCH))
 			check("cwd", true, mustGetwd())
 
 			cfg, err := config.Load(configPath)

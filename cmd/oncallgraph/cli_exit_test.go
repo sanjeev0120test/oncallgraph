@@ -9,7 +9,7 @@ import (
 
 func repoRoot(t *testing.T) string {
 	t.Helper()
-	// Tests run with CWD = package dir (cmd/opsgraph); fixtures live at repo root.
+	// Tests run with CWD = package dir (cmd/oncallgraph); fixtures live at repo root.
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestCLIExitAskUnknownService(t *testing.T) {
 }
 
 func TestCLIExitAskNoSource(t *testing.T) {
-	// No --fixture and no .opsgraph.yaml in the test CWD (cmd/opsgraph).
+	// No --fixture and no .opsgraph.yaml in the test CWD (cmd/oncallgraph).
 	_, _, code := runRoot(t, "ask", "checkout")
 	if code != 2 {
 		t.Fatalf("ask without source exit = %d, want 2", code)

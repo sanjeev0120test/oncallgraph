@@ -12,16 +12,16 @@ echo "==> go vet"
 go vet ./...
 
 echo "==> go build"
-go build -o bin/opsgraph ./cmd/opsgraph
+go build -o bin/oncallgraph ./cmd/oncallgraph
 
 echo "==> go test (no race)"
 go test ./...
 
 if [ -d ./fixtures/incident_checkout ]; then
   echo "==> fixture/golden test"
-  go run ./cmd/opsgraph test ./fixtures/incident_checkout
+  go run ./cmd/oncallgraph test ./fixtures/incident_checkout
   echo "==> demo"
-  go run ./cmd/opsgraph demo --format json >/dev/null
+  go run ./cmd/oncallgraph demo --format json >/dev/null
 fi
 
 echo "OK - local validation passed"

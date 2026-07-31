@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/opsgraph/opsgraph/internal/model"
+	"github.com/sanjeev0120test/oncallgraph/internal/model"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,8 +21,9 @@ type FrontMatter struct {
 }
 
 var (
-	stepRe  = regexp.MustCompile(`^\s*(\d+)\.\s+(.*\S)\s*$`)
-	checkRe = regexp.MustCompile(`opsgraph:check=([^\s]+)\s*-->`)
+	stepRe = regexp.MustCompile(`^\s*(\d+)\.\s+(.*\S)\s*$`)
+	// Accept both legacy opsgraph:check and oncallgraph:check annotations.
+	checkRe = regexp.MustCompile(`(?:opsgraph|oncallgraph):check=([^\s]+)\s*-->`)
 )
 
 // Parse parses a runbook's bytes. path is stored on the result for reference.

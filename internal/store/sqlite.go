@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/model"
+	"github.com/sanjeev0120test/oncallgraph/internal/model"
 )
 
 // ErrNotFound is returned when a lookup finds nothing.

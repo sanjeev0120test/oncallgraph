@@ -18,7 +18,7 @@ func TestDefaultBuildHasNoK8sIO(t *testing.T) {
 	}
 	root := moduleRoot(t)
 
-	cmd := exec.Command("go", "list", "-deps", "./cmd/opsgraph")
+	cmd := exec.Command("go", "list", "-deps", "./cmd/oncallgraph")
 	cmd.Dir = root
 	out, err := cmd.Output()
 	if err != nil {

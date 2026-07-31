@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/opsgraph/opsgraph/internal/graphviz"
+	"github.com/sanjeev0120test/oncallgraph/internal/graphviz"
 	"github.com/spf13/cobra"
 )
 

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/ingest"
-	"github.com/opsgraph/opsgraph/internal/store"
+	"github.com/sanjeev0120test/oncallgraph/internal/ingest"
+	"github.com/sanjeev0120test/oncallgraph/internal/store"
 )
 
 func TestIngestPrometheus(t *testing.T) {

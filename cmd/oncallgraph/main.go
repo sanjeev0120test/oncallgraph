@@ -1,4 +1,4 @@
-// Command opsgraph is a free, offline-first incident-context CLI for on-call engineers.
+// Command oncallgraph is a free, offline-first incident-context CLI for on-call engineers.
 package main
 
 import (
@@ -50,7 +50,7 @@ func main() {
 	root := newRootCmd()
 	err := root.ExecuteContext(ctx)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "opsgraph:", err)
+		fmt.Fprintln(os.Stderr, "oncallgraph:", err)
 	}
 	os.Exit(exitCodeFor(err))
 }

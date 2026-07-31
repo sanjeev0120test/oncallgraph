@@ -2,8 +2,8 @@
 # Philosophy: CI does the heavy validation (race, matrix, coverage). Locally,
 # use `make quick` (fast) so your machine stays responsive.
 
-BINARY      := opsgraph
-PKG         := ./cmd/opsgraph
+BINARY      := oncallgraph
+PKG         := ./cmd/oncallgraph
 BIN_DIR     := bin
 FIXTURE     := ./fixtures/incident_checkout
 
@@ -11,9 +11,9 @@ VERSION     ?= dev
 COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE        ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS     := -s -w \
-	-X github.com/opsgraph/opsgraph/internal/version.Version=$(VERSION) \
-	-X github.com/opsgraph/opsgraph/internal/version.Commit=$(COMMIT) \
-	-X github.com/opsgraph/opsgraph/internal/version.Date=$(DATE)
+	-X github.com/sanjeev0120test/oncallgraph/internal/version.Version=$(VERSION) \
+	-X github.com/sanjeev0120test/oncallgraph/internal/version.Commit=$(COMMIT) \
+	-X github.com/sanjeev0120test/oncallgraph/internal/version.Date=$(DATE)
 
 export CGO_ENABLED := 0
 
@@ -48,12 +48,14 @@ quick: fmt vet build test fixture-test demo ## Fast local validation (recommende
 
 ci: fmt vet tidy-check race build fixture-test demo ## Heavy validation (mirrors GitHub Actions)
 
-cross: ## Cross-compile release binaries
+cross: ## Cross-compile release binaries (linux/darwin/windows × amd64/arm64)
 	@mkdir -p dist
 	GOOS=linux   GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-amd64   $(PKG)
+	GOOS=linux   GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-arm64   $(PKG)
 	GOOS=darwin  GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-amd64  $(PKG)
 	GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-arm64  $(PKG)
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe $(PKG)
+	GOOS=windows GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-arm64.exe $(PKG)
 
 clean: ## Remove build artifacts
 	rm -rf $(BIN_DIR) dist cover.out

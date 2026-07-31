@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opsgraph/opsgraph/internal/model"
+	"github.com/sanjeev0120test/oncallgraph/internal/model"
 )
 
 // LocalSummary builds a deterministic, offline, extractive summary from the

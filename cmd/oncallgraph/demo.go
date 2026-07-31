@@ -3,10 +3,10 @@ package main
 import (
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/ai"
-	"github.com/opsgraph/opsgraph/internal/ask"
-	"github.com/opsgraph/opsgraph/internal/config"
-	"github.com/opsgraph/opsgraph/internal/output"
+	"github.com/sanjeev0120test/oncallgraph/internal/ai"
+	"github.com/sanjeev0120test/oncallgraph/internal/ask"
+	"github.com/sanjeev0120test/oncallgraph/internal/config"
+	"github.com/sanjeev0120test/oncallgraph/internal/output"
 	"github.com/spf13/cobra"
 )
 

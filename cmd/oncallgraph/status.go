@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/config"
+	"github.com/sanjeev0120test/oncallgraph/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -54,7 +54,7 @@ func newStatusCmd() *cobra.Command {
 			} else if effPath := resolveConfigPath(configPath); effPath != "" {
 				ls, err = storeFromConfig(cfg, dirOf(effPath), cfg.Since(), time.Now().UTC())
 			} else {
-				cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")
+				cmd.Println("\nNo data source (pass --fixture <pack>, run `oncallgraph ingest`, or add .opsgraph.yaml) - showing config only.")
 				return nil
 			}
 			if err != nil {
@@ -101,7 +101,8 @@ func sortedKeys(m map[string]int) []string {
 }
 
 func dirOf(p string) string {
-	if p == ".opsgraph.yaml" {
+	base := filepath.Base(p)
+	if base == ".oncallgraph.yaml" || base == ".opsgraph.yaml" {
 		return "."
 	}
 	return filepath.Dir(p)

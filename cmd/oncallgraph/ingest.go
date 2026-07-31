@@ -5,9 +5,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/config"
-	"github.com/opsgraph/opsgraph/internal/ingest"
-	"github.com/opsgraph/opsgraph/internal/store"
+	"github.com/sanjeev0120test/oncallgraph/internal/config"
+	"github.com/sanjeev0120test/oncallgraph/internal/ingest"
+	"github.com/sanjeev0120test/oncallgraph/internal/store"
 	"github.com/spf13/cobra"
 )
 

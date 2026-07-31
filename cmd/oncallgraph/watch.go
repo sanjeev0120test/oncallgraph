@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/ask"
-	"github.com/opsgraph/opsgraph/internal/model"
+	"github.com/sanjeev0120test/oncallgraph/internal/ask"
+	"github.com/sanjeev0120test/oncallgraph/internal/model"
 	"github.com/spf13/cobra"
 )
 

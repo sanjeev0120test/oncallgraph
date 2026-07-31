@@ -1,4 +1,4 @@
-module github.com/opsgraph/opsgraph
+module github.com/sanjeev0120test/oncallgraph
 
 go 1.25.0
 

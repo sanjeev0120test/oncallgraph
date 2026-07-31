@@ -1,8 +1,9 @@
-# opsgraph configuration (copy to .opsgraph.yaml and edit).
-# Everything here is optional: `opsgraph demo` and `opsgraph test` work with
+# oncallgraph configuration (copy to .oncallgraph.yaml and edit).
+# Everything here is optional: `oncallgraph demo` and `oncallgraph test` work with
 # no config at all, using the built-in fixture defaults.
+# Legacy `.opsgraph.yaml` is still accepted if present.
 version: 1
-data_dir: .opsgraph/data
+data_dir: .oncallgraph/data
 default_since: 60m
 
 services:

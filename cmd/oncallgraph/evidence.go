@@ -3,8 +3,8 @@ package main
 import (
 	"errors"
 
-	"github.com/opsgraph/opsgraph/internal/output"
-	"github.com/opsgraph/opsgraph/internal/store"
+	"github.com/sanjeev0120test/oncallgraph/internal/output"
+	"github.com/sanjeev0120test/oncallgraph/internal/store"
 	"github.com/spf13/cobra"
 )
 

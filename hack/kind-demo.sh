@@ -82,6 +82,6 @@ connectors:
 YAML
 
 echo "==> opsgraph ask checkout (from snapshot)"
-(cd "$ROOT" && go run ./cmd/opsgraph ask checkout --config "$CFG" --since 60m)
+(cd "$ROOT" && go run ./cmd/oncallgraph ask checkout --config "$CFG" --since 60m)
 
 echo "OK - kind demo finished (cluster left running: kind delete cluster --name $CLUSTER)"

@@ -7,9 +7,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/opsgraph/opsgraph/internal/model"
-	"github.com/opsgraph/opsgraph/internal/runbook"
-	"github.com/opsgraph/opsgraph/internal/store"
+	"github.com/sanjeev0120test/oncallgraph/internal/model"
+	"github.com/sanjeev0120test/oncallgraph/internal/runbook"
+	"github.com/sanjeev0120test/oncallgraph/internal/store"
 )
 
 // Options controls how an answer is assembled.
