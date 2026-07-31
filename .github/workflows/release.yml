@@ -129,17 +129,21 @@ jobs:
           tar -xzf "$archive" -C "$tmp"
           bin="$tmp/opsgraph_${VERSION}_linux_amd64"
           test -x "$bin"
-          # Avoid grep/tee indirection: bash substring match is enough and clearer on failure.
           out="$("$bin" version)"
           echo "version-output: $out"
           if [[ "$out" != *"$VERSION"* ]]; then
-            echo "release binary version output does not contain $VERSION" >&2
+            echo "release binary version stdout does not contain $VERSION" >&2
             exit 1
           fi
           # Absolute fixture path (cwd-independent), same pattern as CI packaging simulation.
           "$bin" ask checkout --fixture "${GITHUB_WORKSPACE}/fixtures/incident_checkout" --format json >/dev/null
           # doctor may WARN (no ollama / no state.db) but must not FAIL.
-          "$bin" doctor
+          set +e
+          doctor_out="$("$bin" doctor 2>&1)"
+          doctor_code=$?
+          set -e
+          echo "$doctor_out"
+          test "$doctor_code" -eq 0
       - name: Upload release assets (artifact)
         uses: actions/upload-artifact@v4
         with:
