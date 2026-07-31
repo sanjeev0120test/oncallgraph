@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"path/filepath"
 	"time"
 
 	"github.com/opsgraph/opsgraph/internal/ai"
@@ -32,19 +33,24 @@ func newAskCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-
-			if fixture == "" {
-				return fail(2, "no data source: pass --fixture <pack> (live connectors are configured via .opsgraph.yaml and are being rolled out)")
+			if since == 0 {
+				since = cfg.Since()
 			}
-			ls, err := storeFromFixtureDir(fixture)
+
+			var ls *loadedStore
+			if fixture != "" {
+				ls, err = storeFromFixtureDir(fixture)
+			} else {
+				effPath := resolveConfigPath(configPath)
+				if effPath == "" {
+					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
+				}
+				ls, err = storeFromConfig(cfg, filepath.Dir(effPath), since, time.Now().UTC())
+			}
 			if err != nil {
 				return fail(2, "%v", err)
 			}
 			defer ls.cleanup()
-
-			if since == 0 {
-				since = cfg.Since()
-			}
 			res, err := ask.Ask(ls.store, args[0], ask.Options{Since: since, Now: ls.now, WithRunbook: withRB})
 			if err != nil {
 				if errors.Is(err, ask.ErrServiceNotFound) {

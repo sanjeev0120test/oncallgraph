@@ -53,11 +53,16 @@ func deploymentHealth(desired, ready int) string {
 	}
 }
 
-// ingestK8sSnapshot reads k8s/deployments.yaml and k8s/events.yaml (if present),
-// updates service health, emits rollout changes, and records event evidence.
+// ingestK8sSnapshot reads a fixture-pack snapshot under k8s/.
 func ingestK8sSnapshot(s *store.Store, fsys fs.FS) error {
+	return ingestK8sFiles(s, fsys, "k8s/deployments.yaml", "k8s/events.yaml")
+}
+
+// ingestK8sFiles reads the given deployment/event files (if present), updates
+// service health, emits rollout changes, and records event evidence.
+func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string) error {
 	var deps k8sDeployments
-	if _, err := readYAML(fsys, "k8s/deployments.yaml", &deps); err != nil {
+	if _, err := readYAML(fsys, depFile, &deps); err != nil {
 		return err
 	}
 	for _, d := range deps.Deployments {
@@ -73,7 +78,7 @@ func ingestK8sSnapshot(s *store.Store, fsys fs.FS) error {
 	}
 
 	var evs k8sEvents
-	if _, err := readYAML(fsys, "k8s/events.yaml", &evs); err != nil {
+	if _, err := readYAML(fsys, evFile, &evs); err != nil {
 		return err
 	}
 	for _, e := range evs.Events {

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"path/filepath"
+	"time"
+
+	"github.com/opsgraph/opsgraph/internal/config"
 	"github.com/opsgraph/opsgraph/internal/model"
 	"github.com/opsgraph/opsgraph/internal/output"
 	"github.com/opsgraph/opsgraph/internal/runbook"
@@ -9,8 +13,9 @@ import (
 
 func newVerifyRunbookCmd() *cobra.Command {
 	var (
-		fixture string
-		format  string
+		fixture    string
+		configPath string
+		format     string
 	)
 	cmd := &cobra.Command{
 		Use:   "verify-runbook <service>",
@@ -20,10 +25,20 @@ func newVerifyRunbookCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			if fixture == "" {
-				return fail(2, "no data source: pass --fixture <pack>")
+			cfg, err := config.Load(configPath)
+			if err != nil {
+				return fail(2, "%v", err)
 			}
-			ls, err := storeFromFixtureDir(fixture)
+			var ls *loadedStore
+			if fixture != "" {
+				ls, err = storeFromFixtureDir(fixture)
+			} else {
+				effPath := resolveConfigPath(configPath)
+				if effPath == "" {
+					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
+				}
+				ls, err = storeFromConfig(cfg, filepath.Dir(effPath), cfg.Since(), time.Now().UTC())
+			}
 			if err != nil {
 				return fail(2, "%v", err)
 			}
@@ -58,6 +73,7 @@ func newVerifyRunbookCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (default: ./.opsgraph.yaml if present)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
 }
