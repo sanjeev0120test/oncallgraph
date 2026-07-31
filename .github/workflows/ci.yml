@@ -76,39 +76,42 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Use the built binary: `go run` collapses non-1 exit codes to 1.
+          BIN=./bin/opsgraph
+          if [ -f ./bin/opsgraph.exe ]; then BIN=./bin/opsgraph.exe; fi
           # ask success even when runbook is stale
-          go run ./cmd/opsgraph ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
           # ask unknown service => 1
           set +e
-          go run ./cmd/opsgraph ask nosuch --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" ask nosuch --fixture ./fixtures/incident_checkout >/dev/null
           code=$?
           set -e
           test "$code" -eq 1
           # ask with no data source => 2
           set +e
-          go run ./cmd/opsgraph ask checkout >/dev/null
+          "$BIN" ask checkout >/dev/null
           code=$?
           set -e
           test "$code" -eq 2
           # stale runbook => exit 1
           set +e
-          go run ./cmd/opsgraph verify-runbook checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" verify-runbook checkout --fixture ./fixtures/incident_checkout >/dev/null
           code=$?
           set -e
           test "$code" -eq 1
           # healthy auth runbook => exit 0
-          go run ./cmd/opsgraph verify-runbook auth --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" verify-runbook auth --fixture ./fixtures/incident_checkout >/dev/null
           # missing runbook => exit 2
           set +e
-          go run ./cmd/opsgraph verify-runbook order --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" verify-runbook order --fixture ./fixtures/incident_checkout >/dev/null
           code=$?
           set -e
           test "$code" -eq 2
           # verify by file path => exit 0
-          go run ./cmd/opsgraph verify-runbook ./fixtures/incident_checkout/runbooks/auth.md --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" verify-runbook ./fixtures/incident_checkout/runbooks/auth.md --fixture ./fixtures/incident_checkout >/dev/null
           # status / version smoke
-          go run ./cmd/opsgraph status >/dev/null
-          go run ./cmd/opsgraph version >/dev/null
+          "$BIN" status >/dev/null
+          "$BIN" version >/dev/null
 
   cross:
     name: cross-compile
