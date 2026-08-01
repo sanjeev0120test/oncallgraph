@@ -333,16 +333,9 @@ func toJSON(v any) string {
 	return string(b)
 }
 
-func fromJSON(s string, v any) {
-	_ = decodeJSON(s, v)
-}
-
 func decodeJSON(s string, v any) error {
 	if s == "" {
 		return nil
 	}
-	if err := json.Unmarshal([]byte(s), v); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal([]byte(s), v)
 }

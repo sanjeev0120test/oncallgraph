@@ -86,9 +86,14 @@ jobs:
       - name: Run unit + fixture gates before packaging
         run: |
           set -euo pipefail
+          # Match CI determinism contract (ask twice must be byte-identical).
           go test ./...
           go run ./cmd/opsgraph test ./fixtures/incident_checkout
           go run ./cmd/opsgraph demo --format json >/dev/null
+          A="$(mktemp)"; B="$(mktemp)"
+          go run ./cmd/opsgraph ask checkout --fixture ./fixtures/incident_checkout --format json >"$A"
+          go run ./cmd/opsgraph ask checkout --fixture ./fixtures/incident_checkout --format json >"$B"
+          cmp -s "$A" "$B"
       - name: Build multi-arch release binaries
         env:
           VERSION: ${{ steps.meta.outputs.version }}

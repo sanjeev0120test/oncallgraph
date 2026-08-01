@@ -180,7 +180,8 @@ func resolveGitRepoPath(repoPath, configDir string) string {
 }
 
 func isNoDataSource(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "no data source")
+	return errors.Is(err, ErrNoDataSource) ||
+		(err != nil && strings.Contains(err.Error(), "no data source"))
 }
 
 func trimSlash(s string) string {

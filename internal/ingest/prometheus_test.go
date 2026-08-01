@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,6 +12,22 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/ingest"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
+
+func TestIngestPrometheusRejectsErrorStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"error","errorType":"bad_data","error":"boom","data":{"alerts":[]}}`))
+	}))
+	t.Cleanup(srv.Close)
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	err = ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{})
+	if err == nil || !strings.Contains(err.Error(), "want success") {
+		t.Fatalf("want status error, got %v", err)
+	}
+}
 
 func TestIngestPrometheus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

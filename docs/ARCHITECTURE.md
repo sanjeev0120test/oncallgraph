@@ -23,7 +23,7 @@
    - else if config has a *usable* kubernetes snapshot and/or Prometheus/Alertmanager URL → live scrape (ephemeral)
    - else populated `state.db` under `data_dir` (resolved relative to the config file when set in YAML)
    - else live config seed (git + services) when `.opsgraph.yaml` exists
-   - Git alone, or seed-only / empty snapshot scrapes, do **not** prefer live over a populated store.
+   - Git alone, seed-only / empty snapshot scrapes, or quiet Prom/AM (reachable, zero alerts) do **not** prefer live over a richer populated store.
    - Prom/AM scrape failures hard-fail; `ask`/`status` fall back to populated `state.db` with a stderr warning. `--data-dir` always forces the store.
 2. Upsert entities into SQLite.
 3. `ask` assembles owner, changes, alerts, 1-hop blast, runbook verify, timeline, recommendations, evidence (keeps live alerts even with skewed StartsAt; drops future resolved/historical rows; suppressed AM alerts are visible but not “active”).

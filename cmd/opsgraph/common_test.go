@@ -71,8 +71,11 @@ func TestWatchFatalLoad(t *testing.T) {
 	if !watchFatalLoad(ErrEmptyStore) {
 		t.Fatal("empty store must be fatal for watch")
 	}
-	if !watchFatalLoad(fmt.Errorf("load config: no such file")) {
-		t.Fatal("config load errors must be fatal")
+	if !watchFatalLoad(fmt.Errorf("%w: pass --fixture", ErrNoDataSource)) {
+		t.Fatal("no data source must be fatal")
+	}
+	if !watchFatalLoad(fmt.Errorf("read config %q: no such file", "x.yaml")) {
+		t.Fatal("config read errors must be fatal")
 	}
 	if watchFatalLoad(fmt.Errorf("temporary network blip")) {
 		t.Fatal("transient errors must retry")

@@ -20,6 +20,9 @@ import (
 // ErrEmptyStore means a persistent --data-dir has no services yet.
 var ErrEmptyStore = errors.New("empty store")
 
+// ErrNoDataSource means no fixture, config, or persisted store is available.
+var ErrNoDataSource = errors.New("no data source")
+
 // loadedStore holds an opened store plus the effective "now" and a cleanup func.
 type loadedStore struct {
 	store   *store.Store
@@ -229,7 +232,7 @@ func loadAskStore(ctx context.Context, fixture, configPath, dataDirFlag string, 
 		return nil, fmt.Errorf("%w at %s: run `opsgraph ingest` first or pass `--fixture`", ErrEmptyStore, dir)
 	}
 	if effPath == "" {
-		return nil, fmt.Errorf("no data source: pass --fixture <pack>, run `opsgraph ingest`, or add a .opsgraph.yaml")
+		return nil, fmt.Errorf("%w: pass --fixture <pack>, run `opsgraph ingest`, or add a .opsgraph.yaml", ErrNoDataSource)
 	}
 	ls, err := storeFromConfig(ctx, cfg, configDir, since, time.Now().UTC())
 	if err != nil {
