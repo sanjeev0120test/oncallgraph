@@ -71,6 +71,8 @@ func handoffNote(res model.AskResult) string {
 			fmt.Fprintf(&b, " [%s]", c.EvidenceID)
 		}
 		b.WriteString("\n")
+	} else if len(res.Changes) > 0 {
+		b.WriteString("- No change inside the 30m suspect window; older lookback changes exist.\n")
 	} else {
 		b.WriteString("- No change inside the 30m suspect window.\n")
 	}

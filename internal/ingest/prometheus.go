@@ -39,7 +39,7 @@ func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, clien
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return fmt.Errorf("prometheus decode: %w", err)
 	}
-	if resp.Status != "" && !strings.EqualFold(resp.Status, "success") {
+	if !strings.EqualFold(strings.TrimSpace(resp.Status), "success") {
 		return fmt.Errorf("prometheus api status %q (want success)", resp.Status)
 	}
 	seen := map[string]bool{}

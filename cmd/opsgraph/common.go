@@ -251,14 +251,28 @@ func loadAskStore(ctx context.Context, fixture, configPath, dataDirFlag string, 
 }
 
 // liveIsQuietConnectorOnly reports a successful Prom/AM scrape that left no
-// incident rows (config seed only). Used to prefer a richer state.db.
+// richer incident rows. Git-only commits still count as a live signal so we do
+// not discard a fresh scrape for a stale state.db.
 func liveIsQuietConnectorOnly(s *store.Store) bool {
 	promOK, _, _ := s.GetMeta("connector:prometheus")
 	amOK, _, _ := s.GetMeta("connector:alertmanager")
 	if promOK != "ok" && amOK != "ok" {
 		return false
 	}
-	return !liveHasRichSignal(s)
+	if liveHasRichSignal(s) {
+		return false
+	}
+	// Fresh git commits in this scrape are still useful on-call signal.
+	if counts, err := s.Counts(); err == nil && counts["changes"] > 0 {
+		if changes, cerr := s.ListAllChanges(); cerr == nil {
+			for _, c := range changes {
+				if c.Source == "git" {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 // liveHasRichSignal reports k8s/helm/fixture/alert rows (not merely Prom meta).

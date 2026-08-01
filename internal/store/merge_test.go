@@ -64,6 +64,46 @@ func TestMergeFromUpsertsAndResolvesZombies(t *testing.T) {
 	}
 }
 
+func TestMergeFromQuietConnectorDoesNotWipeFirings(t *testing.T) {
+	dst, cleanupDst, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanupDst)
+	src, cleanupSrc, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanupSrc)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	svc := model.Service{ID: "checkout", Name: "checkout", Health: model.HealthDegraded}
+	if err := dst.UpsertService(svc); err != nil {
+		t.Fatal(err)
+	}
+	if err := dst.UpsertAlert(model.Alert{
+		ID: "still-firing", ServiceID: "checkout", At: now.Add(-time.Hour),
+		Name: "Keep", Status: "firing", Source: "prometheus",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.UpsertService(svc); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.SetMeta("connector:prometheus", "ok"); err != nil {
+		t.Fatal(err)
+	}
+	if err := dst.MergeFrom(src); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := dst.ListAllAlerts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) != 1 || alerts[0].Status != "firing" {
+		t.Fatalf("quiet merge must keep dst firing: %+v", alerts)
+	}
+}
+
 func TestMergeFromPreservesDestinationHealth(t *testing.T) {
 	dst, cleanupDst, err := store.OpenTemp()
 	if err != nil {

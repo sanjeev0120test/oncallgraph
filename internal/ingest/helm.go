@@ -35,6 +35,9 @@ func ingestHelmReleases(s *store.Store, fsys fs.FS, path string, now time.Time) 
 		if r.ServiceID == "" {
 			continue
 		}
+		if err := ensureServiceStub(s, r.ServiceID); err != nil {
+			return err
+		}
 		if err := emitHelmDeploy(s, r, now); err != nil {
 			return err
 		}

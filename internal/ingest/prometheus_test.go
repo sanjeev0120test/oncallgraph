@@ -29,6 +29,21 @@ func TestIngestPrometheusRejectsErrorStatus(t *testing.T) {
 	}
 }
 
+func TestIngestPrometheusRejectsEmptyStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"alerts":[]}}`))
+	}))
+	t.Cleanup(srv.Close)
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err == nil {
+		t.Fatal("empty status must fail")
+	}
+}
+
 func TestIngestPrometheus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/alerts" {

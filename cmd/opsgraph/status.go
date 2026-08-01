@@ -158,9 +158,9 @@ func probeHTTP(ctx context.Context, baseURL, path string) bool {
 		return false
 	}
 	ct := strings.ToLower(resp.Header.Get("Content-Type"))
-	// Accept JSON APIs; allow empty CT for simple probes (Ollama varies by version).
+	// Ollama historically omits Content-Type; Prom/AM should speak JSON.
 	if ct == "" {
-		return true
+		return strings.Contains(path, "/api/tags")
 	}
 	return strings.Contains(ct, "json") || strings.Contains(ct, "javascript")
 }

@@ -59,22 +59,22 @@ func (s *Store) MergeFrom(src *Store) error {
 		if err := s.UpsertAlert(a); err != nil {
 			return err
 		}
-		switch a.Status {
-		case "firing", "pending", "suppressed":
-			if keepBySource[a.Source] == nil {
-				keepBySource[a.Source] = map[string]bool{}
-			}
-			keepBySource[a.Source][a.ID] = true
+		if keepBySource[a.Source] == nil {
+			keepBySource[a.Source] = map[string]bool{}
 		}
+		keepBySource[a.Source][a.ID] = true
 	}
 	for _, source := range []string{"prometheus", "alertmanager"} {
-		if keep, ok := keepBySource[source]; ok || srcHasConnector(src, source) {
-			if keep == nil {
-				keep = map[string]bool{}
-			}
-			if _, err := s.ResolveActiveAlertsNotIn(source, keep); err != nil {
-				return err
-			}
+		if !srcHasConnector(src, source) {
+			continue
+		}
+		keep := keepBySource[source]
+		// Quiet empty scrape (connector ok, zero alerts) must not wipe dst firings.
+		if len(keep) == 0 {
+			continue
+		}
+		if _, err := s.ResolveActiveAlertsNotIn(source, keep); err != nil {
+			return err
 		}
 	}
 	for _, svc := range svcs {

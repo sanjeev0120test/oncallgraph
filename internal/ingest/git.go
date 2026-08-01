@@ -76,15 +76,43 @@ func recordCommit(s *store.Store, c *object.Commit, serviceID string) error {
 }
 
 // changedFiles returns the set of file paths touched by a commit (vs its first
-// parent, or the full tree for a root commit).
+// parent, or the full tree for a root commit). Uses tree diff so renames/copies
+// still attribute to git_paths (unlike Stats()-only).
 func changedFiles(c *object.Commit) ([]string, error) {
-	stats, err := c.Stats()
+	tree, err := c.Tree()
 	if err != nil {
-		return nil, fmt.Errorf("commit stats %s: %w", c.Hash, err)
+		return nil, fmt.Errorf("commit tree %s: %w", c.Hash, err)
 	}
-	out := make([]string, 0, len(stats))
-	for _, st := range stats {
-		out = append(out, path.Clean(strings.ReplaceAll(st.Name, "\\", "/")))
+	var changes object.Changes
+	if c.NumParents() == 0 {
+		changes, err = object.DiffTree(nil, tree)
+	} else {
+		parent, perr := c.Parent(0)
+		if perr != nil {
+			return nil, fmt.Errorf("commit parent %s: %w", c.Hash, perr)
+		}
+		ptree, perr := parent.Tree()
+		if perr != nil {
+			return nil, fmt.Errorf("parent tree %s: %w", parent.Hash, perr)
+		}
+		changes, err = object.DiffTree(ptree, tree)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("commit diff %s: %w", c.Hash, err)
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(changes))
+	add := func(name string) {
+		p := path.Clean(strings.ReplaceAll(name, "\\", "/"))
+		if p == "." || p == "" || seen[p] {
+			return
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	for _, ch := range changes {
+		add(ch.From.Name)
+		add(ch.To.Name)
 	}
 	sort.Strings(out)
 	return out, nil
