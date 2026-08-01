@@ -39,6 +39,29 @@ func TestUpsertRemoteAlertInactiveResolved(t *testing.T) {
 	}
 }
 
+func TestUpsertRemoteAlertUnknownStateSkipped(t *testing.T) {
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	_, ok, err := upsertRemoteAlert(s,
+		map[string]string{"alertname": "Weird", "severity": "warning", "service": "checkout"},
+		map[string]string{"summary": "x"},
+		"weird-state", now, "prometheus", now)
+	if err != nil || ok {
+		t.Fatalf("unknown state must skip: ok=%v err=%v", ok, err)
+	}
+	alerts, err := s.ListAlerts("checkout", time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) != 0 {
+		t.Fatalf("unknown state must not invent alerts: %+v", alerts)
+	}
+}
+
 func TestUpsertRemoteAlertSuppressedStaysFiring(t *testing.T) {
 	s, cleanup, err := store.OpenTemp()
 	if err != nil {

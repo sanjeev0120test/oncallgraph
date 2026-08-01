@@ -171,4 +171,11 @@ if [[ "$os" == windows ]]; then
 fi
 cp "$bin" "$dest"
 echo "installed ${dest}"
+case ":${PATH}:" in
+  *":${INSTALL_DIR}:"*) ;;
+  *)
+    echo "note: add ${INSTALL_DIR} to your PATH to run opsgraph from any shell" >&2
+    echo "  export PATH=\"${INSTALL_DIR}:\$PATH\"" >&2
+    ;;
+esac
 "$dest" version

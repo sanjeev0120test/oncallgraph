@@ -34,11 +34,10 @@ binds to the nearest preceding numbered step.
 
 | Check | Pass when |
 |-------|-----------|
-| `deploy_age_lt:Xm` / `deploy_age_gt:Xm` | Newest **deploy/rollout** age vs window (commits ignored) |
-| `k8s_deployment_exists:name` | Rollout evidence `ev-k8s-rollout-<name>` present |
+| `deploy_age_lt:Xm` / `deploy_age_gt:Xm` | Newest **deploy/rollout** at/before now vs window (commits + future timestamps ignored) |
+| `k8s_deployment_exists:name` | Rollout evidence for that deployment (`raw_ref`, `ev-k8s-rollout-<name>`, or namespaced `ev-k8s-rollout-<ns>-<name>`) |
 | `service_healthy:name` / `service_unhealthy:name` | Health matches |
-| `alert_firing:name` | Alert with that exact name is `firing` or `pending` (no service-id fallback) |
-| `k8s_deployment_exists:name` | Rollout evidence for that deployment name (default or namespaced id / raw_ref) |
+| `alert_firing:name` | Active alert with that exact name **on this runbook's service** (`firing`/`pending`) |
 | `manual` | Always manual (never fails the step) |
 
 ### Roll-up

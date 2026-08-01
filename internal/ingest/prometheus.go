@@ -110,8 +110,8 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 	if svcID == "" {
 		return "", false, nil
 	}
-	status := "firing"
-	switch strings.ToLower(state) {
+	var status string
+	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "firing", "active":
 		status = "firing"
 	case "resolved", "inactive":
@@ -122,6 +122,10 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 		status = "firing"
 	case "pending", "unprocessed":
 		status = "pending"
+	default:
+		// Unknown states must not invent paging signals.
+		fmt.Fprintf(os.Stderr, "warning: %s alert %q has unknown state %q; skipping\n", source, name, state)
+		return "", false, nil
 	}
 	if at.IsZero() {
 		at = fallbackNow

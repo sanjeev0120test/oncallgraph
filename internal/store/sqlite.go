@@ -398,13 +398,17 @@ func (s *Store) LatestChange(serviceID string) (*model.Change, bool, error) {
 	return &changes[0], true, nil
 }
 
-// LatestDeployOrRollout returns the newest deploy or rollout for a service.
-// Used by deploy_age_* runbook checks so a fresh git commit cannot fake a deploy.
-func (s *Store) LatestDeployOrRollout(serviceID string) (*model.Change, bool, error) {
+// LatestDeployOrRollout returns the newest deploy or rollout for a service at
+// or before asOf. Future rows (clock skew) are skipped so they cannot hide a
+// real prior deploy. Used by deploy_age_* runbook checks.
+func (s *Store) LatestDeployOrRollout(serviceID string, asOf time.Time) (*model.Change, bool, error) {
+	if asOf.IsZero() {
+		asOf = time.Now().UTC()
+	}
 	rows, err := s.db.Query(`
 SELECT id,service_id,at,type,summary,author,revision,source,evidence_id
-FROM changes WHERE service_id=? AND type IN ('deploy','rollout')
-ORDER BY at DESC, id LIMIT 1`, serviceID)
+FROM changes WHERE service_id=? AND type IN ('deploy','rollout') AND at<=?
+ORDER BY at DESC, id LIMIT 1`, serviceID, fmtTime(asOf))
 	if err != nil {
 		return nil, false, wrap("latest deploy/rollout", err)
 	}
@@ -464,10 +468,15 @@ WHERE source=? AND status IN ('firing','pending')`, source)
 }
 
 // FindFiringAlert returns the newest active (firing/pending) alert matching an
-// alert name exactly. It does NOT fall back to service_id — that false-passed
-// checks like alert_firing:checkout when any alert existed for the service.
-func (s *Store) FindFiringAlert(name string) (*model.Alert, bool, error) {
-	return s.findFiringAlertBy(`name=?`, name)
+// alert name for the given service. Name-only matches across other services are
+// rejected so alert_firing:X cannot false-pass from a sibling service's page.
+func (s *Store) FindFiringAlert(serviceID, name string) (*model.Alert, bool, error) {
+	serviceID = strings.TrimSpace(serviceID)
+	name = strings.TrimSpace(name)
+	if serviceID == "" || name == "" {
+		return nil, false, nil
+	}
+	return s.findFiringAlertBy(`service_id=? AND name=?`, serviceID, name)
 }
 
 // FindRolloutEvidence finds rollout evidence for a deployment name. Matches
@@ -529,11 +538,11 @@ func rolloutIDMatches(id, name string) bool {
 	return suf == name || strings.HasSuffix(suf, "-"+name)
 }
 
-func (s *Store) findFiringAlertBy(pred string, arg string) (*model.Alert, bool, error) {
+func (s *Store) findFiringAlertBy(pred string, args ...any) (*model.Alert, bool, error) {
 	rows, err := s.db.Query(`
 SELECT id,service_id,at,severity,name,status,summary,source,evidence_id
 FROM alerts WHERE status IN ('firing','pending') AND (`+pred+`)
-ORDER BY CASE status WHEN 'firing' THEN 0 ELSE 1 END, at DESC, id LIMIT 1`, arg)
+ORDER BY CASE status WHEN 'firing' THEN 0 ELSE 1 END, at DESC, id LIMIT 1`, args...)
 	if err != nil {
 		return nil, false, wrap("find firing alert", err)
 	}

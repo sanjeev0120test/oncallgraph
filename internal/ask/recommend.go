@@ -112,12 +112,18 @@ func recentChange(res model.AskResult) (model.Change, bool) {
 	if len(res.Changes) == 0 || res.GeneratedAt.IsZero() {
 		return model.Change{}, false
 	}
-	c := res.Changes[0]
-	// Reject missing/future timestamps so clock skew cannot invent a prime suspect.
-	if c.At.IsZero() || c.At.After(res.GeneratedAt) || res.GeneratedAt.Sub(c.At) > r1ChangeWindow {
-		return model.Change{}, false
+	// Changes are newest-first; skip future/zero/stale entries so a skew row
+	// cannot hide a valid suspect further down the list.
+	for _, c := range res.Changes {
+		if c.At.IsZero() || c.At.After(res.GeneratedAt) {
+			continue
+		}
+		if res.GeneratedAt.Sub(c.At) > r1ChangeWindow {
+			continue
+		}
+		return c, true
 	}
-	return c, true
+	return model.Change{}, false
 }
 
 func changeNoun(t string) string {

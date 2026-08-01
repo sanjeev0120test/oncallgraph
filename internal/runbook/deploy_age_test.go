@@ -1,7 +1,6 @@
 package runbook_test
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -30,7 +29,7 @@ func TestDeployAgeRejectsNonPositiveDuration(t *testing.T) {
 	}
 }
 
-func TestDeployAgeFutureIsStale(t *testing.T) {
+func TestDeployAgeFutureSkippedUsesPrior(t *testing.T) {
 	s, cleanup, err := store.OpenTemp()
 	if err != nil {
 		t.Fatal(err)
@@ -43,6 +42,12 @@ func TestDeployAgeFutureIsStale(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.UpsertChange(model.Change{
+		ID: "c0", ServiceID: "checkout", At: now.Add(-5 * time.Minute), Type: "deploy",
+		Summary: "real", Source: "fixture", EvidenceID: "ev0",
+	}); err != nil {
+		t.Fatal(err)
+	}
 	v := runbook.NewVerifier(s, now)
 	res, err := v.Verify(model.Runbook{
 		ServiceID: "checkout",
@@ -51,11 +56,11 @@ func TestDeployAgeFutureIsStale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Steps[0].Status != model.StatusStale {
-		t.Fatalf("status=%s want stale", res.Steps[0].Status)
+	if res.Steps[0].Status != model.StatusPass {
+		t.Fatalf("status=%s msg=%q want pass on prior deploy", res.Steps[0].Status, res.Steps[0].Message)
 	}
-	if !strings.Contains(res.Steps[0].Message, "future") {
-		t.Fatalf("message=%q", res.Steps[0].Message)
+	if res.Steps[0].EvidenceID != "ev0" {
+		t.Fatalf("evidence=%q want ev0", res.Steps[0].EvidenceID)
 	}
 }
 

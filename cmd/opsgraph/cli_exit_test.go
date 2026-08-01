@@ -165,6 +165,34 @@ func TestCLILiveFailFallsBackToPersistedStore(t *testing.T) {
 	}
 }
 
+func TestCLIPromFailFallsBackToPersistedStore(t *testing.T) {
+	fx := fixtureDir(t)
+	root := t.TempDir()
+	data := filepath.Join(root, "data")
+	_, _, code := runRoot(t, "ingest", "--fixture", fx, "--data-dir", data)
+	if code != 0 {
+		t.Fatalf("ingest exit = %d", code)
+	}
+	cfgPath := filepath.Join(root, ".opsgraph.yaml")
+	// Unreachable Prom must hard-fail live and fall back (not empty alerts).
+	cfg := "version: 1\n" +
+		"data_dir: data\n" +
+		"connectors:\n" +
+		"  prometheus:\n" +
+		"    enabled: true\n" +
+		"    url: http://127.0.0.1:1\n"
+	if err := os.WriteFile(cfgPath, []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, code := runRoot(t, "ask", "checkout", "--config", cfgPath, "--format", "json")
+	if code != 0 {
+		t.Fatalf("ask prom-fallback exit = %d err=%q out=%q", code, errOut, out)
+	}
+	if !strings.Contains(out, `"CheckoutErrorRateHigh"`) {
+		t.Fatalf("expected persisted alerts after prom fail, got %s (err=%s)", out, errOut)
+	}
+}
+
 func TestCLIExitVerifyUnknownService(t *testing.T) {
 	_, _, code := runRoot(t, "verify-runbook", "nosuch", "--fixture", fixtureDir(t))
 	if code != 1 {
@@ -185,6 +213,14 @@ func TestCLIExitDemo(t *testing.T) {
 	_, _, code := runRoot(t, "demo", "--format", "json")
 	if code != 0 {
 		t.Fatalf("demo exit = %d, want 0", code)
+	}
+}
+
+func TestCLIExitStatusNoData(t *testing.T) {
+	// No fixture/config/data-dir in package CWD → config-only path now exits 1.
+	_, _, code := runRoot(t, "status")
+	if code != 1 {
+		t.Fatalf("status without data exit = %d, want 1", code)
 	}
 }
 

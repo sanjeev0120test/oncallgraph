@@ -9,7 +9,7 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
-func TestFindFiringAlertNameOnly(t *testing.T) {
+func TestFindFiringAlertServiceScoped(t *testing.T) {
 	s, cleanup, err := store.OpenTemp()
 	if err != nil {
 		t.Fatal(err)
@@ -17,17 +17,20 @@ func TestFindFiringAlertNameOnly(t *testing.T) {
 	t.Cleanup(cleanup)
 	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
 	if err := s.UpsertAlert(model.Alert{
-		ID: "a1", ServiceID: "checkout", At: now, Name: "CheckoutErrorRateHigh",
+		ID: "a1", ServiceID: "payments", At: now, Name: "HighErrorRate",
 		Status: "firing", Source: "fixture",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok, err := s.FindFiringAlert("checkout"); err != nil || ok {
-		t.Fatalf("service id must not match alert name: ok=%v err=%v", ok, err)
+	if _, ok, err := s.FindFiringAlert("checkout", "HighErrorRate"); err != nil || ok {
+		t.Fatalf("sibling service must not match: ok=%v err=%v", ok, err)
 	}
-	al, ok, err := s.FindFiringAlert("CheckoutErrorRateHigh")
+	al, ok, err := s.FindFiringAlert("payments", "HighErrorRate")
 	if err != nil || !ok || al.ID != "a1" {
-		t.Fatalf("name match failed: ok=%v al=%+v err=%v", ok, al, err)
+		t.Fatalf("same-service name match failed: ok=%v al=%+v err=%v", ok, al, err)
+	}
+	if _, ok, err := s.FindFiringAlert("payments", "payments"); err != nil || ok {
+		t.Fatalf("service id must not match alert name: ok=%v err=%v", ok, err)
 	}
 }
 
@@ -88,5 +91,30 @@ func TestUpsertRejectsEmptyIDs(t *testing.T) {
 	}
 	if err := s.UpsertDependency(model.Dependency{FromServiceID: "a", ToServiceID: ""}); err == nil {
 		t.Fatal("expected empty dependency error")
+	}
+}
+
+func TestLatestDeployOrRolloutSkipsFuture(t *testing.T) {
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	if err := s.UpsertChange(model.Change{
+		ID: "future", ServiceID: "checkout", At: now.Add(time.Hour), Type: "deploy",
+		Summary: "future", Source: "fixture", EvidenceID: "ev-f",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertChange(model.Change{
+		ID: "past", ServiceID: "checkout", At: now.Add(-10 * time.Minute), Type: "deploy",
+		Summary: "past", Source: "fixture", EvidenceID: "ev-p",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ch, ok, err := s.LatestDeployOrRollout("checkout", now)
+	if err != nil || !ok || ch.ID != "past" {
+		t.Fatalf("want past deploy, got ok=%v ch=%+v err=%v", ok, ch, err)
 	}
 }

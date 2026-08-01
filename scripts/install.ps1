@@ -108,8 +108,20 @@ try {
 
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   $dest = Join-Path $InstallDir "opsgraph.exe"
-  Copy-Item $bin $dest -Force
+  try {
+    Copy-Item $bin $dest -Force
+  } catch {
+    # Windows locks running executables; stage beside and instruct replace.
+    $staged = Join-Path $InstallDir "opsgraph.exe.new"
+    Copy-Item $bin $staged -Force
+    throw "could not replace $dest (is opsgraph running?). Staged as $staged — stop the process and rename it to opsgraph.exe"
+  }
   Write-Host "installed $dest"
+  $pathParts = $env:PATH -split ';' | Where-Object { $_ }
+  if ($pathParts -notcontains $InstallDir) {
+    Write-Warning "add $InstallDir to PATH to run opsgraph from any shell"
+    Write-Host "  `$env:PATH = `"$InstallDir;`$env:PATH`""
+  }
   & $dest version
 } finally {
   Remove-Item -Recurse -Force $tmp.FullName -ErrorAction SilentlyContinue

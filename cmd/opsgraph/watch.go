@@ -90,6 +90,6 @@ func newWatchCmd() *cobra.Command {
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().DurationVar(&interval, "interval", 2*time.Second, "poll interval")
-	cmd.Flags().DurationVar(&timeout, "timeout", 10*time.Second, "give up after this duration")
+	cmd.Flags().DurationVar(&timeout, "timeout", 5*time.Minute, "give up after this duration")
 	return cmd
 }

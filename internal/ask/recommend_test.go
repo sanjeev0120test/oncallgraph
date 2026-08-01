@@ -45,6 +45,22 @@ func TestRecommendR1SkipsFutureChange(t *testing.T) {
 	}
 }
 
+func TestRecommendR1SkipsFutureThenPicksValid(t *testing.T) {
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	res := model.AskResult{
+		Service:     model.Service{ID: "checkout"},
+		GeneratedAt: now,
+		Changes: []model.Change{
+			{ID: "fut", Type: "deploy", Summary: "future", Revision: "f", At: now.Add(5 * time.Minute)},
+			{ID: "ok", Type: "deploy", Summary: "good deploy", Revision: "g", At: now.Add(-10 * time.Minute)},
+		},
+	}
+	recs := recommend(res)
+	if len(recs) == 0 || !strings.Contains(recs[0], "good deploy") {
+		t.Fatalf("R1 should pick valid deploy under future row: %v", recs)
+	}
+}
+
 func TestRecommendR1SkipsOlderThan30m(t *testing.T) {
 	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
 	res := model.AskResult{

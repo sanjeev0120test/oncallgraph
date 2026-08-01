@@ -42,6 +42,13 @@ func (s *Store) SetAsOf(t time.Time) error {
 	return s.SetMeta(metaAsOf, fmtTime(t))
 }
 
+// ClearAsOf removes a persisted incident clock so readers use wall time
+// (live ingest must not freeze ages/R1 windows to the ingest instant).
+func (s *Store) ClearAsOf() error {
+	_, err := s.db.Exec(`DELETE FROM meta WHERE key=?`, metaAsOf)
+	return wrap("clear as_of", err)
+}
+
 // AsOf returns the persisted incident clock, if any.
 func (s *Store) AsOf() (time.Time, bool, error) {
 	v, ok, err := s.GetMeta(metaAsOf)

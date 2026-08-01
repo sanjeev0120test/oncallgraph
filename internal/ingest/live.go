@@ -75,7 +75,7 @@ func LiveIngest(ctx context.Context, s *store.Store, cfg *config.Config, configD
 			if err != nil {
 				return fmt.Errorf("kubernetes snapshot: %w", err)
 			}
-			if err := ingestK8sFiles(s, fsys, depFile, evFile); err != nil {
+			if err := ingestK8sFiles(s, fsys, depFile, evFile, now); err != nil {
 				return fmt.Errorf("kubernetes snapshot: %w", err)
 			}
 			if err := ingestHelmReleases(s, fsys, relFile); err != nil {
@@ -94,8 +94,9 @@ func LiveIngest(ctx context.Context, s *store.Store, cfg *config.Config, configD
 			err := IngestPrometheus(pctx, s, cfg.Connectors.Prometheus.URL, nil, now)
 			cancel()
 			if err != nil {
-				// Soft-fail: during an incident Prom is often unhealthy too.
-				fmt.Fprintf(os.Stderr, "warning: prometheus connector: %v; continuing\n", err)
+				// Hard-fail: soft-success hid missing alerts and let live-prefer
+				// displace a populated state.db / wipe alerts on ingest --replace.
+				return fmt.Errorf("prometheus connector: %w", err)
 			}
 		}
 	}
@@ -110,7 +111,7 @@ func LiveIngest(ctx context.Context, s *store.Store, cfg *config.Config, configD
 			err := IngestAlertmanager(actx, s, cfg.Connectors.Alertmanager.URL, nil, now)
 			cancel()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: alertmanager connector: %v; continuing\n", err)
+				return fmt.Errorf("alertmanager connector: %w", err)
 			}
 		}
 	}

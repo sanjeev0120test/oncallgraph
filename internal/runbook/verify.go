@@ -132,7 +132,7 @@ func (v *Verifier) verifyStep(serviceID string, step model.RunbookStep) (model.S
 			sr.Message = "missing alert name"
 			return sr, nil
 		}
-		return v.checkAlertFiring(arg, sr)
+		return v.checkAlertFiring(serviceID, arg, sr)
 	default:
 		sr.Status = model.StatusError
 		sr.Message = fmt.Sprintf("unknown check %q", check)
@@ -147,19 +147,13 @@ func (v *Verifier) checkDeployAge(serviceID, kind, arg string, sr model.StepVeri
 		sr.Message = fmt.Sprintf("invalid duration %q (must be > 0)", arg)
 		return sr, nil
 	}
-	ch, ok, err := v.store.LatestDeployOrRollout(serviceID)
+	ch, ok, err := v.store.LatestDeployOrRollout(serviceID, v.now)
 	if err != nil {
 		return sr, err
 	}
 	if !ok {
 		sr.Status = model.StatusStale
 		sr.Message = "no deploy/rollout on record"
-		return sr, nil
-	}
-	if ch.At.After(v.now) {
-		sr.Status = model.StatusStale
-		sr.Message = "last deploy/rollout is in the future (clock skew)"
-		sr.EvidenceID = ch.EvidenceID
 		return sr, nil
 	}
 	sr.EvidenceID = ch.EvidenceID
@@ -226,8 +220,8 @@ func (v *Verifier) checkServiceHealth(name string, wantHealthy bool, sr model.St
 	return sr, nil
 }
 
-func (v *Verifier) checkAlertFiring(name string, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
-	al, ok, err := v.store.FindFiringAlert(name)
+func (v *Verifier) checkAlertFiring(serviceID, name string, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
+	al, ok, err := v.store.FindFiringAlert(serviceID, name)
 	if err != nil {
 		return sr, err
 	}

@@ -36,18 +36,18 @@ func FixtureNow(fsys fs.FS) (time.Time, bool, error) {
 // fixture's pinned "now". meta.yaml with a non-zero now: is required so
 // ask/verify remain deterministic after ingest into a persistent store.
 func IngestFixtureFS(s *store.Store, fsys fs.FS) (time.Time, error) {
-	if err := ingestEntities(s, fsys); err != nil {
-		return time.Time{}, err
-	}
-	if err := ingestK8sSnapshot(s, fsys); err != nil {
-		return time.Time{}, err
-	}
 	now, ok, err := FixtureNow(fsys)
 	if err != nil {
 		return time.Time{}, err
 	}
 	if !ok {
 		return time.Time{}, fmt.Errorf("fixture missing meta.yaml with non-zero now: (required for determinism)")
+	}
+	if err := ingestEntities(s, fsys); err != nil {
+		return time.Time{}, err
+	}
+	if err := ingestK8sSnapshot(s, fsys, now); err != nil {
+		return time.Time{}, err
 	}
 	if err := s.SetAsOf(now); err != nil {
 		return time.Time{}, err

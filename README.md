@@ -5,6 +5,8 @@ Free, offline-first incident context for on-call engineers.
 Evidence-backed timeline, blast radius, runbooks, severity scoring, and optional local AI - no accounts, no cloud LLM, no paid services.
 
 ```bash
+# Prefer attested GitHub Release installers (see docs/USAGE.md).
+# Dev-only tip-of-tree (no release ldflags):
 go install github.com/sanjeev0120test/opsgraph/cmd/opsgraph@latest
 opsgraph demo
 ```

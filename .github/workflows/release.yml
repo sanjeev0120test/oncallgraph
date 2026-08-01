@@ -152,6 +152,26 @@ jobs:
           OPSGRAPH_RELEASE_DIR="$PWD/dist" OPSGRAPH_VERSION="$VERSION" OPSGRAPH_INSTALL_DIR="$INSTALL_DIR" ./scripts/install.sh
           "$INSTALL_DIR/opsgraph" version
           "$INSTALL_DIR/opsgraph" ask checkout --fixture "${GITHUB_WORKSPACE}/fixtures/incident_checkout" --format json >/dev/null
+      - name: Smoke-test windows/amd64 zip integrity
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION="${VERSION//$'\r'/}"
+          zip="dist/opsgraph_${VERSION}_windows_amd64.zip"
+          test -s "$zip"
+          tmp="$(mktemp -d)"
+          python3 -c 'import sys, zipfile
+z, d = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(z) as zf:
+    zf.extractall(d)
+    names = zf.namelist()
+assert any(n.endswith(".exe") for n in names), names
+print("windows zip ok:", ", ".join(names))' "$zip" "$tmp"
+          # Also verify darwin archive is non-empty (no execute on linux runner).
+          dar="dist/opsgraph_${VERSION}_darwin_arm64.tar.gz"
+          test -s "$dar"
+          tar -tzf "$dar" | grep -F "opsgraph_${VERSION}_darwin_arm64" >/dev/null
       - name: Upload release assets (artifact)
         uses: actions/upload-artifact@v7
         with:
@@ -218,7 +238,8 @@ jobs:
             dist/install.sh
             dist/install.ps1
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        # Pin commit (v3.0.2) — floating majors are supply-chain risk.
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ needs.build.outputs.version }}
           name: ${{ needs.build.outputs.version }}

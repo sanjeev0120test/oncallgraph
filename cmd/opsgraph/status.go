@@ -59,7 +59,7 @@ func newStatusCmd() *cobra.Command {
 			if err != nil {
 				if fixture == "" && dataDir == "" && (errors.Is(err, ErrEmptyStore) || isNoDataSource(err)) {
 					cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")
-					return nil
+					return fail(1, "no ingested data")
 				}
 				// Empty explicit --data-dir is exit 1 (same contract as ask).
 				return failSource(err)

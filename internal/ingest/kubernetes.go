@@ -59,8 +59,8 @@ func deploymentHealth(desired, ready int) string {
 }
 
 // ingestK8sSnapshot reads a fixture-pack snapshot under k8s/.
-func ingestK8sSnapshot(s *store.Store, fsys fs.FS) error {
-	if err := ingestK8sFiles(s, fsys, "k8s/deployments.yaml", "k8s/events.yaml"); err != nil {
+func ingestK8sSnapshot(s *store.Store, fsys fs.FS, now time.Time) error {
+	if err := ingestK8sFiles(s, fsys, "k8s/deployments.yaml", "k8s/events.yaml", now); err != nil {
 		return err
 	}
 	return ingestHelmReleases(s, fsys, "k8s/releases.yaml")
@@ -68,7 +68,7 @@ func ingestK8sSnapshot(s *store.Store, fsys fs.FS) error {
 
 // ingestK8sFiles reads the given deployment/event files (if present), updates
 // service health, emits rollout changes, and records event evidence.
-func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string) error {
+func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time.Time) error {
 	var deps k8sDeployments
 	if _, err := readYAML(fsys, depFile, &deps); err != nil {
 		return err
@@ -80,7 +80,7 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string) error {
 		if err := applyDeploymentHealth(s, d); err != nil {
 			return err
 		}
-		if err := emitRollout(s, d); err != nil {
+		if err := emitRollout(s, d, now); err != nil {
 			return err
 		}
 	}
@@ -89,14 +89,14 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string) error {
 	if _, err := readYAML(fsys, evFile, &evs); err != nil {
 		return err
 	}
-	skipped := 0
+	skippedNoSvc, skippedNoAt := 0, 0
 	for _, e := range evs.Events {
 		if e.ServiceID == "" {
-			skipped++
+			skippedNoSvc++
 			continue
 		}
 		if e.At.IsZero() {
-			skipped++
+			skippedNoAt++
 			continue
 		}
 		evID := e.EvidenceID
@@ -121,8 +121,11 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string) error {
 			return err
 		}
 	}
-	if skipped > 0 {
-		fmt.Fprintf(os.Stderr, "warning: skipped %d k8s events (missing service_id)\n", skipped)
+	if skippedNoSvc > 0 {
+		fmt.Fprintf(os.Stderr, "warning: skipped %d k8s events (missing service_id)\n", skippedNoSvc)
+	}
+	if skippedNoAt > 0 {
+		fmt.Fprintf(os.Stderr, "warning: skipped %d k8s events (missing/zero at)\n", skippedNoAt)
 	}
 	return nil
 }
@@ -181,9 +184,18 @@ func healthRank(h string) int {
 	}
 }
 
-func emitRollout(s *store.Store, d k8sDeployment) error {
-	if d.UpdatedAt.IsZero() || strings.TrimSpace(d.Name) == "" {
+func emitRollout(s *store.Store, d k8sDeployment, now time.Time) error {
+	if strings.TrimSpace(d.Name) == "" {
 		return nil
+	}
+	at := d.UpdatedAt
+	if at.IsZero() {
+		// Still emit evidence so health-only snapshots contribute R1/timeline.
+		at = now
+		if at.IsZero() {
+			at = time.Now().UTC()
+		}
+		fmt.Fprintf(os.Stderr, "warning: deployment %q missing updated_at; using scrape time\n", d.Name)
 	}
 	// Keep short legacy ids for default-namespace fixtures; namespace elsewhere
 	// so same deployment name in two namespaces cannot overwrite.
@@ -195,13 +207,13 @@ func emitRollout(s *store.Store, d k8sDeployment) error {
 	changeID := "k8s-rollout-" + suffix
 	summary := fmt.Sprintf("rollout %s (%d/%d ready)", d.Name, d.Ready, d.Desired)
 	if err := s.UpsertChange(model.Change{
-		ID: changeID, ServiceID: d.ServiceID, At: d.UpdatedAt, Type: "rollout",
+		ID: changeID, ServiceID: d.ServiceID, At: at, Type: "rollout",
 		Summary: summary, Source: "kubernetes", EvidenceID: evID,
 	}); err != nil {
 		return err
 	}
 	return s.UpsertEvidence(model.Evidence{
-		ID: evID, Source: "kubernetes", At: d.UpdatedAt, Kind: "rollout",
+		ID: evID, Source: "kubernetes", At: at, Kind: "rollout",
 		Summary: summary, RawRef: d.Name, ServiceID: d.ServiceID,
 	})
 }

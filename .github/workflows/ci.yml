@@ -12,8 +12,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Per-SHA groups avoid canceling required main jobs on rapid pushes.
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -294,7 +295,12 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $src = if (Test-Path bin/opsgraph.exe) { "bin/opsgraph.exe" } else { "bin/opsgraph" }
-          Copy-Item $src dist/opsgraph-windows-amd64.exe
+          $arch = switch -Regex ($env:RUNNER_ARCH) {
+            "X64|AMD64" { "amd64" }
+            "ARM64" { "arm64" }
+            default { "amd64" }
+          }
+          Copy-Item $src "dist/opsgraph-windows-$arch.exe"
 
           $installDir = Join-Path $env:RUNNER_TEMP "opsgraph-install-dist"
           $env:OPSGRAPH_DIST_DIR = (Resolve-Path dist).Path
@@ -306,8 +312,8 @@ jobs:
           $ver = "v0.0.0-ci"
           $rel = Join-Path $env:RUNNER_TEMP "opsgraph-release-win"
           New-Item -ItemType Directory -Force -Path $rel | Out-Null
-          $exeName = "opsgraph_${ver}_windows_amd64.exe"
-          $zipName = "opsgraph_${ver}_windows_amd64.zip"
+          $exeName = "opsgraph_${ver}_windows_${arch}.exe"
+          $zipName = "opsgraph_${ver}_windows_${arch}.zip"
           Copy-Item $src (Join-Path $rel $exeName)
           Compress-Archive -Path (Join-Path $rel $exeName) -DestinationPath (Join-Path $rel $zipName) -Force
           Remove-Item (Join-Path $rel $exeName)

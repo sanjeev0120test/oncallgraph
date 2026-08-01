@@ -41,6 +41,7 @@ Notes:
 - Active (`firing`/`pending`) alerts are always shown; `--since` filters resolved/historical alerts only.
 - Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower. The reported window shows both when they differ (e.g. `10m (changes 60m)`).
 - If kubernetes (with snapshot path) / Prometheus / Alertmanager (with URL) are configured in `.opsgraph.yaml`, `ask`/`status`/`why`/`watch` re-scrape them. Enabled-but-empty connectors and git-alone do not displace a populated store. Use `--data-dir` to force the persistent store. Config `data_dir` is resolved relative to the config file.
+- Prometheus/Alertmanager scrape failures are hard errors: live mode falls back to a populated `state.db` (stderr warning) instead of answering with empty alerts. If AM is your paging source, keep `opsgraph ingest` healthy or force `--data-dir`.
 
 Exit codes: `0` success, `1` service not found / empty store, `2` usage/config error.
 
@@ -122,19 +123,25 @@ provenance, and publish the Release.
 Prefer the **attested release copies** of the installers (same tag as the binary):
 
 ```bash
-# Linux/macOS — pin VERSION to a release tag
+# Linux/macOS — pin VERSION to a release tag; verify installer via SHA256SUMS
 VERSION=v0.1.8
+curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/SHA256SUMS" -o SHA256SUMS
 curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/install.sh" -o install.sh
+sha256sum -c SHA256SUMS --ignore-missing
 chmod +x install.sh
 OPSGRAPH_VERSION="$VERSION" ./install.sh
+# Installer lands in ~/.local/bin by default — add it to PATH if needed.
 
 # Windows PowerShell
 $Version = "v0.1.8"
+Invoke-WebRequest "https://github.com/sanjeev0120test/opsgraph/releases/download/$Version/SHA256SUMS" -OutFile SHA256SUMS
 Invoke-WebRequest "https://github.com/sanjeev0120test/opsgraph/releases/download/$Version/install.ps1" -OutFile install.ps1
+# Confirm install.ps1 hash appears in SHA256SUMS, then:
 $env:OPSGRAPH_VERSION = $Version
 ./install.ps1
+# Default install dir: %LOCALAPPDATA%\opsgraph\bin — add to PATH if needed.
 
-# From source (no release binary):
+# Dev-only tip-of-tree (no release ldflags / -buildid=):
 go install github.com/sanjeev0120test/opsgraph/cmd/opsgraph@latest
 ```
 

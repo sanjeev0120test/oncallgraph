@@ -52,11 +52,6 @@ func newIngestCmd() *cobra.Command {
 			// Fixtures always replace. Live ingest replaces by default so
 			// removed entities cannot linger; pass --merge to upsert-only.
 			doReset := fixture != "" || replace || !merge
-			if doReset {
-				if err := s.Reset(); err != nil {
-					return fail(2, "reset store: %v", err)
-				}
-			}
 
 			lookback := since
 			if lookback <= 0 {
@@ -66,14 +61,37 @@ func newIngestCmd() *cobra.Command {
 			now := time.Now().UTC()
 			switch {
 			case fixture != "":
+				if doReset {
+					if err := s.Reset(); err != nil {
+						return fail(2, "reset store: %v", err)
+					}
+				}
 				now, err = ingest.IngestFixtureDir(s, fixture)
 			default:
 				if effPath == "" {
 					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
 				}
-				err = ingest.LiveIngest(cmd.Context(), s, cfg, configDir, now.Add(-ask.ChangeLookback(lookback)), now)
+				sinceAt := now.Add(-ask.ChangeLookback(lookback))
+				// Validate live scrape into a temp store first so a failed
+				// Prom/AM/k8s scrape cannot wipe a populated state.db.
+				if doReset {
+					tmp, cleanup, terr := store.OpenTemp()
+					if terr != nil {
+						return fail(2, "%v", terr)
+					}
+					terr = ingest.LiveIngest(cmd.Context(), tmp, cfg, configDir, sinceAt, now)
+					cleanup()
+					if terr != nil {
+						return fail(2, "%v", terr)
+					}
+					if err := s.Reset(); err != nil {
+						return fail(2, "reset store: %v", err)
+					}
+				}
+				err = ingest.LiveIngest(cmd.Context(), s, cfg, configDir, sinceAt, now)
 				if err == nil {
-					err = s.SetAsOf(now)
+					// Live data ages against wall clock, not ingest instant.
+					err = s.ClearAsOf()
 				}
 			}
 			if err != nil {
