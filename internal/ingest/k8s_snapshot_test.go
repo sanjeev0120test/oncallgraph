@@ -9,6 +9,49 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
+func TestK8sAllowIsPerService(t *testing.T) {
+	root := t.TempDir()
+	body := "" +
+		"deployments:\n" +
+		"  - name: checkout-api\n    service_id: checkout\n    namespace: prod\n    desired: 2\n    ready: 0\n" +
+		"  - name: auth-api\n    service_id: auth\n    namespace: prod\n    desired: 1\n    ready: 0\n"
+	dep := filepath.Join(root, "deployments.yaml")
+	if err := os.WriteFile(dep, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ev := filepath.Join(root, "events.yaml")
+	if err := os.WriteFile(ev, []byte("events: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	allow := k8sAllow{ByService: map[string]svcK8sAllow{
+		"checkout": {
+			Deployments: map[string]bool{"checkout-api": true},
+			hasDeps:     true,
+		},
+		// auth listed with empty allow → block all auth deployments
+		"auth": {Deployments: map[string]bool{}, hasDeps: true},
+	}}
+	if err := ingestK8sFiles(s, os.DirFS(root), "deployments.yaml", "events.yaml",
+		time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC), allow); err != nil {
+		t.Fatal(err)
+	}
+	checkout, err := s.GetService("checkout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checkout.Health != "unhealthy" {
+		t.Fatalf("checkout should ingest allowed deploy, health=%q", checkout.Health)
+	}
+	if _, err := s.GetService("auth"); err == nil {
+		t.Fatal("auth deploy must be filtered by per-service allow")
+	}
+}
+
 func TestOpenK8sSnapshotFSDirAndFile(t *testing.T) {
 	root := t.TempDir()
 	k8s := filepath.Join(root, "k8s")

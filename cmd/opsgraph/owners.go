@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sort"
+
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -41,10 +43,15 @@ func newOwnersCmd() *cobra.Command {
 				for _, s := range svcs {
 					ids = append(ids, s.ID)
 				}
+				sort.Strings(ids)
 				out = append(out, row{ID: o.ID, Name: o.Name, Email: o.Email, Services: ids})
 			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), out)
+			}
+			if len(out) == 0 {
+				cmd.Println("(no owners)")
+				return nil
 			}
 			cmd.Printf("%-14s %-22s %-28s %s\n", "ID", "NAME", "EMAIL", "SERVICES")
 			for _, r := range out {

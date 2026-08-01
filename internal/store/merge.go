@@ -107,7 +107,7 @@ func (s *Store) MergeFrom(src *Store) error {
 			return err
 		}
 	}
-	for _, key := range []string{"connector:prometheus", "connector:alertmanager"} {
+	for _, key := range []string{"connector:prometheus", "connector:alertmanager", "topology:seeded"} {
 		if v, ok, err := src.GetMeta(key); err != nil {
 			return err
 		} else if ok {

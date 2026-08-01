@@ -70,6 +70,10 @@ func newTopCmd() *cobra.Command {
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), rows)
 			}
+			if len(rows) == 0 {
+				cmd.Println("(no services)")
+				return nil
+			}
 			cmd.Printf("%-4s %-16s %-12s %-6s %s\n", "#", "SERVICE", "HEALTH", "SCORE", "LEVEL")
 			for i, r := range rows {
 				cmd.Printf("%-4d %-16s %-12s %-6d %s\n", i+1, r.Service, r.Health, r.Score, r.Level)

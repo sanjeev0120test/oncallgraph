@@ -37,6 +37,10 @@ func newTimelineCmd() *cobra.Command {
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), res.Timeline)
 			}
+			if len(res.Timeline) == 0 {
+				cmd.Println("(no events)")
+				return nil
+			}
 			for _, t := range res.Timeline {
 				ev := t.EvidenceID
 				if ev == "" {

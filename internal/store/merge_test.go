@@ -152,6 +152,9 @@ func TestMergeFromPrunesRemovedTopology(t *testing.T) {
 	if len(deps) != 1 || deps[0].ToServiceID != "auth" {
 		t.Fatalf("expected only checkout→auth after prune, got %+v", deps)
 	}
+	if v, ok, err := dst.GetMeta("topology:seeded"); err != nil || !ok || v != "ok" {
+		t.Fatalf("topology:seeded meta should copy: v=%q ok=%v err=%v", v, ok, err)
+	}
 }
 
 func TestMergeFromPreservesDestinationHealth(t *testing.T) {

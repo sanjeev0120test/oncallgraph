@@ -74,6 +74,10 @@ func newChangesCmd() *cobra.Command {
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), list)
 			}
+			if len(list) == 0 {
+				cmd.Println("(no changes)")
+				return nil
+			}
 			for _, c := range list {
 				cmd.Printf("%s  %-10s %-14s %s [%s]\n", c.At.Format(time.RFC3339), c.Type, c.ServiceID, c.Summary, c.EvidenceID)
 			}
