@@ -110,13 +110,15 @@ func storeFromConfig(cfg *config.Config, configDir string, since time.Duration, 
 	return &loadedStore{store: s, now: now, cleanup: cleanup}, nil
 }
 
-// liveConnectorsEnabled reports whether config would scrape fresh signals.
+// liveConnectorsEnabled reports whether config would scrape *fresh incident*
+// signals. Git-alone is excluded: it is local history enrichment and must not
+// displace a populated persistent store after `opsgraph ingest --fixture`.
 func liveConnectorsEnabled(cfg *config.Config) bool {
 	if cfg == nil {
 		return false
 	}
 	c := cfg.Connectors
-	return c.Git.Enabled || c.Kubernetes.Enabled || c.Prometheus.Enabled || c.Alertmanager.Enabled
+	return c.Kubernetes.Enabled || c.Prometheus.Enabled || c.Alertmanager.Enabled
 }
 
 // loadAskStore resolves fixture / data-dir / live-config into a store.

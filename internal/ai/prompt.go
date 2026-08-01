@@ -60,13 +60,37 @@ func buildPrompt(res model.AskResult, ragContext []string) string {
 			fmt.Fprintf(&b, "- %s\n", c)
 		}
 	}
-	b.WriteString("\nBullets:")
-
-	out := b.String()
+	footer := "\nBullets:"
+	out := b.String() + footer
 	if len(out) > maxPromptChars {
-		out = out[:maxPromptChars]
+		out = truncatePrompt(out, footer, maxPromptChars)
 	}
 	return out
+}
+
+// truncatePrompt drops whole lines from the middle so we never cut mid-token
+// and always keep the instruction footer.
+func truncatePrompt(s, footer string, max int) string {
+	if max < len(footer)+32 {
+		return footer
+	}
+	budget := max - len(footer)
+	body := strings.TrimSuffix(s, footer)
+	if len(body) <= budget {
+		return body + footer
+	}
+	lines := strings.Split(body, "\n")
+	var kept []string
+	n := 0
+	for _, line := range lines {
+		add := len(line) + 1
+		if n+add > budget {
+			break
+		}
+		kept = append(kept, line)
+		n += add
+	}
+	return strings.Join(kept, "\n") + footer
 }
 
 func serviceHealthList(svcs []model.Service) string {

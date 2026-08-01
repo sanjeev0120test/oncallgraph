@@ -30,7 +30,7 @@ opsgraph ask checkout --fixture fixtures/incident_checkout
 # From a persistent store (explicit; no live re-scrape):
 opsgraph ask checkout --data-dir .opsgraph/data
 
-# Live connectors from .opsgraph.yaml (preferred when enabled — fresh scrape):
+# Live k8s/prom/AM connectors from .opsgraph.yaml (preferred over stale state.db):
 opsgraph ask checkout --since 90m
 opsgraph ask checkout --format json --ai
 ```
@@ -39,8 +39,8 @@ Flags: `--fixture`, `--config`, `--data-dir`, `--since`, `--runbook` (default tr
 
 Notes:
 - Active (`firing`/`pending`) alerts are always shown; `--since` filters resolved/historical alerts only.
-- Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower.
-- If `.opsgraph.yaml` has live connectors enabled, `ask`/`why`/`watch` re-scrape them (a prior `state.db` alone will not silently freeze the view). Use `--data-dir` to force the persistent store.
+- Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower. The reported window shows both when they differ (e.g. `10m (changes 60m)`).
+- If kubernetes / Prometheus / Alertmanager are enabled in `.opsgraph.yaml`, `ask`/`status`/`why`/`watch` re-scrape them (a prior `state.db` alone will not freeze the view). Git alone does not displace a populated store. Use `--data-dir` to force the persistent store.
 
 Exit codes: `0` success, `1` service not found / empty store, `2` usage/config error.
 
@@ -49,6 +49,7 @@ Load a fixture pack (or live config sources) into a persistent data dir.
 
 ```bash
 opsgraph ingest --fixture fixtures/incident_checkout --data-dir .opsgraph/data
+opsgraph ingest --since 2h          # live connectors; change lookback (default: config default_since)
 opsgraph ask checkout --data-dir .opsgraph/data
 ```
 

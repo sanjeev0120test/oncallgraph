@@ -11,6 +11,10 @@ if [ -n "$(gofmt -l .)" ]; then echo "unformatted files:"; gofmt -l .; exit 1; f
 echo "==> go vet"
 go vet ./...
 
+echo "==> go mod tidy (check)"
+go mod tidy
+git diff --exit-code go.mod go.sum
+
 echo "==> go build"
 go build -o bin/opsgraph ./cmd/opsgraph
 

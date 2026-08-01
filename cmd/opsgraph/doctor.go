@@ -57,10 +57,11 @@ func newDoctorCmd() *cobra.Command {
 				if !cfg.Connectors.Git.Enabled {
 					warnf("git_repo", "connector disabled")
 				} else {
-					gitPath := cfg.Connectors.Git.RepoPath
-					if gitPath == "" {
-						gitPath = "."
+					cfgDir := "."
+					if eff := resolveConfigPath(configPath); eff != "" {
+						cfgDir = dirOf(eff)
 					}
+					gitPath := resolveGitRepoPath(cfg.Connectors.Git.RepoPath, cfgDir)
 					gitDir := filepath.Join(gitPath, ".git")
 					gitOK := pathExists(gitDir)
 					if gitOK {

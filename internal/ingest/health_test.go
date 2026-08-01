@@ -4,20 +4,23 @@ import "testing"
 
 func TestMergeHealthKeepsWorseAppState(t *testing.T) {
 	cases := []struct {
-		cur, in, want string
+		cur, in string
+		sources []string
+		want    string
 	}{
-		{"", "healthy", "healthy"},
-		{"unknown", "degraded", "degraded"},
-		{"degraded", "healthy", "degraded"},
-		{"unhealthy", "healthy", "unhealthy"},
-		{"healthy", "degraded", "degraded"},
-		{"degraded", "unhealthy", "unhealthy"},
-		{"healthy", "healthy", "healthy"},
+		{"", "healthy", nil, "healthy"},
+		{"unknown", "degraded", nil, "degraded"},
+		{"degraded", "healthy", nil, "degraded"}, // app-level must not be cleared by replicas
+		{"unhealthy", "healthy", nil, "unhealthy"},
+		{"healthy", "degraded", nil, "degraded"},
+		{"degraded", "unhealthy", nil, "unhealthy"},
+		{"healthy", "healthy", nil, "healthy"},
+		{"degraded", "healthy", []string{"kubernetes"}, "healthy"}, // k8s recovery wins
 	}
 	for _, tc := range cases {
-		got := mergeHealth(tc.cur, tc.in)
+		got := mergeHealth(tc.cur, tc.in, tc.sources)
 		if got != tc.want {
-			t.Fatalf("mergeHealth(%q,%q)=%q want %q", tc.cur, tc.in, got, tc.want)
+			t.Fatalf("mergeHealth(%q,%q,%v)=%q want %q", tc.cur, tc.in, tc.sources, got, tc.want)
 		}
 	}
 }

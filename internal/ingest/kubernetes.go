@@ -119,22 +119,35 @@ func applyDeploymentHealth(s *store.Store, d k8sDeployment) error {
 			return err
 		}
 	}
-	// Replica readiness must not paper over a worse app-level health already known.
-	svc.Health = mergeHealth(svc.Health, health)
+	svc.Health = mergeHealth(svc.Health, health, svc.Sources)
 	svc.Sources = addSource(svc.Sources, "kubernetes")
 	return s.UpsertService(*svc)
 }
 
-// mergeHealth keeps the worse of current and incoming. Replica-healthy never
-// upgrades degraded/unhealthy (app can still be broken with pods Ready).
-func mergeHealth(current, incoming string) string {
+// mergeHealth merges replica-derived health with prior state.
+// When prior health came from kubernetes (sources contains "kubernetes"),
+// the latest replica scrape wins so recovery is visible. Otherwise replica
+// health cannot upgrade a worse app-level state (pods Ready ≠ app healthy).
+func mergeHealth(current, incoming string, sources []string) string {
 	if current == "" || current == model.HealthUnknown {
+		return incoming
+	}
+	if hasSource(sources, "kubernetes") {
 		return incoming
 	}
 	if healthRank(incoming) > healthRank(current) {
 		return incoming
 	}
 	return current
+}
+
+func hasSource(sources []string, s string) bool {
+	for _, x := range sources {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 func healthRank(h string) int {
@@ -175,10 +188,8 @@ func eventSummary(e k8sEvent) string {
 }
 
 func addSource(sources []string, s string) []string {
-	for _, existing := range sources {
-		if existing == s {
-			return sources
-		}
+	if hasSource(sources, s) {
+		return sources
 	}
 	return append(sources, s)
 }

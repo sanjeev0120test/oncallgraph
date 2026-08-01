@@ -14,6 +14,9 @@ import (
 // ErrNotFound is returned when a lookup finds nothing.
 var ErrNotFound = errors.New("not found")
 
+// ErrAmbiguous is returned when a name/alias matches more than one service.
+var ErrAmbiguous = errors.New("ambiguous service match")
+
 // --- upserts (idempotent by primary key) ---
 
 // UpsertService inserts or updates a service.
@@ -142,17 +145,34 @@ func (s *Store) GetServiceByNameOrAlias(nameOrAlias string) (*model.Service, err
 		return nil, err
 	}
 	q := strings.ToLower(strings.TrimSpace(nameOrAlias))
+	var matches []model.Service
 	for i := range all {
-		if strings.ToLower(all[i].ID) == q || strings.ToLower(all[i].Name) == q {
-			return &all[i], nil
-		}
-		for _, a := range all[i].Aliases {
-			if strings.ToLower(a) == q {
-				return &all[i], nil
+		hit := strings.ToLower(all[i].ID) == q || strings.ToLower(all[i].Name) == q
+		if !hit {
+			for _, a := range all[i].Aliases {
+				if strings.ToLower(a) == q {
+					hit = true
+					break
+				}
 			}
 		}
+		if hit {
+			matches = append(matches, all[i])
+		}
 	}
-	return nil, ErrNotFound
+	switch len(matches) {
+	case 0:
+		return nil, ErrNotFound
+	case 1:
+		return &matches[0], nil
+	default:
+		ids := make([]string, len(matches))
+		for i := range matches {
+			ids[i] = matches[i].ID
+		}
+		sort.Strings(ids)
+		return nil, fmt.Errorf("%w: %q matches %s", ErrAmbiguous, nameOrAlias, strings.Join(ids, ", "))
+	}
 }
 
 // GetOwner returns an owner by id.
@@ -403,12 +423,21 @@ WHERE source=? AND status IN ('firing','pending')`, source)
 }
 
 // FindFiringAlert returns the newest active (firing/pending) alert matching an
-// alert name or a service id.
+// alert name. Name match is preferred so a check like alert_firing:checkout
+// does not incorrectly pass when only service_id="checkout" has some other alert.
 func (s *Store) FindFiringAlert(nameOrService string) (*model.Alert, bool, error) {
+	al, ok, err := s.findFiringAlertBy(`name=?`, nameOrService)
+	if err != nil || ok {
+		return al, ok, err
+	}
+	return s.findFiringAlertBy(`service_id=?`, nameOrService)
+}
+
+func (s *Store) findFiringAlertBy(pred string, arg string) (*model.Alert, bool, error) {
 	rows, err := s.db.Query(`
 SELECT id,service_id,at,severity,name,status,summary,source,evidence_id
-FROM alerts WHERE status IN ('firing','pending') AND (name=? OR service_id=?)
-ORDER BY CASE status WHEN 'firing' THEN 0 ELSE 1 END, at DESC, id LIMIT 1`, nameOrService, nameOrService)
+FROM alerts WHERE status IN ('firing','pending') AND (`+pred+`)
+ORDER BY CASE status WHEN 'firing' THEN 0 ELSE 1 END, at DESC, id LIMIT 1`, arg)
 	if err != nil {
 		return nil, false, wrap("find firing alert", err)
 	}

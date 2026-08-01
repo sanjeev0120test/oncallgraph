@@ -54,20 +54,28 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			}
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 	if cfg.Connectors.Prometheus.Enabled {
 		if cfg.Connectors.Prometheus.URL == "" {
 			fmt.Fprintln(os.Stderr, "warning: prometheus connector enabled but url is empty; skipping")
-		} else if err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil); err != nil {
-			return fmt.Errorf("prometheus connector: %w", err)
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil)
+			cancel()
+			if err != nil {
+				return fmt.Errorf("prometheus connector: %w", err)
+			}
 		}
 	}
 	if cfg.Connectors.Alertmanager.Enabled {
 		if cfg.Connectors.Alertmanager.URL == "" {
 			fmt.Fprintln(os.Stderr, "warning: alertmanager connector enabled but url is empty; skipping")
-		} else if err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil); err != nil {
-			return fmt.Errorf("alertmanager connector: %w", err)
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil)
+			cancel()
+			if err != nil {
+				return fmt.Errorf("alertmanager connector: %w", err)
+			}
 		}
 	}
 	return nil
@@ -90,16 +98,20 @@ func seedFromConfig(s *store.Store, cfg *config.Config, configDir string) error 
 	}
 	for id, sc := range cfg.Services {
 		health := model.HealthUnknown
+		name := id
 		sources := []string{"config"}
 		if existing, err := s.GetService(id); err == nil {
-			// Preserve connector-derived health; config seed must not wipe it.
+			// Preserve connector-derived health/name; config seed must not wipe them.
 			health = existing.Health
+			if existing.Name != "" {
+				name = existing.Name
+			}
 			sources = addSource(existing.Sources, "config")
 		} else if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return err
 		}
 		if err := s.UpsertService(model.Service{
-			ID: id, Name: id, Aliases: sc.Aliases, OwnerID: sc.Owner,
+			ID: id, Name: name, Aliases: sc.Aliases, OwnerID: sc.Owner,
 			Health: health, Sources: sources,
 		}); err != nil {
 			return err

@@ -1,0 +1,21 @@
+# Minimal config for CI live-connector smoke (k8s snapshot, no git).
+version: 1
+data_dir: .opsgraph/data
+default_since: 60m
+services:
+  checkout:
+    aliases: ["checkout-api"]
+    owner: payments
+    k8s:
+      deployments: ["checkout"]
+owners:
+  payments:
+    name: Payments
+connectors:
+  fixtures:
+    enabled: false
+  git:
+    enabled: false
+  kubernetes:
+    enabled: true
+    snapshot: ../incident_checkout/k8s/deployments.yaml

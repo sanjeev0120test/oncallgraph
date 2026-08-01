@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/config"
@@ -29,6 +31,11 @@ func newStatusCmd() *cobra.Command {
 			}
 			dir := resolveDataDir(dataDir, cfg)
 			dbPath := filepath.Join(dir, "state.db")
+			effPath := resolveConfigPath(configPath)
+			configDir := "."
+			if effPath != "" {
+				configDir = dirOf(effPath)
+			}
 
 			cmd.Println("STORE")
 			cmd.Printf("  data_dir: %s\n", dir)
@@ -36,10 +43,7 @@ func newStatusCmd() *cobra.Command {
 
 			cmd.Println("CONNECTORS")
 			cmd.Printf("  fixtures:     %v\n", cfg.Connectors.Fixtures.Enabled)
-			gitPath := cfg.Connectors.Git.RepoPath
-			if gitPath == "" {
-				gitPath = "."
-			}
+			gitPath := resolveGitRepoPath(cfg.Connectors.Git.RepoPath, configDir)
 			gitOK := pathExists(filepath.Join(gitPath, ".git"))
 			cmd.Printf("  git:          %v (repo %q has_git=%v)\n", cfg.Connectors.Git.Enabled, gitPath, gitOK)
 			cmd.Printf("  kubernetes:   %v (snapshot %q)\n", cfg.Connectors.Kubernetes.Enabled, cfg.Connectors.Kubernetes.Snapshot)
@@ -50,18 +54,13 @@ func newStatusCmd() *cobra.Command {
 			cmd.Printf("AI\n  enabled: %v  model: %s  embed: %s  url: %s  reachable: %v\n",
 				cfg.AI.Enabled, cfg.AI.Model, cfg.AI.EmbedModel, cfg.AI.OllamaURL, ollamaOK)
 
-			var ls *loadedStore
-			if fixture != "" {
-				ls, err = storeFromFixtureDir(fixture)
-			} else if pathExists(dbPath) {
-				ls, err = storeFromDataDir(dir, time.Now().UTC())
-			} else if effPath := resolveConfigPath(configPath); effPath != "" {
-				ls, err = storeFromConfig(cfg, dirOf(effPath), cfg.Since(), time.Now().UTC())
-			} else {
-				cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")
-				return nil
-			}
+			// Same source selection as ask (live k8s/prom/AM preferred over stale db).
+			ls, err := loadAskStore(fixture, configPath, dataDir, cfg, cfg.Since())
 			if err != nil {
+				if fixture == "" && dataDir == "" && (errors.Is(err, ErrEmptyStore) || isNoDataSource(err)) {
+					cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")
+					return nil
+				}
 				return fail(2, "%v", err)
 			}
 			defer ls.cleanup()
@@ -130,12 +129,31 @@ func probeOllama(ctx context.Context, url string) bool {
 	if err != nil {
 		return false
 	}
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
+
+// resolveGitRepoPath mirrors LiveIngest: relative repo_path is config-dir based.
+func resolveGitRepoPath(repoPath, configDir string) string {
+	if repoPath == "" {
+		repoPath = "."
+	}
+	if filepath.IsAbs(repoPath) {
+		return repoPath
+	}
+	if configDir == "" {
+		configDir = "."
+	}
+	return filepath.Join(configDir, repoPath)
+}
+
+func isNoDataSource(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "no data source")
 }
 
 func trimSlash(s string) string {

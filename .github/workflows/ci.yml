@@ -195,6 +195,9 @@ jobs:
           cp .opsgraph.example.yaml "$CFGDIR/.opsgraph.yaml"
           BIN_ABS="$GITHUB_WORKSPACE/bin/opsgraph"
           (cd "$CFGDIR" && "$BIN_ABS" doctor --config .opsgraph.yaml >/dev/null)
+          # Live k8s connector without --data-dir (must not require prior ingest).
+          "$BIN_ABS" ask checkout --config fixtures/ci_live_k8s/.opsgraph.yaml --format json >/dev/null
+          "$BIN_ABS" status --config fixtures/ci_live_k8s/.opsgraph.yaml >/dev/null
       - name: go install smoke
         if: matrix.os == 'ubuntu-latest'
         shell: bash

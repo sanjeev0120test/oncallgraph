@@ -20,7 +20,7 @@ import (
 // explicitly enabled; tested with httptest (no live Prometheus).
 func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, client *http.Client) error {
 	if client == nil {
-		client = http.DefaultClient
+		client = &http.Client{Timeout: 10 * time.Second}
 	}
 	url := strings.TrimRight(baseURL, "/") + "/api/v1/alerts"
 	body, err := getJSON(ctx, client, url)
@@ -46,10 +46,9 @@ func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, clien
 	}
 	if dropped > 0 {
 		fmt.Fprintf(os.Stderr, "warning: dropped %d prometheus alert(s) without a resolvable service label\n", dropped)
-		// Do not zombie-resolve on a partial/bad scrape — unlabeled drops would
-		// otherwise mark every real firing alert resolved.
-		return nil
 	}
+	// Always resolve against successfully upserted IDs so unlabeled drops cannot
+	// freeze zombie cleanup, and a clean empty scrape still clears firings.
 	if _, err := s.ResolveActiveAlertsNotIn("prometheus", seen); err != nil {
 		return err
 	}
@@ -105,8 +104,11 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 	switch strings.ToLower(state) {
 	case "firing", "active":
 		status = "firing"
-	case "resolved", "suppressed":
+	case "resolved":
 		status = "resolved"
+	case "suppressed":
+		// Silenced in Alertmanager ≠ cleared; keep paging signal visible.
+		status = "firing"
 	case "pending":
 		status = "pending"
 	}

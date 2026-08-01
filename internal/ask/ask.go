@@ -38,12 +38,15 @@ func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 		if errors.Is(err, store.ErrNotFound) {
 			return model.AskResult{}, fmt.Errorf("%w: %q", ErrServiceNotFound, query)
 		}
+		if errors.Is(err, store.ErrAmbiguous) {
+			return model.AskResult{}, err
+		}
 		return model.AskResult{}, err
 	}
 
 	res := model.AskResult{
 		Service:         *svc,
-		Window:          humanDuration(since),
+		Window:          windowLabel(since),
 		GeneratedAt:     now,
 		Changes:         []model.Change{},
 		Alerts:          []model.Alert{},
@@ -258,4 +261,13 @@ func humanDuration(d time.Duration) string {
 		return fmt.Sprintf("%dh", int(d.Hours()))
 	}
 	return d.String()
+}
+
+// windowLabel reports the alert/query window and, when wider, the change lookback.
+func windowLabel(since time.Duration) string {
+	look := ChangeLookback(since)
+	if look <= since {
+		return humanDuration(since)
+	}
+	return fmt.Sprintf("%s (changes %s)", humanDuration(since), humanDuration(look))
 }

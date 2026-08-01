@@ -17,7 +17,7 @@ import (
 // resolved. Disabled unless explicitly enabled; tested with httptest.
 func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, client *http.Client) error {
 	if client == nil {
-		client = http.DefaultClient
+		client = &http.Client{Timeout: 10 * time.Second}
 	}
 	url := strings.TrimRight(baseURL, "/") + "/api/v2/alerts"
 	body, err := getJSON(ctx, client, url)
@@ -47,8 +47,6 @@ func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, cli
 	}
 	if dropped > 0 {
 		fmt.Fprintf(os.Stderr, "warning: dropped %d alertmanager alert(s) without a resolvable service label\n", dropped)
-		// Partial scrapes must not mass-resolve real firings (see prometheus).
-		return nil
 	}
 	if _, err := s.ResolveActiveAlertsNotIn("alertmanager", seen); err != nil {
 		return err

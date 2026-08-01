@@ -18,6 +18,7 @@ func newIngestCmd() *cobra.Command {
 		configPath string
 		dataDir    string
 		replace    bool
+		since      time.Duration
 	)
 	cmd := &cobra.Command{
 		Use:   "ingest",
@@ -43,6 +44,11 @@ func newIngestCmd() *cobra.Command {
 				}
 			}
 
+			lookback := since
+			if lookback <= 0 {
+				lookback = cfg.Since()
+			}
+
 			now := time.Now().UTC()
 			switch {
 			case fixture != "":
@@ -52,7 +58,7 @@ func newIngestCmd() *cobra.Command {
 				if effPath == "" {
 					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
 				}
-				err = ingest.LiveIngest(s, cfg, filepath.Dir(effPath), now.Add(-ask.ChangeLookback(cfg.Since())), now)
+				err = ingest.LiveIngest(s, cfg, filepath.Dir(effPath), now.Add(-ask.ChangeLookback(lookback)), now)
 			}
 			if err != nil {
 				return fail(2, "%v", err)
@@ -79,5 +85,6 @@ func newIngestCmd() *cobra.Command {
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory (default: config data_dir or .opsgraph/data)")
 	cmd.Flags().BoolVar(&replace, "replace", false, "clear the store before ingest (fixture ingest always replaces)")
+	cmd.Flags().DurationVar(&since, "since", 0, "change lookback for live git/helm ingest (default: config default_since)")
 	return cmd
 }

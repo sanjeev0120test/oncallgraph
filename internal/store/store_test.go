@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -130,6 +131,20 @@ func TestGetServiceByNameOrAlias(t *testing.T) {
 	}
 	if _, err := s.GetServiceByNameOrAlias("nope"); err != ErrNotFound {
 		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+}
+
+func TestGetServiceByNameOrAliasAmbiguous(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.UpsertService(model.Service{ID: "a", Name: "a", Aliases: []string{"shared"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertService(model.Service{ID: "b", Name: "b", Aliases: []string{"shared"}}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.GetServiceByNameOrAlias("shared")
+	if err == nil || !errors.Is(err, ErrAmbiguous) {
+		t.Fatalf("want ErrAmbiguous, got %v", err)
 	}
 }
 

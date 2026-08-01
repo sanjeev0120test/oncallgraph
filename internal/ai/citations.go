@@ -9,7 +9,9 @@ import (
 
 var (
 	bulletRe = regexp.MustCompile(`(?m)^\s*(?:[-*]|\d+\.)\s+(.*\S)\s*$`)
-	evIDRe   = regexp.MustCompile(`\bev-[a-zA-Z0-9][-a-zA-Z0-9]*\b`)
+	// Loose token match; acceptance is decided against the known evidence set
+	// so non-ev-* IDs (if ever used) still validate.
+	citeTokenRe = regexp.MustCompile(`\b[a-zA-Z][a-zA-Z0-9][-a-zA-Z0-9]*\b`)
 )
 
 const maxAIBullets = 8
@@ -35,15 +37,22 @@ func filterCitedBullets(raw string, res model.AskResult) (string, bool) {
 	var kept []string
 	for _, m := range bulletRe.FindAllStringSubmatch(raw, -1) {
 		line := strings.TrimSpace(m[1])
-		ids := evIDRe.FindAllString(line, -1)
-		if len(ids) == 0 {
-			continue
+		tokens := citeTokenRe.FindAllString(line, -1)
+		cited := 0
+		ok := true
+		for _, tok := range tokens {
+			if !known[tok] {
+				continue
+			}
+			cited++
 		}
-		ok := false
-		for _, id := range ids {
-			if known[id] {
-				ok = true
-			} else {
+		// Require at least one known evidence ID; ignore other words.
+		if cited == 0 {
+			ok = false
+		}
+		// Reject if the line contains an ev-* looking token that is unknown.
+		for _, tok := range tokens {
+			if strings.HasPrefix(tok, "ev-") && !known[tok] {
 				ok = false
 				break
 			}

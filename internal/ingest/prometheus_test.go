@@ -116,7 +116,7 @@ func TestIngestPrometheusResolvesZombieAlerts(t *testing.T) {
 	}
 }
 
-func TestIngestPrometheusDroppedLabelsSkipResolve(t *testing.T) {
+func TestIngestPrometheusUnlabeledDropStillResolves(t *testing.T) {
 	var n atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if n.Add(1) == 1 {
@@ -131,7 +131,8 @@ func TestIngestPrometheusDroppedLabelsSkipResolve(t *testing.T) {
 			}`))
 			return
 		}
-		// Bad scrape: alert without service label — must not resolve KeepFiring.
+		// Unlabeled orphan is dropped from upsert, but KeepFiring is absent from
+		// seen → resolve (zombie cleanup must not freeze on bad labels).
 		_, _ = w.Write([]byte(`{
 		  "status":"success",
 		  "data":{"alerts":[{
@@ -158,7 +159,7 @@ func TestIngestPrometheusDroppedLabelsSkipResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(alerts) != 1 || alerts[0].Status != "firing" {
-		t.Fatalf("partial scrape must not resolve real firing: %+v", alerts)
+	if len(alerts) != 1 || alerts[0].Status != "resolved" {
+		t.Fatalf("absent labeled alert should resolve after unlabeled-only scrape: %+v", alerts)
 	}
 }
