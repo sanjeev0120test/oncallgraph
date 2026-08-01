@@ -206,13 +206,13 @@ jobs:
           "$BIN_ABS" doctor --config fixtures/ci_live_k8s/.opsgraph.yaml >/dev/null
           "$BIN_ABS" validate-fixture ./fixtures/incident_checkout >/dev/null
           "$BIN_ABS" alerts --fixture ./fixtures/incident_checkout --service checkout --firing >/dev/null
-          "$BIN_ABS" compare checkout auth --fixture ./fixtures/incident_checkout --format json >/dev/null
-          "$BIN_ABS" services --fixture ./fixtures/incident_checkout --health degraded --format json >/dev/null
-          # Avoid `cmd | grep -q` under pipefail (SIGPIPE → non-zero writer exit).
-          mermaid="$("$BIN_ABS" graph --fixture ./fixtures/incident_checkout --format mermaid)"
-          case "$mermaid" in *flowchart*) ;; *) echo "mermaid output missing flowchart" >&2; exit 1 ;; esac
+          "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" services --fixture ./fixtures/incident_checkout --health degraded --format json >/dev/null
+          # Write to a file (command substitution + pipefail/SIGPIPE are brittle here).
+          "$BIN" graph --fixture ./fixtures/incident_checkout --format mermaid > /tmp/opsgraph-mermaid.txt
+          grep -F flowchart /tmp/opsgraph-mermaid.txt >/dev/null
           set +e
-          "$BIN_ABS" services --fixture ./fixtures/incident_checkout --health nope >/dev/null
+          "$BIN" services --fixture ./fixtures/incident_checkout --health nope >/dev/null
           bad_health=$?
           set -e
           test "$bad_health" -eq 2
