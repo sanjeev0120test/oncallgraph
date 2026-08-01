@@ -27,10 +27,12 @@ var ErrNoDataSource = errors.New("no data source")
 var ErrInvalidSince = errors.New("invalid --since")
 
 // loadedStore holds an opened store plus the effective "now" and a cleanup func.
+// source is one of: fixture | persisted | live (for status/operator clarity).
 type loadedStore struct {
 	store   *store.Store
 	now     time.Time
 	cleanup func()
+	source  string
 }
 
 // storeFromFixtureDir ingests an on-disk fixture pack into an ephemeral store.
@@ -44,7 +46,7 @@ func storeFromFixtureDir(dir string) (*loadedStore, error) {
 		cleanup()
 		return nil, err
 	}
-	return &loadedStore{store: s, now: now, cleanup: cleanup}, nil
+	return &loadedStore{store: s, now: now, cleanup: cleanup, source: "fixture"}, nil
 }
 
 // storeFromFixtureFS ingests a fixture pack filesystem (e.g. embedded) into an
@@ -59,7 +61,7 @@ func storeFromFixtureFS(fsys fs.FS) (*loadedStore, error) {
 		cleanup()
 		return nil, err
 	}
-	return &loadedStore{store: s, now: now, cleanup: cleanup}, nil
+	return &loadedStore{store: s, now: now, cleanup: cleanup, source: "fixture"}, nil
 }
 
 // embeddedCheckout returns an ephemeral store loaded from the built-in demo pack.
@@ -116,7 +118,7 @@ func storeFromDataDir(dataDir string, now time.Time) (*loadedStore, error) {
 	} else if ok {
 		now = asOf
 	}
-	return &loadedStore{store: s, now: now, cleanup: func() { _ = s.Close() }}, nil
+	return &loadedStore{store: s, now: now, cleanup: func() { _ = s.Close() }, source: "persisted"}, nil
 }
 
 // storeFromConfig builds an ephemeral store from the live connectors described
@@ -134,7 +136,7 @@ func storeFromConfig(ctx context.Context, cfg *config.Config, configDir string, 
 		cleanup()
 		return nil, err
 	}
-	return &loadedStore{store: s, now: now, cleanup: cleanup}, nil
+	return &loadedStore{store: s, now: now, cleanup: cleanup, source: "live"}, nil
 }
 
 // liveConnectorsEnabled reports whether config can scrape *usable* fresh

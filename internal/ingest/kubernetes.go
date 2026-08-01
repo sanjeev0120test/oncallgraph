@@ -172,7 +172,8 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time
 	if skippedNoAt > 0 {
 		fmt.Fprintf(os.Stderr, "warning: skipped %d k8s events (missing/zero at)\n", skippedNoAt)
 	}
-	return nil
+	// Marks a completed snapshot scrape so MergeFrom can clear stale k8s health.
+	return s.SetMeta("connector:kubernetes", "ok")
 }
 
 func k8sAllowed(d k8sDeployment, allow k8sAllow) bool {

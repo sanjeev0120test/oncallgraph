@@ -33,6 +33,9 @@ func newIngestCmd() *cobra.Command {
 			if replace && merge {
 				return fail(2, "use either --replace or --merge, not both")
 			}
+			if fixture != "" && merge {
+				return fail(2, "--merge applies to live ingest only; fixtures always replace")
+			}
 			cfg, err := config.Load(configPath)
 			if err != nil {
 				return fail(2, "%v", err)

@@ -138,6 +138,41 @@ func TestCLIRejectBadLimitAndWatchFlags(t *testing.T) {
 	}
 }
 
+func TestCLIRejectConflictingSourceFlags(t *testing.T) {
+	fx := fixtureDir(t)
+	dir := t.TempDir()
+	_, _, code := runRoot(t, "ask", "checkout", "--fixture", fx, "--data-dir", dir)
+	if code != 2 {
+		t.Fatalf("ask fixture+data-dir exit = %d, want 2", code)
+	}
+	_, _, code = runRoot(t, "status", "--fixture", fx, "--data-dir", dir)
+	if code != 2 {
+		t.Fatalf("status fixture+data-dir exit = %d, want 2", code)
+	}
+	_, _, code = runRoot(t, "ingest", "--fixture", fx, "--merge", "--data-dir", dir)
+	if code != 2 {
+		t.Fatalf("ingest fixture+merge exit = %d, want 2", code)
+	}
+}
+
+func TestCLIWhyHandoffJSON(t *testing.T) {
+	fx := fixtureDir(t)
+	out, _, code := runRoot(t, "why", "checkout", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("why json exit = %d", code)
+	}
+	if !strings.Contains(out, `"why"`) || !strings.Contains(out, "checkout") {
+		t.Fatalf("why json missing fields: %s", out)
+	}
+	out, _, code = runRoot(t, "handoff", "checkout", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("handoff json exit = %d", code)
+	}
+	if !strings.Contains(out, `"note"`) {
+		t.Fatalf("handoff json missing note: %s", out)
+	}
+}
+
 func TestCLILiveFailFallsBackToPersistedStore(t *testing.T) {
 	fx := fixtureDir(t)
 	root := t.TempDir()

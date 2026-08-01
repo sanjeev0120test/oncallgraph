@@ -9,12 +9,14 @@ import (
 
 	"github.com/sanjeev0120test/opsgraph/fixtures"
 	"github.com/sanjeev0120test/opsgraph/internal/config"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/sanjeev0120test/opsgraph/internal/version"
 	"github.com/spf13/cobra"
 )
 
 func newDoctorCmd() *cobra.Command {
 	var configPath string
+	var dataDir string
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Run offline health checks for the local opsgraph environment",
@@ -51,10 +53,23 @@ func newDoctorCmd() *cobra.Command {
 				if eff := resolveConfigPath(configPath); eff != "" {
 					cfgDir = dirOf(eff)
 				}
-				dir := resolveDataDir("", cfg, cfgDir)
+				dir := resolveDataDir(dataDir, cfg, cfgDir)
 				db := filepath.Join(dir, "state.db")
 				if pathExists(db) {
-					check("persistent_db", true, db)
+					s, openErr := store.Open(dir)
+					if openErr != nil {
+						check("persistent_db", false, openErr.Error())
+					} else {
+						ver, verErr := s.UserVersion()
+						_ = s.Close()
+						if verErr != nil {
+							check("persistent_db", false, verErr.Error())
+						} else if ver != store.SchemaVersion {
+							check("persistent_db", false, fmt.Sprintf("%s schema v%d (want v%d)", db, ver, store.SchemaVersion))
+						} else {
+							check("persistent_db", true, fmt.Sprintf("%s (schema v%d)", db, ver))
+						}
+					}
 				} else {
 					warnf("persistent_db", "no state.db yet (run ingest)")
 				}
@@ -124,6 +139,7 @@ func newDoctorCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory to validate")
 	return cmd
 }
 

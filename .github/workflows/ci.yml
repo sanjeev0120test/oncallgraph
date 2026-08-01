@@ -68,6 +68,12 @@ jobs:
           test -s scripts/pack-release.sh
           head -n 1 scripts/install.sh | grep -qE '^#!/'
           head -n 1 scripts/pack-release.sh | grep -qE '^#!/'
+          head -n 1 scripts/verify.sh | grep -qE '^#!/'
+          # Shell scripts must stay POSIX-clean (installers + verify).
+          curl -fsSL -o /tmp/shellcheck.tar.xz \
+            https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz
+          tar -xJf /tmp/shellcheck.tar.xz -C /tmp
+          /tmp/shellcheck-v0.10.0/shellcheck -x scripts/install.sh scripts/pack-release.sh scripts/verify.sh
           # Live-connector smoke fixture must resolve its k8s snapshot.
           test -f fixtures/ci_live_k8s/.opsgraph.yaml
           test -d fixtures/incident_checkout/k8s
@@ -185,6 +191,19 @@ jobs:
           "$BIN" ask checkout --data-dir "$DATA" --format json > "$DATA/b.json"
           grep -F '"generated_at": "2026-07-31T12:00:00Z"' "$DATA/a.json" >/dev/null
           grep -F '"generated_at": "2026-07-31T12:00:00Z"' "$DATA/b.json" >/dev/null
+          # On-call subset promoted from full smoke for cross-OS contracts.
+          "$BIN" handoff checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" why checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout >/dev/null
+          set +e
+          "$BIN" watch checkout --fixture ./fixtures/incident_checkout --interval -1s --timeout 1s >/dev/null
+          bad_watch=$?
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
+          conflict=$?
+          set -e
+          test "$bad_watch" -eq 2
+          test "$conflict" -eq 2
+          "$BIN" status --fixture ./fixtures/incident_checkout | grep -F "ACTIVE SOURCE  fixture" >/dev/null
       - name: Full CLI smoke (ubuntu)
         if: ${{ matrix.smoke == 'full' }}
         shell: bash

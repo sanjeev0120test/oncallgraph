@@ -157,6 +157,51 @@ func TestMergeFromPrunesRemovedTopology(t *testing.T) {
 	}
 }
 
+func TestMergeFromClearsStaleK8sHealth(t *testing.T) {
+	dst, cleanupDst, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanupDst)
+	src, cleanupSrc, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanupSrc)
+	if err := dst.UpsertService(model.Service{
+		ID: "checkout", Name: "checkout", Health: model.HealthUnhealthy, Sources: []string{"kubernetes", "config"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Fresh scrape: service still seeded, but left the k8s snapshot.
+	if err := src.UpsertService(model.Service{
+		ID: "checkout", Name: "checkout", Health: model.HealthUnknown, Sources: []string{"config"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.SetMeta("connector:kubernetes", "ok"); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.SetMeta("topology:seeded", "ok"); err != nil {
+		t.Fatal(err)
+	}
+	if err := dst.MergeFrom(src); err != nil {
+		t.Fatal(err)
+	}
+	svc, err := dst.GetService("checkout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc.Health != model.HealthUnknown {
+		t.Fatalf("stale k8s health should clear when absent from scrape: %+v", svc)
+	}
+	for _, s := range svc.Sources {
+		if s == "kubernetes" {
+			t.Fatalf("kubernetes source should drop after leaving snapshot: %v", svc.Sources)
+		}
+	}
+}
+
 func TestMergeFromPreservesDestinationHealth(t *testing.T) {
 	dst, cleanupDst, err := store.OpenTemp()
 	if err != nil {

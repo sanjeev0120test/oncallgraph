@@ -4,10 +4,38 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 )
+
+func TestTableEmptyStates(t *testing.T) {
+	var buf bytes.Buffer
+	res := model.AskResult{
+		Service:     model.Service{ID: "x", Health: model.HealthHealthy},
+		Window:      "60m",
+		GeneratedAt: mustParseTime(t, "2026-07-31T12:00:00Z"),
+	}
+	if err := output.Table(&buf, res); err != nil {
+		t.Fatal(err)
+	}
+	got := buf.String()
+	for _, want := range []string{"RUNBOOK   (none)", "TIMELINE  (none)", "NEXT\n          (none)"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func mustParseTime(t *testing.T, s string) time.Time {
+	t.Helper()
+	ts, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ts
+}
 
 func TestJSONDoesNotEscapeHTML(t *testing.T) {
 	var buf bytes.Buffer

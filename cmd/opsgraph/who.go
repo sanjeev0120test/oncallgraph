@@ -81,7 +81,7 @@ func newWhoCmd() *cobra.Command {
 			} else if len(res.Changes) > 0 {
 				cmd.Println("CHANGED  (none in 30m suspect window; older lookback changes exist)")
 			} else {
-				cmd.Println("CHANGED  (none in window)")
+				cmd.Println("CHANGED  (none in 30m suspect window)")
 			}
 			return nil
 		},

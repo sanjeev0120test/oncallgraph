@@ -26,8 +26,9 @@ func (s *Store) MergeFrom(src *Store) error {
 	if err != nil {
 		return err
 	}
+	k8sScraped := srcHasConnector(src, "kubernetes")
 	for _, svc := range svcs {
-		svc = mergeServiceRow(s, svc)
+		svc = mergeServiceRow(s, svc, k8sScraped)
 		if err := s.UpsertService(svc); err != nil {
 			return err
 		}
@@ -107,7 +108,7 @@ func (s *Store) MergeFrom(src *Store) error {
 			return err
 		}
 	}
-	for _, key := range []string{"connector:prometheus", "connector:alertmanager", "topology:seeded"} {
+	for _, key := range []string{"connector:prometheus", "connector:alertmanager", "connector:kubernetes", "topology:seeded"} {
 		if v, ok, err := src.GetMeta(key); err != nil {
 			return err
 		} else if ok {
@@ -124,20 +125,39 @@ func srcHasConnector(src *Store, source string) bool {
 	return err == nil && ok && v == "ok"
 }
 
+func hasSource(sources []string, want string) bool {
+	for _, s := range sources {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
 // mergeServiceRow keeps richer destination health/sources when the scrape only
 // carries config-seed unknowns (temp LiveIngest seed must not wipe k8s health).
-func mergeServiceRow(dst *Store, svc model.Service) model.Service {
+// When k8sScraped is true and the service is absent from the snapshot, stale
+// kubernetes health is cleared so recovery-by-absence is visible on --merge.
+func mergeServiceRow(dst *Store, svc model.Service, k8sScraped bool) model.Service {
 	existing, err := dst.GetService(svc.ID)
 	if err != nil {
 		return svc
 	}
+	srcK8s := hasSource(svc.Sources, "kubernetes")
+	dstK8s := hasSource(existing.Sources, "kubernetes")
+	leftSnapshot := k8sScraped && dstK8s && !srcK8s
 	if svc.Health == model.HealthUnknown && existing.Health != "" && existing.Health != model.HealthUnknown {
-		svc.Health = existing.Health
+		if !leftSnapshot {
+			svc.Health = existing.Health
+		}
 	}
 	seen := map[string]bool{}
 	out := make([]string, 0, len(existing.Sources)+len(svc.Sources))
 	for _, src := range append(append([]string{}, existing.Sources...), svc.Sources...) {
 		if src == "" || seen[src] {
+			continue
+		}
+		if leftSnapshot && src == "kubernetes" {
 			continue
 		}
 		seen[src] = true

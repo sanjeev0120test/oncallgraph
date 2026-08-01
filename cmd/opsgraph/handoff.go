@@ -8,6 +8,7 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/fingerprint"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/score"
 	"github.com/spf13/cobra"
 )
@@ -15,6 +16,7 @@ import (
 func newHandoffCmd() *cobra.Command {
 	var src sourceFlags
 	var since time.Duration
+	var format string
 	cmd := &cobra.Command{
 		Use:   "handoff <service>",
 		Short: "Write a short, evidence-backed handoff note for a service",
@@ -22,6 +24,9 @@ func newHandoffCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err
+			}
+			if err := validFormat(format); err != nil {
+				return fail(2, "%v", err)
 			}
 			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
@@ -35,12 +40,20 @@ func newHandoffCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
-			fmt.Fprint(cmd.OutOrStdout(), handoffNote(res))
+			note := handoffNote(res)
+			if format == "json" {
+				return output.JSON(cmd.OutOrStdout(), map[string]string{
+					"service": res.Service.ID,
+					"note":    note,
+				})
+			}
+			fmt.Fprint(cmd.OutOrStdout(), note)
 			return nil
 		},
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
+	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
 }
 

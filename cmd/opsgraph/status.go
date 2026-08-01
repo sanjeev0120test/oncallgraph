@@ -25,6 +25,9 @@ func newStatusCmd() *cobra.Command {
 		Short: "Show connector configuration and ingested data counts",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if fixture != "" && dataDir != "" {
+				return fail(2, "--fixture and --data-dir are mutually exclusive")
+			}
 			cfg, err := config.Load(configPath)
 			if err != nil {
 				return fail(2, "%v", err)
@@ -46,6 +49,9 @@ func newStatusCmd() *cobra.Command {
 			gitPath := resolveGitRepoPath(cfg.Connectors.Git.RepoPath, configDir)
 			gitOK := pathExists(filepath.Join(gitPath, ".git"))
 			cmd.Printf("  git:          %v (repo %q has_git=%v)\n", cfg.Connectors.Git.Enabled, gitPath, gitOK)
+			if cfg.Connectors.Git.Enabled && !liveConnectorsEnabled(cfg) {
+				cmd.Println("  git_note:     ask/who/watch use persisted store; run `opsgraph ingest` to refresh git changes")
+			}
 			cmd.Printf("  kubernetes:   %v (snapshot %q)\n", cfg.Connectors.Kubernetes.Enabled, cfg.Connectors.Kubernetes.Snapshot)
 			cmd.Printf("  prometheus:   %v (url %q", cfg.Connectors.Prometheus.Enabled, cfg.Connectors.Prometheus.URL)
 			if cfg.Connectors.Prometheus.Enabled {
@@ -81,6 +87,19 @@ func newStatusCmd() *cobra.Command {
 			ver, err := ls.store.UserVersion()
 			if err != nil {
 				return fail(2, "schema version: %v", err)
+			}
+			active := ls.source
+			if active == "" {
+				active = "unknown"
+			}
+			cmd.Printf("\nACTIVE SOURCE  %s\n", active)
+			switch active {
+			case "live":
+				cmd.Println("  note: ephemeral live scrape (may differ from on-disk db above)")
+			case "fixture":
+				cmd.Println("  note: fixture pack (ephemeral; not written to data_dir)")
+			case "persisted":
+				cmd.Println("  note: reading on-disk state.db")
 			}
 			cmd.Printf("\nINGESTED (schema v%d)\n", ver)
 			for _, k := range sortedKeys(counts) {

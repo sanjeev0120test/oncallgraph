@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
@@ -22,6 +23,9 @@ func (f *sourceFlags) loadCtx(ctx context.Context, since time.Duration) (*loaded
 	if err := validSince(since); err != nil {
 		return nil, nil, err
 	}
+	if err := f.validateExclusive(); err != nil {
+		return nil, nil, err
+	}
 	cfg, err := config.Load(f.configPath)
 	if err != nil {
 		return nil, nil, err
@@ -31,6 +35,14 @@ func (f *sourceFlags) loadCtx(ctx context.Context, since time.Duration) (*loaded
 	}
 	ls, err := loadAskStore(ctx, f.fixture, f.configPath, f.dataDir, cfg, since)
 	return ls, cfg, err
+}
+
+// validateExclusive rejects ambiguous source flag combinations.
+func (f *sourceFlags) validateExclusive() error {
+	if strings.TrimSpace(f.fixture) != "" && strings.TrimSpace(f.dataDir) != "" {
+		return fail(2, "--fixture and --data-dir are mutually exclusive")
+	}
+	return nil
 }
 
 // failSource maps store/config load errors to CLI exit codes.
@@ -46,7 +58,7 @@ func failSource(err error) error {
 
 func askService(ls *loadedStore, query string, since time.Duration) (model.AskResult, error) {
 	if since == 0 {
-		since = time.Hour
+		since = config.DefaultSince
 	}
 	return ask.Ask(ls.store, query, ask.Options{Since: since, Now: ls.now, WithRunbook: true})
 }

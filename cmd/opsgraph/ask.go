@@ -36,6 +36,9 @@ func newAskCmd() *cobra.Command {
 			if err := validSince(since); err != nil {
 				return fail(2, "%v", err)
 			}
+			if fixture != "" && dataDir != "" {
+				return fail(2, "--fixture and --data-dir are mutually exclusive")
+			}
 			cfg, err := config.Load(configPath)
 			if err != nil {
 				return fail(2, "%v", err)

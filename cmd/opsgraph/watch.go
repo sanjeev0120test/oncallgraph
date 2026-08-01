@@ -38,6 +38,9 @@ func newWatchCmd() *cobra.Command {
 			if src.dataDir != "" {
 				cmd.PrintErrln("note: --data-dir re-reads the store each tick; re-run `opsgraph ingest` (or use live config) for fresh health")
 			}
+			if src.fixture == "" && src.dataDir == "" && interval < 5*time.Second {
+				cmd.PrintErrln("warning: short --interval may re-scrape live connectors often; prefer >=5s or --data-dir + external ingest")
+			}
 			deadline := time.Now().Add(timeout)
 			var last string
 			lastHealth := ""

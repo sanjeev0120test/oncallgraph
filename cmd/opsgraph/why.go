@@ -6,12 +6,14 @@ import (
 
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/spf13/cobra"
 )
 
 func newWhyCmd() *cobra.Command {
 	var src sourceFlags
 	var since time.Duration
+	var format string
 	cmd := &cobra.Command{
 		Use:   "why <service>",
 		Short: "One-line root-cause hypothesis for a paged service",
@@ -19,6 +21,9 @@ func newWhyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err
+			}
+			if err := validFormat(format); err != nil {
+				return fail(2, "%v", err)
 			}
 			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
@@ -32,12 +37,20 @@ func newWhyCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), whyLine(res))
+			line := whyLine(res)
+			if format == "json" {
+				return output.JSON(cmd.OutOrStdout(), map[string]string{
+					"service": res.Service.ID,
+					"why":     line,
+				})
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), line)
 			return nil
 		},
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
+	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
 }
 

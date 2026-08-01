@@ -84,13 +84,19 @@ func Table(w io.Writer, res model.AskResult) error {
 		for _, s := range rb.Steps {
 			p("          %d. [%-6s] %s\n", s.Number, s.Status, s.Text)
 		}
+	} else {
+		p("RUNBOOK   (none)\n")
 	}
 
-	if len(res.Timeline) > 0 {
+	if len(res.Timeline) == 0 {
+		p("TIMELINE  (none)\n")
+	} else {
 		p("TIMELINE\n")
 		limit := len(res.Timeline)
+		truncated := false
 		if limit > 8 {
 			limit = 8
+			truncated = true
 		}
 		for _, e := range res.Timeline[:limit] {
 			p("          %s  %-8s %s", e.At.Format(time.RFC3339), e.Kind, e.Summary)
@@ -98,6 +104,9 @@ func Table(w io.Writer, res model.AskResult) error {
 				p(" [%s]", e.EvidenceID)
 			}
 			p("\n")
+		}
+		if truncated {
+			p("          … +%d more\n", len(res.Timeline)-limit)
 		}
 	}
 	if len(res.Evidence) > 0 {
@@ -108,6 +117,9 @@ func Table(w io.Writer, res model.AskResult) error {
 	}
 
 	p("NEXT\n")
+	if len(res.Recommendations) == 0 {
+		p("          (none)\n")
+	}
 	for i, r := range res.Recommendations {
 		p("          %d. %s\n", i+1, r)
 	}
