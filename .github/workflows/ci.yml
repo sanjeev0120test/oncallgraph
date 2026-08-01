@@ -73,17 +73,12 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
-      - name: Cache staticcheck binary
-        uses: actions/cache@v6
-        with:
-          path: ~/go/bin/staticcheck
-          key: staticcheck-${{ runner.os }}-2025.1.1-${{ hashFiles('go.sum') }}
       - name: Install + run staticcheck
         run: |
           set -euo pipefail
-          if [ ! -x "$(go env GOPATH)/bin/staticcheck" ]; then
-            go install honnef.co/go/tools/cmd/staticcheck@2025.1.1
-          fi
+          # Module cache from setup-go makes reinstall cheap; avoid actions/cache
+          # (zizmor cache-poisoning with workflow_dispatch / publish-capable workflows).
+          go install honnef.co/go/tools/cmd/staticcheck@2025.1.1
           "$(go env GOPATH)/bin/staticcheck" ./...
 
   test:
@@ -322,17 +317,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
-      - name: Cache govulncheck binary
-        uses: actions/cache@v6
-        with:
-          path: ~/go/bin/govulncheck
-          key: govulncheck-${{ runner.os }}-v1.1.4-${{ hashFiles('go.sum') }}
       - name: Run govulncheck
         run: |
           set -euo pipefail
-          if [ ! -x "$(go env GOPATH)/bin/govulncheck" ]; then
-            go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-          fi
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           "$(go env GOPATH)/bin/govulncheck" ./...
 
   ci-ok:
