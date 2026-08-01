@@ -34,8 +34,8 @@ binds to the nearest preceding numbered step.
 
 | Check | Pass when |
 |-------|-----------|
-| `deploy_age_lt:Xm` / `deploy_age_gt:Xm` | Newest change age vs window |
-| `k8s_deployment_exists:name` | Deployment present in snapshot |
+| `deploy_age_lt:Xm` / `deploy_age_gt:Xm` | Newest **deploy/rollout** age vs window (commits ignored) |
+| `k8s_deployment_exists:name` | Rollout evidence `ev-k8s-rollout-<name>` present, or service has kubernetes source |
 | `service_healthy:name` / `service_unhealthy:name` | Health matches |
 | `alert_firing:name` | Alert status is `firing` or `pending` (active) |
 | `manual` | Always manual (never fails the step) |

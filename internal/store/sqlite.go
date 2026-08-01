@@ -192,11 +192,14 @@ FROM changes WHERE service_id=? AND at>=? ORDER BY at DESC, id`,
 	return out, rows.Err()
 }
 
-// ListAlerts returns alerts for a service at/after since, firing first then newest.
+// ListAlerts returns alerts for a service. Active (firing/pending) alerts are
+// always included regardless of since — their StartsAt may predate the window
+// while they are still paging. Resolved/historical alerts respect since.
+// Results are ordered firing/pending first, then newest.
 func (s *Store) ListAlerts(serviceID string, since time.Time) ([]model.Alert, error) {
 	rows, err := s.db.Query(`
 SELECT id,service_id,at,severity,name,status,summary,source,evidence_id
-FROM alerts WHERE service_id=? AND at>=?`,
+FROM alerts WHERE service_id=? AND (status IN ('firing','pending') OR at>=?)`,
 		serviceID, fmtTime(since))
 	if err != nil {
 		return nil, wrap("list alerts", err)

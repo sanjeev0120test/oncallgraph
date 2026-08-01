@@ -135,13 +135,23 @@ func (v *Verifier) checkDeployAge(serviceID, kind, arg string, sr model.StepVeri
 }
 
 func (v *Verifier) checkDeploymentExists(name string, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
+	// Prefer explicit rollout evidence for this deployment name.
+	if ev, err := v.store.GetEvidence("ev-k8s-rollout-" + name); err == nil && ev != nil {
+		sr.Status = model.StatusPass
+		sr.Message = fmt.Sprintf("deployment %q present in snapshot", name)
+		sr.EvidenceID = ev.ID
+		return sr, nil
+	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return sr, err
+	}
+	// Fallback: service resolved by name/alias with kubernetes source (legacy packs).
 	svc, err := v.store.GetServiceByNameOrAlias(name)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return sr, err
 	}
 	if svc != nil && hasSource(svc.Sources, "kubernetes") {
 		sr.Status = model.StatusPass
-		sr.Message = fmt.Sprintf("deployment %q present in snapshot", name)
+		sr.Message = fmt.Sprintf("deployment %q present in snapshot (service source)", name)
 	} else {
 		sr.Status = model.StatusStale
 		sr.Message = fmt.Sprintf("deployment %q not found in snapshot", name)

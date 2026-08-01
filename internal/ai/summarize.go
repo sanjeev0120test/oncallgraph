@@ -4,22 +4,25 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
 // LocalSummary builds a deterministic, offline, extractive summary from the
-// assembled result. No network, no model, always available.
+// assembled result. No network, no model, always available. Aligns with R1 /
+// explain / why on the 30m suspect window.
 func LocalSummary(res model.AskResult) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s is %s.", res.Service.ID, res.Service.Health)
 
-	if len(res.Changes) > 0 {
-		c := res.Changes[0]
+	if c, ok := ask.RecentSuspectChange(res); ok {
 		fmt.Fprintf(&b, " The most recent %s was %q", c.Type, c.Summary)
 		if c.Revision != "" {
 			fmt.Fprintf(&b, " (%s)", c.Revision)
 		}
 		b.WriteString(", the prime suspect.")
+	} else if len(res.Correlations) > 0 {
+		b.WriteString(" No change in the 30m suspect window; older linked change exists.")
 	}
 
 	if name, status := firstActiveAlert(res.Alerts); name != "" {

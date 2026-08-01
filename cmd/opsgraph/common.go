@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/fixtures"
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/config"
 	"github.com/sanjeev0120test/opsgraph/internal/ingest"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
@@ -101,11 +102,21 @@ func storeFromConfig(cfg *config.Config, configDir string, since time.Duration, 
 	if err != nil {
 		return nil, err
 	}
-	if err := ingest.LiveIngest(s, cfg, configDir, now.Add(-since), now); err != nil {
+	lookback := ask.ChangeLookback(since)
+	if err := ingest.LiveIngest(s, cfg, configDir, now.Add(-lookback), now); err != nil {
 		cleanup()
 		return nil, err
 	}
 	return &loadedStore{store: s, now: now, cleanup: cleanup}, nil
+}
+
+// liveConnectorsEnabled reports whether config would scrape fresh signals.
+func liveConnectorsEnabled(cfg *config.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	c := cfg.Connectors
+	return c.Git.Enabled || c.Kubernetes.Enabled || c.Prometheus.Enabled || c.Alertmanager.Enabled
 }
 
 // loadAskStore resolves fixture / data-dir / live-config into a store.
@@ -129,16 +140,19 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 		}
 		return ls, nil
 	}
-	// Prefer an already-ingested persistent store when present.
+	effPath := resolveConfigPath(configPath)
+	// Live connectors beat a stale state.db so ask/why/watch see fresh signals
+	// when a config is present. Explicit --data-dir still forces the store.
+	if effPath != "" && liveConnectorsEnabled(cfg) {
+		return storeFromConfig(cfg, dirOf(effPath), since, time.Now().UTC())
+	}
 	dir := resolveDataDir("", cfg)
 	if counts, err := peekCounts(dir); err == nil {
 		if counts["services"] > 0 {
 			return storeFromDataDir(dir, time.Now().UTC())
 		}
-		// state.db exists but is empty — do not silently fall back to live config.
 		return nil, fmt.Errorf("%w at %s: run `opsgraph ingest` first or pass `--fixture`", ErrEmptyStore, dir)
 	}
-	effPath := resolveConfigPath(configPath)
 	if effPath == "" {
 		return nil, fmt.Errorf("no data source: pass --fixture <pack>, run `opsgraph ingest`, or add a .opsgraph.yaml")
 	}

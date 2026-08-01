@@ -27,10 +27,10 @@ Evidence-backed context for a service.
 # From a fixture pack (deterministic, offline):
 opsgraph ask checkout --fixture fixtures/incident_checkout
 
-# From a persistent store (after ingest):
+# From a persistent store (explicit; no live re-scrape):
 opsgraph ask checkout --data-dir .opsgraph/data
 
-# From live sources described in .opsgraph.yaml (local git + k8s snapshot):
+# Live connectors from .opsgraph.yaml (preferred when enabled — fresh scrape):
 opsgraph ask checkout --since 90m
 opsgraph ask checkout --format json --ai
 ```
@@ -38,8 +38,9 @@ opsgraph ask checkout --format json --ai
 Flags: `--fixture`, `--config`, `--data-dir`, `--since`, `--runbook` (default true), `--ai`, `--format`.
 
 Notes:
-- Alerts respect `--since`.
-- Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower, so root-cause hints stay reliable.
+- Active (`firing`/`pending`) alerts are always shown; `--since` filters resolved/historical alerts only.
+- Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower.
+- If `.opsgraph.yaml` has live connectors enabled, `ask`/`why`/`watch` re-scrape them (a prior `state.db` alone will not silently freeze the view). Use `--data-dir` to force the persistent store.
 
 Exit codes: `0` success, `1` service not found / empty store, `2` usage/config error.
 

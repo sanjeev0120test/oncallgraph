@@ -47,6 +47,8 @@ func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, cli
 	}
 	if dropped > 0 {
 		fmt.Fprintf(os.Stderr, "warning: dropped %d alertmanager alert(s) without a resolvable service label\n", dropped)
+		// Partial scrapes must not mass-resolve real firings (see prometheus).
+		return nil
 	}
 	if _, err := s.ResolveActiveAlertsNotIn("alertmanager", seen); err != nil {
 		return err

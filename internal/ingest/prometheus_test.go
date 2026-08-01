@@ -115,3 +115,50 @@ func TestIngestPrometheusResolvesZombieAlerts(t *testing.T) {
 		t.Fatalf("zombie should resolve, got %+v", alerts)
 	}
 }
+
+func TestIngestPrometheusDroppedLabelsSkipResolve(t *testing.T) {
+	var n atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if n.Add(1) == 1 {
+			_, _ = w.Write([]byte(`{
+			  "status":"success",
+			  "data":{"alerts":[{
+			    "labels":{"alertname":"KeepFiring","severity":"critical","service":"checkout"},
+			    "annotations":{"summary":"keep"},
+			    "state":"firing",
+			    "activeAt":"2026-07-31T11:00:00Z"
+			  }]}
+			}`))
+			return
+		}
+		// Bad scrape: alert without service label — must not resolve KeepFiring.
+		_, _ = w.Write([]byte(`{
+		  "status":"success",
+		  "data":{"alerts":[{
+		    "labels":{"alertname":"Orphan","severity":"warning"},
+		    "annotations":{"summary":"no service"},
+		    "state":"firing",
+		    "activeAt":"2026-07-31T11:30:00Z"
+		  }]}
+		}`))
+	}))
+	t.Cleanup(srv.Close)
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client()); err != nil {
+		t.Fatal(err)
+	}
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client()); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := s.ListAlerts("checkout", time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) != 1 || alerts[0].Status != "firing" {
+		t.Fatalf("partial scrape must not resolve real firing: %+v", alerts)
+	}
+}

@@ -46,6 +46,9 @@ func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, clien
 	}
 	if dropped > 0 {
 		fmt.Fprintf(os.Stderr, "warning: dropped %d prometheus alert(s) without a resolvable service label\n", dropped)
+		// Do not zombie-resolve on a partial/bad scrape — unlabeled drops would
+		// otherwise mark every real firing alert resolved.
+		return nil
 	}
 	if _, err := s.ResolveActiveAlertsNotIn("prometheus", seen); err != nil {
 		return err
@@ -128,6 +131,7 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 }
 
 func resolveServiceLabel(labels map[string]string) string {
+	// Intentionally omit job — it is usually a scrape target name, not a service.
 	return firstNonEmpty(
 		labels["service"],
 		labels["service_name"],
@@ -136,7 +140,6 @@ func resolveServiceLabel(labels map[string]string) string {
 		labels["app"],
 		labels["app_kubernetes_io_name"],
 		labels["label_app_kubernetes_io_name"],
-		labels["job"],
 	)
 }
 

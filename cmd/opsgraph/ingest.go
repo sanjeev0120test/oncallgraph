@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/config"
 	"github.com/sanjeev0120test/opsgraph/internal/ingest"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
@@ -51,7 +52,7 @@ func newIngestCmd() *cobra.Command {
 				if effPath == "" {
 					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
 				}
-				err = ingest.LiveIngest(s, cfg, filepath.Dir(effPath), now.Add(-cfg.Since()), now)
+				err = ingest.LiveIngest(s, cfg, filepath.Dir(effPath), now.Add(-ask.ChangeLookback(cfg.Since())), now)
 			}
 			if err != nil {
 				return fail(2, "%v", err)
