@@ -1,11 +1,8 @@
 package main
 
 import (
-	"errors"
-
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/pathfind"
-	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -27,17 +24,11 @@ func newPathCmd() *cobra.Command {
 			defer ls.cleanup()
 			from, err := ls.store.GetServiceByNameOrAlias(args[0])
 			if err != nil {
-				if errors.Is(err, store.ErrNotFound) {
-					return fail(1, "service %q not found", args[0])
-				}
-				return fail(2, "%v", err)
+				return failLookup(args[0], err)
 			}
 			to, err := ls.store.GetServiceByNameOrAlias(args[1])
 			if err != nil {
-				if errors.Is(err, store.ErrNotFound) {
-					return fail(1, "service %q not found", args[1])
-				}
-				return fail(2, "%v", err)
+				return failLookup(args[1], err)
 			}
 			deps, err := ls.store.ListAllDependencies()
 			if err != nil {

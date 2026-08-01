@@ -2,6 +2,8 @@
 package score
 
 import (
+	"sort"
+
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
@@ -85,6 +87,7 @@ func Compute(res model.AskResult) Result {
 	if total > 100 {
 		total = 100
 	}
+	sort.Strings(highlights)
 	return Result{Score: total, Level: level(total), Breakdown: b, Highlights: highlights}
 }
 

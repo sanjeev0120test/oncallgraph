@@ -107,8 +107,10 @@ func goldenIO(cmd *cobra.Command, dir, name string, v any, update bool, failures
 		*failures++
 		return nil
 	}
-	if !bytes.Equal(bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n")), got) {
-		cmd.PrintErrf("DIFF %s: %s\n", name, firstDiff(want, got))
+	wantNorm := bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))
+	gotNorm := bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n"))
+	if !bytes.Equal(wantNorm, gotNorm) {
+		cmd.PrintErrf("DIFF %s: %s\n", name, firstDiff(wantNorm, gotNorm))
 		*failures++
 		return nil
 	}

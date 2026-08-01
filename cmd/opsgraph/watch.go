@@ -33,12 +33,17 @@ func newWatchCmd() *cobra.Command {
 			}
 			deadline := time.Now().Add(timeout)
 			var last string
+			lastHealth := ""
+			svcID := args[0]
 			for {
 				if err := cmd.Context().Err(); err != nil {
 					return fail(1, "cancelled")
 				}
 				if time.Now().After(deadline) {
-					return fail(1, "watch timeout before poll completed")
+					if lastHealth != "" {
+						return fail(1, "watch timeout: %s still %s", svcID, lastHealth)
+					}
+					return fail(1, "watch timeout: %s", svcID)
 				}
 				ls, cfg, err := src.load(since)
 				if err != nil {
@@ -53,6 +58,8 @@ func newWatchCmd() *cobra.Command {
 				if err != nil {
 					return failAsk(err)
 				}
+				svcID = res.Service.ID
+				lastHealth = res.Service.Health
 				line := res.Service.ID + " " + res.Service.Health
 				if line != last {
 					cmd.Printf("%s  %s\n", time.Now().UTC().Format(time.RFC3339), line)

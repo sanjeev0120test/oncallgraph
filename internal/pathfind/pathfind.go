@@ -3,6 +3,7 @@ package pathfind
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
@@ -22,6 +23,9 @@ func Shortest(deps []model.Dependency, from, to string) (Path, error) {
 	adj := map[string][]string{}
 	for _, d := range deps {
 		adj[d.FromServiceID] = append(adj[d.FromServiceID], d.ToServiceID)
+	}
+	for k := range adj {
+		sort.Strings(adj[k])
 	}
 	type item struct {
 		id   string

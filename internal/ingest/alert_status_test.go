@@ -7,6 +7,15 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
+func TestSlugEmptyFallsBack(t *testing.T) {
+	if got := slug("@@@"); got != "unknown" {
+		t.Fatalf("slug exotic = %q", got)
+	}
+	if got := slug("Checkout_API"); got != "checkout-api" {
+		t.Fatalf("slug normal = %q", got)
+	}
+}
+
 func TestUpsertRemoteAlertInactiveResolved(t *testing.T) {
 	s, cleanup, err := store.OpenTemp()
 	if err != nil {

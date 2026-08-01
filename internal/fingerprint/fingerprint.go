@@ -31,8 +31,11 @@ func Of(res model.AskResult) Result {
 		}
 	}
 	for _, c := range res.Changes {
+		if c.At.IsZero() {
+			continue
+		}
 		// When GeneratedAt is set, only suspect-window changes count (align with R1).
-		if !res.GeneratedAt.IsZero() && res.GeneratedAt.Sub(c.At) > ask.SuspectChangeWindow {
+		if !res.GeneratedAt.IsZero() && (c.At.After(res.GeneratedAt) || res.GeneratedAt.Sub(c.At) > ask.SuspectChangeWindow) {
 			continue
 		}
 		ref := c.Revision

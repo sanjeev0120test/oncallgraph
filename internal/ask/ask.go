@@ -156,11 +156,17 @@ func resolveServices(s *store.Store, ids []string) ([]model.Service, error) {
 func buildTimeline(res model.AskResult, now time.Time) []model.TimelineEvent {
 	events := make([]model.TimelineEvent, 0, len(res.Changes)+len(res.Alerts)+2)
 	for _, c := range res.Changes {
+		if c.At.IsZero() {
+			continue
+		}
 		events = append(events, model.TimelineEvent{
 			At: c.At, Kind: "change", Summary: c.Summary, ServiceID: c.ServiceID, EvidenceID: c.EvidenceID,
 		})
 	}
 	for _, a := range res.Alerts {
+		if a.At.IsZero() {
+			continue
+		}
 		events = append(events, model.TimelineEvent{
 			At: a.At, Kind: "alert", Summary: a.Name + " (" + a.Status + ")", ServiceID: a.ServiceID,
 			EvidenceID: a.EvidenceID, Severity: a.Severity,

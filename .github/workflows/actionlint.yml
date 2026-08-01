@@ -4,6 +4,8 @@ name: actionlint
 
 on:
   push:
+    branches: ['**']
+    tags-ignore: ['v*']
     paths:
       - '.github/workflows/**'
       - '.github/actions/**'

@@ -12,6 +12,7 @@ func newAlertsCmd() *cobra.Command {
 	var src sourceFlags
 	var format string
 	var firingOnly bool
+	var service string
 	cmd := &cobra.Command{
 		Use:   "alerts",
 		Short: "List alerts across the fleet",
@@ -28,6 +29,19 @@ func newAlertsCmd() *cobra.Command {
 			list, err := ls.store.ListAllAlerts()
 			if err != nil {
 				return fail(2, "%v", err)
+			}
+			if service != "" {
+				svc, err := ls.store.GetServiceByNameOrAlias(service)
+				if err != nil {
+					return failLookup(service, err)
+				}
+				filtered := list[:0]
+				for _, a := range list {
+					if a.ServiceID == svc.ID {
+						filtered = append(filtered, a)
+					}
+				}
+				list = filtered
 			}
 			if firingOnly {
 				filtered := list[:0]
@@ -55,5 +69,6 @@ func newAlertsCmd() *cobra.Command {
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	cmd.Flags().BoolVar(&firingOnly, "firing", false, "only show firing or pending alerts")
+	cmd.Flags().StringVar(&service, "service", "", "filter to one service name/alias")
 	return cmd
 }

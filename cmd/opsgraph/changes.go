@@ -41,7 +41,7 @@ func newChangesCmd() *cobra.Command {
 			if service != "" {
 				svc, err := ls.store.GetServiceByNameOrAlias(service)
 				if err != nil {
-					return fail(1, "service %q not found", service)
+					return failLookup(service, err)
 				}
 				list, err = ls.store.ListChanges(svc.ID, cutoff)
 				if err != nil {

@@ -27,6 +27,24 @@ func TestRecommendR1Within30m(t *testing.T) {
 	}
 }
 
+func TestRecommendR1SkipsFutureChange(t *testing.T) {
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	res := model.AskResult{
+		Service:     model.Service{ID: "checkout"},
+		GeneratedAt: now,
+		Changes: []model.Change{{
+			ID: "c1", Type: "deploy", Summary: "from the future", Revision: "fut",
+			At: now.Add(5 * time.Minute),
+		}},
+	}
+	recs := recommend(res)
+	for _, r := range recs {
+		if strings.Contains(r, "most recent") {
+			t.Fatalf("R1 should not fire for future change: %v", recs)
+		}
+	}
+}
+
 func TestRecommendR1SkipsOlderThan30m(t *testing.T) {
 	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
 	res := model.AskResult{

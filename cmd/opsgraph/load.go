@@ -57,3 +57,17 @@ func failAsk(err error) error {
 	}
 	return fail(2, "%v", err)
 }
+
+// failLookup maps store service lookup errors (not found / ambiguous → 1).
+func failLookup(query string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		return fail(1, "service %q not found", query)
+	}
+	if errors.Is(err, store.ErrAmbiguous) {
+		return fail(1, "%v", err)
+	}
+	return fail(2, "%v", err)
+}

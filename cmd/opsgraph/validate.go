@@ -3,9 +3,11 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ingest"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -47,12 +49,14 @@ func newValidateFixtureCmd() *cobra.Command {
 			if err != nil {
 				return fail(1, "dependencies.yaml: %v", err)
 			}
+			var synthTargets []string
 			for _, d := range depPairs {
 				if !declared[d.from] {
 					return fail(1, "dependency from undeclared service %q (add it to services.yaml)", d.from)
 				}
 				if !declared[d.to] {
-					cmd.Printf("note: dependency target %q is not in services.yaml (will be synthesized as unknown)\n", d.to)
+					synthTargets = append(synthTargets, d.to)
+					cmd.PrintErrf("warning: dependency target %q not in services.yaml (will be synthesized as unknown)\n", d.to)
 				}
 			}
 
@@ -74,6 +78,16 @@ func newValidateFixtureCmd() *cobra.Command {
 			}
 			if counts["services"] == 0 {
 				return fail(1, "fixture has zero services after ingest")
+			}
+			// Synthesized dependency targets must exist after ingest (blast-radius completeness).
+			for _, id := range uniqSorted(synthTargets) {
+				svc, err := s.GetService(id)
+				if err != nil {
+					return fail(1, "dependency target %q was not synthesized after ingest: %v", id, err)
+				}
+				if svc.Health != model.HealthUnknown {
+					cmd.PrintErrf("warning: synthesized service %q has health %q (expected unknown)\n", id, svc.Health)
+				}
 			}
 			svcs, err := s.ListServices()
 			if err != nil {
@@ -153,4 +167,18 @@ func declaredDependencies(path string) ([]depPair, error) {
 		out = append(out, depPair{from: d.From, to: d.To})
 	}
 	return out, nil
+}
+
+func uniqSorted(ids []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, id := range ids {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
 }

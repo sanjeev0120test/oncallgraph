@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
@@ -36,6 +37,9 @@ func newHealthCmd() *cobra.Command {
 			for _, s := range svcs {
 				counts[s.Health]++
 				by[s.Health] = append(by[s.Health], s.ID)
+			}
+			for k := range by {
+				sort.Strings(by[k])
 			}
 			out := struct {
 				Total   int                 `json:"total"`

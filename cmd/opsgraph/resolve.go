@@ -1,11 +1,9 @@
 package main
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/sanjeev0120test/opsgraph/internal/output"
-	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -27,10 +25,7 @@ func newResolveCmd() *cobra.Command {
 			defer ls.cleanup()
 			svc, err := ls.store.GetServiceByNameOrAlias(args[0])
 			if err != nil {
-				if errors.Is(err, store.ErrNotFound) {
-					return fail(1, "service %q not found", args[0])
-				}
-				return fail(2, "%v", err)
+				return failLookup(args[0], err)
 			}
 			out := struct {
 				Query   string   `json:"query"`

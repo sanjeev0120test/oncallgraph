@@ -113,7 +113,8 @@ func recentChange(res model.AskResult) (model.Change, bool) {
 		return model.Change{}, false
 	}
 	c := res.Changes[0]
-	if c.At.IsZero() || res.GeneratedAt.Sub(c.At) > r1ChangeWindow {
+	// Reject missing/future timestamps so clock skew cannot invent a prime suspect.
+	if c.At.IsZero() || c.At.After(res.GeneratedAt) || res.GeneratedAt.Sub(c.At) > r1ChangeWindow {
 		return model.Change{}, false
 	}
 	return c, true

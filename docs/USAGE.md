@@ -80,6 +80,9 @@ opsgraph test ./fixtures/incident_checkout --update
 ### `opsgraph status` / `opsgraph doctor` / `opsgraph version`
 Store counts, environment checks, and build metadata. `status` uses the same source selection as `ask`. `doctor` verifies git repo and (when enabled) the kubernetes snapshot path.
 
+### `opsgraph alerts`
+Fleet alert list. `--firing` keeps active alerts; `--service <name>` filters by service.
+
 ## Fleet / incident helpers
 
 | Command | Purpose |

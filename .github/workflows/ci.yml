@@ -202,6 +202,9 @@ jobs:
           # Live k8s connector without --data-dir (must not require prior ingest).
           "$BIN_ABS" ask checkout --config fixtures/ci_live_k8s/.opsgraph.yaml --format json >/dev/null
           "$BIN_ABS" status --config fixtures/ci_live_k8s/.opsgraph.yaml >/dev/null
+          "$BIN_ABS" doctor --config fixtures/ci_live_k8s/.opsgraph.yaml >/dev/null
+          "$BIN_ABS" validate-fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN_ABS" alerts --fixture ./fixtures/incident_checkout --service checkout --firing >/dev/null
       - name: go install smoke
         if: matrix.os == 'ubuntu-latest'
         shell: bash

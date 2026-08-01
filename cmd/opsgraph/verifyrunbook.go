@@ -90,7 +90,7 @@ func verifyTarget(ls *loadedStore, target string) (model.VerifyResult, error) {
 
 	svc, err := ls.store.GetServiceByNameOrAlias(target)
 	if err != nil {
-		return model.VerifyResult{}, fail(1, "service %q not found", target)
+		return model.VerifyResult{}, failLookup(target, err)
 	}
 	res, err := runbook.NewVerifier(ls.store, ls.now).VerifyService(svc.ID)
 	if err != nil {
