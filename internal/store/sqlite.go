@@ -244,7 +244,8 @@ FROM changes WHERE service_id=? AND at>=? ORDER BY at DESC, id`,
 func (s *Store) ListAlerts(serviceID string, since time.Time) ([]model.Alert, error) {
 	rows, err := s.db.Query(`
 SELECT id,service_id,at,severity,name,status,summary,source,evidence_id
-FROM alerts WHERE service_id=? AND (status IN ('firing','pending','suppressed') OR at>=?)`,
+FROM alerts WHERE service_id=? AND (status IN ('firing','pending','suppressed') OR at>=?)
+`,
 		serviceID, fmtTime(since))
 	if err != nil {
 		return nil, wrap("list alerts", err)

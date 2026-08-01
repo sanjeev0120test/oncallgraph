@@ -214,6 +214,10 @@ jobs:
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" status --data-dir "$DATA" >/dev/null
+          MERGE="$(mktemp -d)"
+          "$BIN" ingest --config fixtures/ci_live_k8s/.opsgraph.yaml --data-dir "$MERGE" --replace >/dev/null
+          "$BIN" ingest --config fixtures/ci_live_k8s/.opsgraph.yaml --data-dir "$MERGE" --merge >/dev/null
+          "$BIN" ask checkout --data-dir "$MERGE" --format json >/dev/null
           EXP="$(mktemp -d)"
           "$BIN" export checkout --fixture ./fixtures/incident_checkout --format markdown --out "$EXP/r.md" >/dev/null
           test -s "$EXP/r.md"

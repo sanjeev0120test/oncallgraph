@@ -43,18 +43,6 @@ func ingestHelmReleases(s *store.Store, fsys fs.FS, path string, now time.Time) 
 }
 
 func emitHelmDeploy(s *store.Store, r helmRelease, now time.Time) error {
-	at := r.UpdatedAt
-	if at.IsZero() {
-		at = now
-		if at.IsZero() {
-			at = time.Now().UTC()
-		}
-		name := r.Name
-		if name == "" {
-			name = r.ServiceID
-		}
-		fmt.Fprintf(os.Stderr, "warning: helm release %q missing updated_at; using scrape time\n", name)
-	}
 	rev := fmt.Sprintf("%d", r.Revision)
 	if r.Version != "" {
 		rev = r.Version
@@ -66,6 +54,18 @@ func emitHelmDeploy(s *store.Store, r helmRelease, now time.Time) error {
 	// Include service_id so two services cannot collide on the same release name.
 	evID := "ev-helm-" + r.ServiceID + "-" + name
 	summary := fmt.Sprintf("helm release %s chart=%s rev=%s", name, r.Chart, rev)
+	at := r.UpdatedAt
+	if at.IsZero() {
+		// Evidence only: stamping scrape time as a deploy At would keep R1 forever.
+		obs := now
+		if obs.IsZero() {
+			obs = time.Now().UTC()
+		}
+		fmt.Fprintf(os.Stderr, "warning: helm release %q missing updated_at; skipping deploy change\n", name)
+		return s.UpsertEvidence(model.Evidence{
+			ID: evID, ServiceID: r.ServiceID, Source: "helm", At: obs, Kind: "deploy", Summary: summary, RawRef: rev,
+		})
+	}
 	if err := s.UpsertChange(model.Change{
 		ID: "helm-" + r.ServiceID + "-" + name, ServiceID: r.ServiceID, At: at, Type: "deploy",
 		Summary: summary, Revision: rev, Source: "helm", EvidenceID: evID,

@@ -10,7 +10,7 @@ import (
 
 // alertAlwaysVisible reports statuses that ignore --since (still live / silenced).
 func alertAlwaysVisible(status string) bool {
-	return model.AlertActive(status) || status == "suppressed"
+	return model.AlertLive(status)
 }
 
 func newAlertsCmd() *cobra.Command {

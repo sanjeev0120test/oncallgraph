@@ -79,12 +79,22 @@ func Mermaid(services []model.Service, deps []model.Dependency) string {
 }
 
 func safeID(id string) string {
-	r := strings.NewReplacer("-", "_", ".", "_", "/", "_", " ", "_", "\"", "")
-	out := r.Replace(id)
-	if out == "" {
-		out = "unknown"
+	// Hex-escape non-alnum so distinct ids (a-b vs a_b) never collide.
+	var b strings.Builder
+	b.WriteString("n_")
+	if id == "" {
+		b.WriteString("unknown")
+		return b.String()
 	}
-	return "n_" + out
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		default:
+			fmt.Fprintf(&b, "_%x", r)
+		}
+	}
+	return b.String()
 }
 
 func mermaidEscape(s string) string {

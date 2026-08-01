@@ -7,6 +7,12 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
+func TestSafeIDKeepsDistinctServiceIDs(t *testing.T) {
+	if safeID("a-b") == safeID("a_b") {
+		t.Fatalf("safeID must not collide for a-b vs a_b: %q", safeID("a-b"))
+	}
+}
+
 func TestMermaidEscapesQuotesAndIsStable(t *testing.T) {
 	svcs := []model.Service{
 		{ID: "b-svc", Health: `degraded "x"`},

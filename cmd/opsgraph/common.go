@@ -252,8 +252,20 @@ func liveHasIncidentSignal(s *store.Store, _ *config.Config) bool {
 		return true
 	}
 	counts, err := s.Counts()
-	if err == nil && (counts["changes"] > 0 || counts["alerts"] > 0 || counts["evidence"] > 0) {
+	if err == nil && (counts["alerts"] > 0 || counts["evidence"] > 0) {
 		return true
+	}
+	// Prefer connector-tagged services / non-git change sources so a local git
+	// scan alone cannot displace a richer persisted incident store.
+	if err == nil && counts["changes"] > 0 {
+		if changes, cerr := s.ListAllChanges(); cerr == nil {
+			for _, c := range changes {
+				switch c.Source {
+				case "kubernetes", "prometheus", "alertmanager", "helm", "fixture":
+					return true
+				}
+			}
+		}
 	}
 	svcs, err := s.ListServices()
 	if err != nil {
@@ -262,7 +274,7 @@ func liveHasIncidentSignal(s *store.Store, _ *config.Config) bool {
 	for _, svc := range svcs {
 		for _, src := range svc.Sources {
 			switch src {
-			case "kubernetes", "prometheus", "alertmanager", "git", "helm", "fixture":
+			case "kubernetes", "prometheus", "alertmanager", "helm", "fixture":
 				return true
 			}
 		}

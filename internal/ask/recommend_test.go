@@ -45,22 +45,26 @@ func TestRecommendR1SkipsFutureChange(t *testing.T) {
 	}
 }
 
-func TestRecommendR3SkipsFutureAlert(t *testing.T) {
+func TestFilterKeepsLiveFutureDropsResolvedFuture(t *testing.T) {
 	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
-	res := model.AskResult{
-		Service:     model.Service{ID: "checkout"},
-		GeneratedAt: now,
-		Alerts: []model.Alert{{
-			Name: "FutureFire", Status: "firing", At: now.Add(time.Hour),
-		}},
+	in := []model.Alert{
+		{Name: "FutureFire", Status: "firing", At: now.Add(time.Hour)},
+		{Name: "FutureDone", Status: "resolved", At: now.Add(time.Hour)},
 	}
-	// Ask filters futures before recommend; defend firstActiveAlert contract too.
-	res.Alerts = filterNotFutureAlerts(res.Alerts, now)
+	out := filterNotFutureAlerts(in, now)
+	if len(out) != 1 || out[0].Name != "FutureFire" {
+		t.Fatalf("live future must stay, resolved future drop: %+v", out)
+	}
+	res := model.AskResult{Service: model.Service{ID: "checkout"}, GeneratedAt: now, Alerts: out}
 	recs := recommend(res)
+	found := false
 	for _, r := range recs {
-		if strings.Contains(r, "FutureFire") || strings.Contains(r, "Acknowledge") {
-			t.Fatalf("R3 must not fire for future alert: %v", recs)
+		if strings.Contains(r, "FutureFire") {
+			found = true
 		}
+	}
+	if !found {
+		t.Fatalf("R3 must acknowledge live alert despite future StartsAt: %v", recs)
 	}
 }
 

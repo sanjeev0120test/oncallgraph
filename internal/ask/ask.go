@@ -123,6 +123,11 @@ func filterNotFutureChanges(in []model.Change, now time.Time) []model.Change {
 func filterNotFutureAlerts(in []model.Alert, now time.Time) []model.Alert {
 	out := make([]model.Alert, 0, len(in))
 	for _, a := range in {
+		// Live statuses stay visible even if StartsAt is skewed into the future.
+		if model.AlertLive(a.Status) {
+			out = append(out, a)
+			continue
+		}
 		if a.At.IsZero() || a.At.After(now) {
 			continue
 		}
@@ -225,6 +230,9 @@ func buildTimeline(res model.AskResult, now time.Time) []model.TimelineEvent {
 	}
 	for _, e := range res.Evidence {
 		if e.Kind != "k8s-event" || seenEv[e.ID] {
+			continue
+		}
+		if e.At.IsZero() || e.At.After(now) {
 			continue
 		}
 		events = append(events, model.TimelineEvent{

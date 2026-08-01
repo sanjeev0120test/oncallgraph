@@ -193,15 +193,6 @@ func emitRollout(s *store.Store, d k8sDeployment, now time.Time) error {
 	if strings.TrimSpace(d.Name) == "" {
 		return nil
 	}
-	at := d.UpdatedAt
-	if at.IsZero() {
-		// Still emit evidence so health-only snapshots contribute R1/timeline.
-		at = now
-		if at.IsZero() {
-			at = time.Now().UTC()
-		}
-		fmt.Fprintf(os.Stderr, "warning: deployment %q missing updated_at; using scrape time\n", d.Name)
-	}
 	// Keep short legacy ids for default-namespace fixtures; namespace elsewhere
 	// so same deployment name in two namespaces cannot overwrite.
 	suffix := d.Name
@@ -211,6 +202,19 @@ func emitRollout(s *store.Store, d k8sDeployment, now time.Time) error {
 	evID := "ev-k8s-rollout-" + suffix
 	changeID := "k8s-rollout-" + suffix
 	summary := fmt.Sprintf("rollout %s (%d/%d ready)", d.Name, d.Ready, d.Desired)
+	at := d.UpdatedAt
+	if at.IsZero() {
+		// Evidence only: scrape-time At would keep R1/prime-suspect forever.
+		obs := now
+		if obs.IsZero() {
+			obs = time.Now().UTC()
+		}
+		fmt.Fprintf(os.Stderr, "warning: deployment %q missing updated_at; skipping rollout change\n", d.Name)
+		return s.UpsertEvidence(model.Evidence{
+			ID: evID, Source: "kubernetes", At: obs, Kind: "rollout",
+			Summary: summary, RawRef: d.Name, ServiceID: d.ServiceID,
+		})
+	}
 	if err := s.UpsertChange(model.Change{
 		ID: changeID, ServiceID: d.ServiceID, At: at, Type: "rollout",
 		Summary: summary, Source: "kubernetes", EvidenceID: evID,

@@ -56,6 +56,12 @@ func AlertActive(status string) bool {
 	return status == "firing" || status == "pending"
 }
 
+// AlertLive reports whether an alert is still live in the paging pipeline
+// (actionable or silenced). Live alerts ignore --since / future-At filters.
+func AlertLive(status string) bool {
+	return AlertActive(status) || status == "suppressed"
+}
+
 // Alert is a firing, pending, or resolved alert linked to a service.
 type Alert struct {
 	ID         string    `json:"id"`

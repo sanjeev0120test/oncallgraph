@@ -101,7 +101,7 @@ func watchTick(cmd *cobra.Command, src *sourceFlags, query string, since time.Du
 		if watchFatalLoad(err) {
 			return false, "", "", "", false, failSource(err)
 		}
-		return false, "", "", "warning: watch load: "+err.Error(), true, nil
+		return false, "", "", "warning: watch load: " + err.Error(), true, nil
 	}
 	win := since
 	if win == 0 {
@@ -113,7 +113,7 @@ func watchTick(cmd *cobra.Command, src *sourceFlags, query string, since time.Du
 		if errors.Is(err, ask.ErrServiceNotFound) || errors.Is(err, store.ErrAmbiguous) {
 			return false, "", "", "", false, failAsk(err)
 		}
-		return false, "", "", "warning: watch ask: "+err.Error(), true, nil
+		return false, "", "", "warning: watch ask: " + err.Error(), true, nil
 	}
 	line = res.Service.ID + " " + res.Service.Health
 	return res.Service.Health == model.HealthHealthy, res.Service.ID, res.Service.Health, line, false, nil
