@@ -105,7 +105,7 @@ Fleet alert list. `--firing` keeps active (`firing`/`pending`) alerts; `--servic
 | `explain`, `why`, `score`, `fingerprint` | Hypotheses / severity |
 | `path`, `graph`, `compare`, `who`, `resolve` | Topology / ownership |
 | `report`, `export`, `handoff` | Markdown/JSON/text handoff |
-| `watch` | Poll until healthy (live/persistent sources) |
+| `watch` | Poll until healthy (default interval 5s; live/persistent sources) |
 | `validate-fixture`, `completion` | Pack checks / shell completion |
 
 ## Validation

@@ -43,6 +43,20 @@ func TestLocalSummaryIsUseful(t *testing.T) {
 	}
 }
 
+func TestLocalSummaryDownstreamAndSuppressed(t *testing.T) {
+	res := sampleResult()
+	res.Alerts = []model.Alert{{Name: "Silenced", Status: "suppressed", Severity: "warning"}}
+	res.Changes = nil
+	res.Correlations = nil
+	res.Downstream = []model.Service{{ID: "order", Health: model.HealthUnhealthy}}
+	s := LocalSummary(res)
+	for _, want := range []string{"silenced", "order", "unhealthy"} {
+		if !strings.Contains(strings.ToLower(s), want) {
+			t.Fatalf("LocalSummary missing %q:\n%s", want, s)
+		}
+	}
+}
+
 func TestSummarizeDisabledFallsBackToLocal(t *testing.T) {
 	cfg := config.Default() // AI.Enabled == false
 	res := sampleResult()

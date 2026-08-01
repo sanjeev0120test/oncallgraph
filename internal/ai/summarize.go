@@ -23,10 +23,14 @@ func LocalSummary(res model.AskResult) string {
 		b.WriteString(", the prime suspect.")
 	} else if len(res.Correlations) > 0 {
 		b.WriteString(" No change in the 30m suspect window; older linked change exists.")
+	} else if len(res.Changes) > 0 {
+		b.WriteString(" No change in the 30m suspect window; older lookback changes exist.")
 	}
 
 	if name, status := firstActiveAlert(res.Alerts); name != "" {
 		fmt.Fprintf(&b, " Alert %s is %s.", name, status)
+	} else if name, status := firstSuppressedAlert(res.Alerts); name != "" {
+		fmt.Fprintf(&b, " Alert %s is %s (silenced).", name, status)
 	}
 
 	var unhealthy []string
@@ -37,6 +41,15 @@ func LocalSummary(res model.AskResult) string {
 	}
 	if len(unhealthy) > 0 {
 		fmt.Fprintf(&b, " Upstream %s %s unhealthy.", strings.Join(unhealthy, ", "), plural(len(unhealthy)))
+	}
+	var badDown []string
+	for _, d := range res.Downstream {
+		if d.Health == model.HealthDegraded || d.Health == model.HealthUnhealthy {
+			badDown = append(badDown, d.ID)
+		}
+	}
+	if len(badDown) > 0 {
+		fmt.Fprintf(&b, " Downstream %s %s unhealthy.", strings.Join(badDown, ", "), plural(len(badDown)))
 	}
 
 	if res.RunbookResult != nil && (res.RunbookResult.Status == model.StatusStale || res.RunbookResult.Status == model.StatusFail) {
@@ -61,6 +74,15 @@ func firstActiveAlert(alerts []model.Alert) (name, status string) {
 				st = "firing"
 			}
 			return a.Name, st
+		}
+	}
+	return "", ""
+}
+
+func firstSuppressedAlert(alerts []model.Alert) (name, status string) {
+	for _, a := range alerts {
+		if a.Status == "suppressed" {
+			return a.Name, a.Status
 		}
 	}
 	return "", ""

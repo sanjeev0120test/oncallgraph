@@ -7,6 +7,13 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
+func TestASCIIEmptyServices(t *testing.T) {
+	got := ASCII(nil, nil)
+	if !strings.Contains(got, "(no services)") {
+		t.Fatalf("want no services message, got %q", got)
+	}
+}
+
 func TestSafeIDKeepsDistinctServiceIDs(t *testing.T) {
 	if safeID("a-b") == safeID("a_b") {
 		t.Fatalf("safeID must not collide for a-b vs a_b: %q", safeID("a-b"))

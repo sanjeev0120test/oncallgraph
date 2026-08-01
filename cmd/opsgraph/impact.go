@@ -49,7 +49,7 @@ func newImpactCmd() *cobra.Command {
 				return nil
 			}
 			cmd.Println("TREE")
-			printImpactNode(cmd, res.Tree, "")
+			printImpactNode(cmd, res.Tree, "", true)
 			return nil
 		},
 	}
@@ -58,7 +58,7 @@ func newImpactCmd() *cobra.Command {
 	return cmd
 }
 
-func printImpactNode(cmd *cobra.Command, n impact.Node, prefix string) {
+func printImpactNode(cmd *cobra.Command, n impact.Node, prefix string, isLast bool) {
 	health := n.Health
 	if health == "" {
 		health = "unknown"
@@ -66,10 +66,21 @@ func printImpactNode(cmd *cobra.Command, n impact.Node, prefix string) {
 	if n.Depth == 0 {
 		cmd.Printf("%s%s [%s]\n", prefix, n.ID, health)
 	} else {
-		cmd.Printf("%s└─ %s [%s]\n", prefix, n.ID, health)
+		branch := "├─"
+		if isLast {
+			branch = "└─"
+		}
+		cmd.Printf("%s%s %s [%s]\n", prefix, branch, n.ID, health)
 	}
-	childPrefix := prefix + "   "
-	for _, c := range n.Children {
-		printImpactNode(cmd, c, childPrefix)
+	nextPrefix := prefix
+	if n.Depth > 0 {
+		if isLast {
+			nextPrefix += "   "
+		} else {
+			nextPrefix += "│  "
+		}
+	}
+	for i, c := range n.Children {
+		printImpactNode(cmd, c, nextPrefix, i == len(n.Children)-1)
 	}
 }

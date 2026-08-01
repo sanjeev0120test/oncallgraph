@@ -16,39 +16,33 @@ func newRootCmd() *cobra.Command {
 		SilenceErrors: true,
 		Version:       version.String(),
 	}
+	root.AddGroup(&cobra.Group{ID: "core", Title: "Core Incident Commands"})
+	root.AddGroup(&cobra.Group{ID: "fleet", Title: "Fleet & Topology"})
+	root.AddGroup(&cobra.Group{ID: "signals", Title: "Signals & Evidence"})
+	root.AddGroup(&cobra.Group{ID: "ops", Title: "Ops & Tooling"})
 
-	root.AddCommand(newVersionCmd())
-	root.AddCommand(newAskCmd())
-	root.AddCommand(newVerifyRunbookCmd())
-	root.AddCommand(newIngestCmd())
-	root.AddCommand(newDemoCmd())
-	root.AddCommand(newTestCmd())
-	root.AddCommand(newStatusCmd())
-	root.AddCommand(newServicesCmd())
-	root.AddCommand(newOwnersCmd())
-	root.AddCommand(newGraphCmd())
-	root.AddCommand(newEvidenceCmd())
-	root.AddCommand(newExplainCmd())
-	root.AddCommand(newReportCmd())
-	root.AddCommand(newScoreCmd())
-	root.AddCommand(newWhoCmd())
-	root.AddCommand(newCompareCmd())
-	root.AddCommand(newTimelineCmd())
-	root.AddCommand(newPathCmd())
-	root.AddCommand(newBlastCmd())
-	root.AddCommand(newWatchCmd())
-	root.AddCommand(newHealthCmd())
-	root.AddCommand(newTopCmd())
-	root.AddCommand(newResolveCmd())
-	root.AddCommand(newChangesCmd())
-	root.AddCommand(newAlertsCmd())
-	root.AddCommand(newImpactCmd())
-	root.AddCommand(newFingerprintCmd())
-	root.AddCommand(newWhyCmd())
-	root.AddCommand(newHandoffCmd())
-	root.AddCommand(newExportCmd())
-	root.AddCommand(newDoctorCmd())
-	root.AddCommand(newValidateFixtureCmd())
-	root.AddCommand(newCompletionCmd())
+	add := func(group string, cmds ...*cobra.Command) {
+		for _, c := range cmds {
+			c.GroupID = group
+			root.AddCommand(c)
+		}
+	}
+	add("core",
+		newAskCmd(), newWhyCmd(), newExplainCmd(), newHandoffCmd(),
+		newScoreCmd(), newFingerprintCmd(), newVerifyRunbookCmd(),
+		newReportCmd(), newExportCmd(), newWatchCmd(),
+	)
+	add("fleet",
+		newServicesCmd(), newOwnersCmd(), newHealthCmd(), newTopCmd(),
+		newBlastCmd(), newImpactCmd(), newPathCmd(), newGraphCmd(),
+		newCompareCmd(), newResolveCmd(), newWhoCmd(),
+	)
+	add("signals",
+		newChangesCmd(), newAlertsCmd(), newTimelineCmd(), newEvidenceCmd(),
+	)
+	add("ops",
+		newDemoCmd(), newIngestCmd(), newStatusCmd(), newDoctorCmd(),
+		newTestCmd(), newValidateFixtureCmd(), newCompletionCmd(), newVersionCmd(),
+	)
 	return root
 }

@@ -52,7 +52,18 @@ func newStatusCmd() *cobra.Command {
 			if cfg.Connectors.Git.Enabled && !liveConnectorsEnabled(cfg) {
 				cmd.Println("  git_note:     ask/who/watch use persisted store; run `opsgraph ingest` to refresh git changes")
 			}
-			cmd.Printf("  kubernetes:   %v (snapshot %q)\n", cfg.Connectors.Kubernetes.Enabled, cfg.Connectors.Kubernetes.Snapshot)
+			k8sSnap := cfg.Connectors.Kubernetes.Snapshot
+			k8sExists := false
+			if cfg.Connectors.Kubernetes.Enabled && strings.TrimSpace(k8sSnap) != "" {
+				snapPath := k8sSnap
+				if !filepath.IsAbs(snapPath) {
+					snapPath = filepath.Join(configDir, snapPath)
+				}
+				k8sExists = pathExists(snapPath)
+				cmd.Printf("  kubernetes:   %v (snapshot %q exists=%v)\n", cfg.Connectors.Kubernetes.Enabled, k8sSnap, k8sExists)
+			} else {
+				cmd.Printf("  kubernetes:   %v (snapshot %q)\n", cfg.Connectors.Kubernetes.Enabled, k8sSnap)
+			}
 			cmd.Printf("  prometheus:   %v (url %q", cfg.Connectors.Prometheus.Enabled, cfg.Connectors.Prometheus.URL)
 			if cfg.Connectors.Prometheus.Enabled {
 				cmd.Printf(" reachable=%v", probeHTTP(cmd.Context(), cfg.Connectors.Prometheus.URL, "/api/v1/alerts"))

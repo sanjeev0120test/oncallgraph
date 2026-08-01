@@ -187,6 +187,29 @@ func TestCLIWhyHandoffJSON(t *testing.T) {
 	}
 }
 
+func TestCLIImpactTreeUsesBranchChars(t *testing.T) {
+	fx := fixtureDir(t)
+	out, _, code := runRoot(t, "impact", "auth", "--fixture", fx)
+	if code != 0 {
+		t.Fatalf("impact exit = %d", code)
+	}
+	if !strings.Contains(out, "└─") && !strings.Contains(out, "├─") {
+		t.Fatalf("impact tree missing branch chars:\n%s", out)
+	}
+}
+
+func TestCLIRootHelpGroups(t *testing.T) {
+	out, _, code := runRoot(t, "--help")
+	if code != 0 {
+		t.Fatalf("help exit = %d", code)
+	}
+	for _, want := range []string{"Core Incident Commands", "Fleet & Topology", "Signals & Evidence", "Ops & Tooling"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("help missing group %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestCLICompareAndPathRejectSameService(t *testing.T) {
 	fx := fixtureDir(t)
 	_, _, code := runRoot(t, "compare", "checkout", "checkout-api", "--fixture", fx)

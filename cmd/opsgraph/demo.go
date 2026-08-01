@@ -41,6 +41,8 @@ func newDemoCmd() *cobra.Command {
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), res)
 			}
+			cmd.Println("DEMO  checkout (embedded fixture pack)")
+			cmd.Println()
 			return output.Table(cmd.OutOrStdout(), res)
 		},
 	}

@@ -79,7 +79,11 @@ func newChangesCmd() *cobra.Command {
 				return nil
 			}
 			for _, c := range list {
-				cmd.Printf("%s  %-10s %-14s %s [%s]\n", c.At.Format(time.RFC3339), c.Type, c.ServiceID, c.Summary, c.EvidenceID)
+				ev := c.EvidenceID
+				if ev == "" {
+					ev = "-"
+				}
+				cmd.Printf("%s  %-10s %-14s %s [%s]\n", c.At.Format(time.RFC3339), c.Type, c.ServiceID, c.Summary, ev)
 			}
 			return nil
 		},

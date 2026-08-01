@@ -41,6 +41,9 @@ func newFingerprintCmd() *cobra.Command {
 			}
 			cmd.Printf("FINGERPRINT  %s\n", fp.Fingerprint)
 			cmd.Printf("SERVICE      %s\n", fp.Service)
+			if len(fp.Inputs) == 0 {
+				cmd.Println("INPUT        (none)")
+			}
 			for _, in := range fp.Inputs {
 				cmd.Printf("INPUT        %s\n", in)
 			}

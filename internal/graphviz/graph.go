@@ -17,6 +17,10 @@ func ASCII(services []model.Service, deps []model.Dependency) string {
 	}
 	var b strings.Builder
 	b.WriteString("Dependency graph (From → To = From depends on To)\n")
+	if len(services) == 0 {
+		b.WriteString("(no services)\n")
+		return b.String()
+	}
 	if len(deps) == 0 {
 		b.WriteString("(no edges)\n")
 		return b.String()
