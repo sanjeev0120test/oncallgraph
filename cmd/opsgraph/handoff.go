@@ -100,10 +100,14 @@ func handoffNote(res model.AskResult) string {
 		b.WriteString("\n")
 	}
 	for _, a := range res.Alerts {
-		if !model.AlertActive(a.Status) {
+		if !model.AlertLive(a.Status) {
 			continue
 		}
-		fmt.Fprintf(&b, "- Alert: **%s** (%s, %s)", a.Name, a.Severity, a.Status)
+		label := "Alert"
+		if a.Status == "suppressed" {
+			label = "Suppressed alert"
+		}
+		fmt.Fprintf(&b, "- %s: **%s** (%s, %s)", label, a.Name, a.Severity, a.Status)
 		if a.EvidenceID != "" {
 			fmt.Fprintf(&b, " [%s]", a.EvidenceID)
 		}

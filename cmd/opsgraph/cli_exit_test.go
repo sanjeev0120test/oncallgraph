@@ -171,6 +171,32 @@ func TestCLIWhyHandoffJSON(t *testing.T) {
 	if !strings.Contains(out, `"note"`) {
 		t.Fatalf("handoff json missing note: %s", out)
 	}
+	out, _, code = runRoot(t, "explain", "checkout", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("explain json exit = %d", code)
+	}
+	if !strings.Contains(out, `"narrative"`) {
+		t.Fatalf("explain json missing narrative: %s", out)
+	}
+	out, _, code = runRoot(t, "report", "checkout", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("report json exit = %d", code)
+	}
+	if !strings.Contains(out, `"markdown"`) {
+		t.Fatalf("report json missing markdown: %s", out)
+	}
+}
+
+func TestCLICompareAndPathRejectSameService(t *testing.T) {
+	fx := fixtureDir(t)
+	_, _, code := runRoot(t, "compare", "checkout", "checkout-api", "--fixture", fx)
+	if code != 2 {
+		t.Fatalf("compare alias-collapse exit = %d, want 2", code)
+	}
+	_, _, code = runRoot(t, "path", "checkout", "checkout-api", "--fixture", fx)
+	if code != 2 {
+		t.Fatalf("path alias-collapse exit = %d, want 2", code)
+	}
 }
 
 func TestCLILiveFailFallsBackToPersistedStore(t *testing.T) {

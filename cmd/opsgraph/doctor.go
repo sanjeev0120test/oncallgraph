@@ -81,6 +81,10 @@ func newDoctorCmd() *cobra.Command {
 					gitOK := pathExists(gitDir)
 					if gitOK {
 						check("git_repo", true, gitPath)
+						// ask/who prefer live k8s/prom/AM only — git needs ingest refresh.
+						if !liveConnectorsEnabled(cfg) && pathExists(db) {
+							warnf("git_refresh", "ask uses persisted store; run `opsgraph ingest` to pick up new commits")
+						}
 					} else if pathExists(gitPath) {
 						warnf("git_repo", gitPath+" exists but has no .git (not a repository)")
 					} else {

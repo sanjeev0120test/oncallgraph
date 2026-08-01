@@ -90,16 +90,20 @@ func newAlertsCmd() *cobra.Command {
 				return nil
 			}
 			for _, a := range list {
+				ev := a.EvidenceID
+				if ev == "" {
+					ev = "-"
+				}
 				cmd.Printf("%s  %-10s %-10s %-14s %s [%s]\n",
-					a.At.Format(time.RFC3339), a.Status, a.Severity, a.ServiceID, a.Name, a.EvidenceID)
+					a.At.Format(time.RFC3339), a.Status, a.Severity, a.ServiceID, a.Name, ev)
 			}
 			return nil
 		},
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
-	cmd.Flags().BoolVar(&firingOnly, "firing", false, "only show firing or pending alerts")
+	cmd.Flags().BoolVar(&firingOnly, "firing", false, "only active alerts (firing or pending; excludes suppressed/resolved)")
 	cmd.Flags().StringVar(&service, "service", "", "filter to one service name/alias")
-	cmd.Flags().DurationVar(&since, "since", 0, "lookback for resolved alerts (active always shown; default: config)")
+	cmd.Flags().DurationVar(&since, "since", 0, "lookback for resolved alerts (live+suppressed always shown; default: config)")
 	return cmd
 }

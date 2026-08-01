@@ -124,6 +124,23 @@ func newValidateFixtureCmd() *cobra.Command {
 					return fail(1, "alert %q references unknown service %q", a.ID, a.ServiceID)
 				}
 			}
+			// Cited evidence IDs must exist so ask/handoff links are not stubs.
+			for _, c := range changes {
+				if c.EvidenceID == "" {
+					continue
+				}
+				if _, err := s.GetEvidence(c.EvidenceID); err != nil {
+					return fail(1, "change %q cites missing evidence %q", c.ID, c.EvidenceID)
+				}
+			}
+			for _, a := range alerts {
+				if a.EvidenceID == "" {
+					continue
+				}
+				if _, err := s.GetEvidence(a.EvidenceID); err != nil {
+					return fail(1, "alert %q cites missing evidence %q", a.ID, a.EvidenceID)
+				}
+			}
 			cmd.Printf("ok - fixture %q valid (now=%s)\n", dir, now.UTC().Format(time.RFC3339))
 			for _, k := range []string{"services", "owners", "changes", "dependencies", "alerts", "runbooks", "evidence"} {
 				cmd.Printf("  %-13s %d\n", k+":", counts[k])

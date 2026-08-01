@@ -42,6 +42,9 @@ func newScoreCmd() *cobra.Command {
 			}
 			cmd.Printf("SCORE   %d (%s)\n", sc.Score, sc.Level)
 			cmd.Println("BREAKDOWN")
+			if len(sc.Breakdown) == 0 {
+				cmd.Println("  (none)")
+			}
 			keys := make([]string, 0, len(sc.Breakdown))
 			for k := range sc.Breakdown {
 				keys = append(keys, k)

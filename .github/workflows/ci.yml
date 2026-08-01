@@ -194,7 +194,10 @@ jobs:
           # On-call subset promoted from full smoke for cross-OS contracts.
           "$BIN" handoff checkout --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" why checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" explain checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN" report checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout >/dev/null
           set +e
           "$BIN" watch checkout --fixture ./fixtures/incident_checkout --interval -1s --timeout 1s >/dev/null
           bad_watch=$?

@@ -7,7 +7,8 @@ go build -o bin/opsgraph ./cmd/opsgraph   # or: make build
 ```
 
 Most inspection commands accept `--format table|json` (default `table`).
-Exceptions: `graph` (`ascii|table|mermaid`), `export` (`json|markdown`), `watch`/`why`/`handoff`/`doctor` (text).
+Exceptions: `graph` (`ascii|table|mermaid`), `export`/`report` (`json|markdown`), `watch`/`doctor` (text).
+`why` / `handoff` / `explain` also accept `--format json` for automation.
 
 ## Core commands
 
@@ -36,11 +37,12 @@ opsgraph ask checkout --format json --ai
 ```
 
 Flags: `--fixture`, `--config`, `--data-dir`, `--since`, `--runbook` (default true), `--ai`, `--format`.
+`--fixture` and `--data-dir` are mutually exclusive on read commands (`ask`, `status`, helpers).
 
 Notes:
 - Live alerts (`firing`/`pending`/`suppressed`) are always shown; `--since` filters resolved/historical alerts only. `suppressed` (Alertmanager silence) is visible but does not drive R3/score.
 - Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower. The reported window shows both when they differ (e.g. `10m (changes 60m)`).
-- If kubernetes (with snapshot path) / Prometheus / Alertmanager (with URL) are configured in `.opsgraph.yaml`, `ask`/`status`/`why`/`watch` re-scrape them. Live prefer requires a real scrape signal (k8s/git/helm rows or sources, or a successful Prom/AM HTTP scrape). Config seed alone / empty snapshot dirs do **not** displace a populated store. Use `--data-dir` to force the persistent store. Config `data_dir` is resolved relative to the config file.
+- If kubernetes (with snapshot path) / Prometheus / Alertmanager (with URL) are configured in `.opsgraph.yaml`, `ask`/`status`/`why`/`watch` re-scrape them. Git-alone configs stay on the persisted store (run `opsgraph ingest` to refresh commits). Live prefer requires a real scrape signal (k8s/helm/prom/AM rows or sources, or a successful Prom/AM HTTP scrape). Config seed alone / empty snapshot dirs do **not** displace a populated store. Use `--data-dir` to force the persistent store. Config `data_dir` is resolved relative to the config file.
 - Prometheus/Alertmanager scrape failures are hard errors: live mode falls back to a populated `state.db` (stderr warning) instead of answering with empty alerts. If AM is your paging source, keep `opsgraph ingest` healthy or force `--data-dir`.
 
 Exit codes: `0` success, `1` service not found / empty store, `2` usage/config error.
@@ -54,11 +56,11 @@ Load a fixture pack (or live config sources) into a persistent data dir.
 opsgraph ingest --fixture fixtures/incident_checkout --data-dir .opsgraph/data
 opsgraph ingest --since 2h          # live connectors; change lookback (default: config default_since)
 opsgraph ingest --replace           # default for live: atomic swap of validated scrape
-opsgraph ingest --merge             # upsert-only (does not delete removed topology; prefer --replace)
+opsgraph ingest --merge             # upsert; prunes removed config deps + stale k8s health; prefer --replace for full churn
 opsgraph ask checkout --data-dir .opsgraph/data
 ```
 
-Quiet Prom/AM scrapes (reachable, zero alerts) fall back to a richer persisted `state.db` instead of answering from config seed alone.
+`--merge` is live-only (fixtures always replace). Quiet Prom/AM scrapes (reachable, zero alerts) fall back to a richer persisted `state.db` instead of answering from config seed alone.
 
 ### `opsgraph verify-runbook <service>`
 Checks whether a runbook is still valid against current state.
@@ -69,11 +71,13 @@ opsgraph verify-runbook checkout --fixture fixtures/incident_checkout
 
 Exit codes: `0` pass or manual-only, `1` stale/fail/missing, `2` usage/error.
 
-### `opsgraph handoff <service>`
-Short evidence-backed handoff note (health, score, fingerprint, linked alerts, next steps).
+### `opsgraph handoff <service>` / `why` / `explain`
+Short handoff note, one-line hypothesis, or multi-paragraph narrative.
 
 ```bash
 opsgraph handoff checkout --fixture fixtures/incident_checkout
+opsgraph why checkout --fixture fixtures/incident_checkout --format json
+opsgraph explain checkout --fixture fixtures/incident_checkout --format json
 ```
 
 ### `opsgraph test <fixture-dir>`
@@ -85,7 +89,7 @@ opsgraph test ./fixtures/incident_checkout --update
 ```
 
 ### `opsgraph status` / `opsgraph doctor` / `opsgraph version`
-Store counts, environment checks, and build metadata. `status` uses the same source selection as `ask` and probes Prometheus/Alertmanager/Ollama reachability when configured. `doctor` verifies git, kubernetes snapshot (when enabled), and probes Prom/AM endpoints (unreachable enabled URLs fail the doctor run).
+Store counts, environment checks, and build metadata. `status` uses the same source selection as `ask`, prints `ACTIVE SOURCE` (`fixture|live|persisted`), and probes Prometheus/Alertmanager/Ollama when configured. `doctor` verifies git, kubernetes snapshot (when enabled), opens `--data-dir` schema, and probes Prom/AM endpoints (unreachable enabled URLs fail the doctor run).
 
 ### `opsgraph alerts`
 Fleet alert list. `--firing` keeps active (`firing`/`pending`) alerts; `--service <name>` filters by service; `--since` trims resolved/historical rows while live and `suppressed` alerts stay visible.

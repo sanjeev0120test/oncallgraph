@@ -45,6 +45,9 @@ func newCompareCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
+			if a.Service.ID == b.Service.ID {
+				return fail(2, "compare requires two distinct services (both resolve to %q)", a.Service.ID)
+			}
 			sa, sb := score.Compute(a), score.Compute(b)
 			type side struct {
 				Service    string   `json:"service"`

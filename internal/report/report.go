@@ -34,14 +34,22 @@ func Markdown(res model.AskResult) string {
 		b.WriteString("_None in window._\n")
 	}
 	for _, c := range res.Changes {
-		fmt.Fprintf(&b, "- `%s` %s — %q [%s]\n", c.Type, c.At.Format(time.RFC3339), c.Summary, c.EvidenceID)
+		ev := c.EvidenceID
+		if ev == "" {
+			ev = "-"
+		}
+		fmt.Fprintf(&b, "- `%s` %s — %q [%s]\n", c.Type, c.At.Format(time.RFC3339), c.Summary, ev)
 	}
 	b.WriteString("\n## Alerts\n")
 	if len(res.Alerts) == 0 {
 		b.WriteString("_None in window._\n")
 	}
 	for _, a := range res.Alerts {
-		fmt.Fprintf(&b, "- **%s** (%s, %s) [%s]\n", a.Name, a.Severity, a.Status, a.EvidenceID)
+		ev := a.EvidenceID
+		if ev == "" {
+			ev = "-"
+		}
+		fmt.Fprintf(&b, "- **%s** (%s, %s) [%s]\n", a.Name, a.Severity, a.Status, ev)
 	}
 	if len(res.Correlations) > 0 {
 		b.WriteString("\n## Correlations\n")

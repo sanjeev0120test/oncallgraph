@@ -36,6 +36,9 @@ func newPathCmd() *cobra.Command {
 			if err != nil {
 				return failLookup(args[1], err)
 			}
+			if from.ID == to.ID {
+				return fail(2, "path requires two distinct services (both resolve to %q)", from.ID)
+			}
 			deps, err := ls.store.ListAllDependencies()
 			if err != nil {
 				return fail(2, "%v", err)
