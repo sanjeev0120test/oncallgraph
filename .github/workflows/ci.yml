@@ -167,6 +167,13 @@ jobs:
           DATA="$(mktemp -d 2>/dev/null || mktemp -d -t opsgraph)"
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
+          "$BIN" status --data-dir "$DATA" >/dev/null
+          set +e
+          EMPTY="$(mktemp -d 2>/dev/null || mktemp -d -t opsgraph-empty)"
+          "$BIN" status --data-dir "$EMPTY" >/dev/null
+          empty_status=$?
+          set -e
+          test "$empty_status" -eq 1
           "$BIN" ask checkout --config fixtures/ci_live_k8s/.opsgraph.yaml --format json >/dev/null
           # Graph must write mermaid to stdout (not stderr) so redirects work.
           "$BIN" graph --fixture ./fixtures/incident_checkout --format mermaid > "$DATA/mermaid.txt" 2>"$DATA/mermaid.err"
