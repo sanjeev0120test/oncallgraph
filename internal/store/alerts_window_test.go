@@ -30,11 +30,24 @@ func TestListAlertsKeepsActiveOutsideSince(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.UpsertAlert(model.Alert{
+		ID: "old-silenced", ServiceID: "checkout", At: now.Add(-3 * time.Hour),
+		Name: "OldSilenced", Status: "suppressed", Severity: "critical", Source: "alertmanager",
+	}); err != nil {
+		t.Fatal(err)
+	}
 	alerts, err := s.ListAlerts("checkout", now.Add(-time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(alerts) != 1 || alerts[0].ID != "old-fire" {
-		t.Fatalf("want only still-firing alert outside since, got %+v", alerts)
+	if len(alerts) != 2 {
+		t.Fatalf("want firing+suppressed outside since, got %+v", alerts)
+	}
+	seen := map[string]bool{}
+	for _, a := range alerts {
+		seen[a.ID] = true
+	}
+	if !seen["old-fire"] || !seen["old-silenced"] || seen["old-resolved"] {
+		t.Fatalf("unexpected alert set: %+v", alerts)
 	}
 }

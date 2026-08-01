@@ -63,7 +63,7 @@ func ingestK8sSnapshot(s *store.Store, fsys fs.FS, now time.Time) error {
 	if err := ingestK8sFiles(s, fsys, "k8s/deployments.yaml", "k8s/events.yaml", now); err != nil {
 		return err
 	}
-	return ingestHelmReleases(s, fsys, "k8s/releases.yaml")
+	return ingestHelmReleases(s, fsys, "k8s/releases.yaml", now)
 }
 
 // ingestK8sFiles reads the given deployment/event files (if present), updates
@@ -73,8 +73,10 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time
 	if _, err := readYAML(fsys, depFile, &deps); err != nil {
 		return err
 	}
+	skippedDep := 0
 	for _, d := range deps.Deployments {
 		if d.ServiceID == "" {
+			skippedDep++
 			continue
 		}
 		if err := applyDeploymentHealth(s, d); err != nil {
@@ -83,6 +85,9 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time
 		if err := emitRollout(s, d, now); err != nil {
 			return err
 		}
+	}
+	if skippedDep > 0 {
+		fmt.Fprintf(os.Stderr, "warning: skipped %d k8s deployments (missing service_id)\n", skippedDep)
 	}
 
 	var evs k8sEvents

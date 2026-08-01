@@ -38,12 +38,14 @@ opsgraph ask checkout --format json --ai
 Flags: `--fixture`, `--config`, `--data-dir`, `--since`, `--runbook` (default true), `--ai`, `--format`.
 
 Notes:
-- Active (`firing`/`pending`) alerts are always shown; `--since` filters resolved/historical alerts only.
+- Live alerts (`firing`/`pending`/`suppressed`) are always shown; `--since` filters resolved/historical alerts only. `suppressed` (Alertmanager silence) is visible but does not drive R3/score.
 - Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower. The reported window shows both when they differ (e.g. `10m (changes 60m)`).
-- If kubernetes (with snapshot path) / Prometheus / Alertmanager (with URL) are configured in `.opsgraph.yaml`, `ask`/`status`/`why`/`watch` re-scrape them. Enabled-but-empty connectors and git-alone do not displace a populated store. Use `--data-dir` to force the persistent store. Config `data_dir` is resolved relative to the config file.
+- If kubernetes (with snapshot path) / Prometheus / Alertmanager (with URL) are configured in `.opsgraph.yaml`, `ask`/`status`/`why`/`watch` re-scrape them. Live prefer requires a real scrape signal (k8s/git/helm rows or sources, or a successful Prom/AM HTTP scrape). Config seed alone / empty snapshot dirs do **not** displace a populated store. Use `--data-dir` to force the persistent store. Config `data_dir` is resolved relative to the config file.
 - Prometheus/Alertmanager scrape failures are hard errors: live mode falls back to a populated `state.db` (stderr warning) instead of answering with empty alerts. If AM is your paging source, keep `opsgraph ingest` healthy or force `--data-dir`.
 
 Exit codes: `0` success, `1` service not found / empty store, `2` usage/config error.
+
+Other exits: `status` with no data → `1`; `watch` timeout → `1` (bad config → `2`); `top` exits `1` only when every service fails to score.
 
 ### `opsgraph ingest`
 Load a fixture pack (or live config sources) into a persistent data dir.
@@ -79,10 +81,10 @@ opsgraph test ./fixtures/incident_checkout --update
 ```
 
 ### `opsgraph status` / `opsgraph doctor` / `opsgraph version`
-Store counts, environment checks, and build metadata. `status` uses the same source selection as `ask`. `doctor` verifies git repo and (when enabled) the kubernetes snapshot path.
+Store counts, environment checks, and build metadata. `status` uses the same source selection as `ask` and probes Prometheus/Alertmanager/Ollama reachability when configured. `doctor` verifies git, kubernetes snapshot (when enabled), and probes Prom/AM endpoints (unreachable enabled URLs fail the doctor run).
 
 ### `opsgraph alerts`
-Fleet alert list. `--firing` keeps active alerts; `--service <name>` filters by service.
+Fleet alert list. `--firing` keeps active (`firing`/`pending`) alerts; `--service <name>` filters by service; `--since` trims resolved/historical rows while live and `suppressed` alerts stay visible.
 
 ## Fleet / incident helpers
 

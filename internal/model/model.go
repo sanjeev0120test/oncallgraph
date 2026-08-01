@@ -63,7 +63,7 @@ type Alert struct {
 	At         time.Time `json:"at"`
 	Severity   string    `json:"severity"` // critical|warning|info
 	Name       string    `json:"name"`
-	Status     string    `json:"status"` // firing|pending|resolved
+	Status     string    `json:"status"` // firing|pending|suppressed|resolved
 	Summary    string    `json:"summary"`
 	Source     string    `json:"source"`
 	EvidenceID string    `json:"evidence_id"`

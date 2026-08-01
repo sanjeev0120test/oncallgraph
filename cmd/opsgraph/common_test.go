@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/config"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 func TestValidSince(t *testing.T) {
@@ -18,6 +20,38 @@ func TestValidSince(t *testing.T) {
 	}
 	if err := validSince(-time.Minute); err == nil {
 		t.Fatal("expected error for negative since")
+	}
+}
+
+func TestLiveHasIncidentSignalRequiresScrapeEvidence(t *testing.T) {
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	cfg := config.Default()
+	cfg.Connectors.Prometheus.Enabled = true
+	cfg.Connectors.Prometheus.URL = "http://127.0.0.1:9090"
+	if liveHasIncidentSignal(s, cfg) {
+		t.Fatal("configured Prom URL alone must not count as a scrape")
+	}
+	if err := s.SetMeta("connector:prometheus", "ok"); err != nil {
+		t.Fatal(err)
+	}
+	if !liveHasIncidentSignal(s, cfg) {
+		t.Fatal("successful Prom scrape meta must count")
+	}
+}
+
+func TestWatchFatalLoad(t *testing.T) {
+	if !watchFatalLoad(ErrEmptyStore) {
+		t.Fatal("empty store must be fatal for watch")
+	}
+	if !watchFatalLoad(fmt.Errorf("load config: no such file")) {
+		t.Fatal("config load errors must be fatal")
+	}
+	if watchFatalLoad(fmt.Errorf("temporary network blip")) {
+		t.Fatal("transient errors must retry")
 	}
 }
 

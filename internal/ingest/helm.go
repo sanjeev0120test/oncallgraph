@@ -3,6 +3,7 @@ package ingest
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
@@ -23,8 +24,8 @@ type helmRelease struct {
 }
 
 // ingestHelmReleases reads an optional helm releases snapshot and emits deploy
-// changes. Missing file is a no-op.
-func ingestHelmReleases(s *store.Store, fsys fs.FS, path string) error {
+// changes. Missing file is a no-op. now fills missing updated_at.
+func ingestHelmReleases(s *store.Store, fsys fs.FS, path string, now time.Time) error {
 	var f helmReleases
 	found, err := readYAML(fsys, path, &f)
 	if err != nil || !found {
@@ -34,17 +35,25 @@ func ingestHelmReleases(s *store.Store, fsys fs.FS, path string) error {
 		if r.ServiceID == "" {
 			continue
 		}
-		if err := emitHelmDeploy(s, r); err != nil {
+		if err := emitHelmDeploy(s, r, now); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func emitHelmDeploy(s *store.Store, r helmRelease) error {
+func emitHelmDeploy(s *store.Store, r helmRelease, now time.Time) error {
 	at := r.UpdatedAt
 	if at.IsZero() {
-		return nil
+		at = now
+		if at.IsZero() {
+			at = time.Now().UTC()
+		}
+		name := r.Name
+		if name == "" {
+			name = r.ServiceID
+		}
+		fmt.Fprintf(os.Stderr, "warning: helm release %q missing updated_at; using scrape time\n", name)
 	}
 	rev := fmt.Sprintf("%d", r.Revision)
 	if r.Version != "" {

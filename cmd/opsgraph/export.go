@@ -84,12 +84,22 @@ func newExportCmd() *cobra.Command {
 				return fail(2, "close %s: %v", tmpPath, err)
 			}
 			if err := os.Rename(tmpPath, outPath); err != nil {
-				// Windows cannot rename over an existing file.
-				_ = os.Remove(outPath)
+				// Windows cannot rename over an existing file — stage via backup
+				// so a crash cannot leave the destination deleted.
+				bak := outPath + ".bak"
+				_ = os.Remove(bak)
+				if _, statErr := os.Stat(outPath); statErr == nil {
+					if err := os.Rename(outPath, bak); err != nil {
+						_ = os.Remove(tmpPath)
+						return fail(2, "backup %s: %v", outPath, err)
+					}
+				}
 				if err := os.Rename(tmpPath, outPath); err != nil {
+					_ = os.Rename(bak, outPath) // best-effort restore
 					_ = os.Remove(tmpPath)
 					return fail(2, "rename %s: %v", outPath, err)
 				}
+				_ = os.Remove(bak)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "wrote", outPath)
 			return nil

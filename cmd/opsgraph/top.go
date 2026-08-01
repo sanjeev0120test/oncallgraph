@@ -75,8 +75,7 @@ func newTopCmd() *cobra.Command {
 				cmd.Printf("%-4d %-16s %-12s %-6d %s\n", i+1, r.Service, r.Health, r.Score, r.Level)
 			}
 			if skipped > 0 {
-				cmd.Printf("\n(%d service(s) skipped due to errors)\n", skipped)
-				return fail(1, "top: %d service(s) failed to score", skipped)
+				cmd.PrintErrf("warning: %d service(s) skipped due to errors\n", skipped)
 			}
 			return nil
 		},

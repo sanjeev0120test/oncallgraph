@@ -91,9 +91,9 @@ func newIngestCmd() *cobra.Command {
 						return fail(2, "%v", terr)
 					}
 				} else {
+					// Merge from the validated temp scrape (no second network hit).
+					terr = s.MergeFrom(tmp)
 					cleanup()
-					// Merge: re-scrape into the persistent store (upsert-only).
-					terr = ingest.LiveIngest(cmd.Context(), s, cfg, configDir, sinceAt, now)
 					if terr != nil {
 						return fail(2, "%v", terr)
 					}

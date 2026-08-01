@@ -205,6 +205,14 @@ func loadAskStore(ctx context.Context, fixture, configPath, dataDirFlag string, 
 			}
 			return nil, fmt.Errorf("%w: live connectors returned no services", ErrEmptyStore)
 		}
+		// Config seed alone (empty k8s dir / no Prom-AM) is not a usable scrape.
+		if !liveHasIncidentSignal(ls.store, cfg) {
+			ls.cleanup()
+			if fb, fbErr := fallbackPersisted(fmt.Errorf("returned no incident signals")); fbErr == nil {
+				return fb, nil
+			}
+			return nil, fmt.Errorf("%w: live connectors returned no incident signals", ErrEmptyStore)
+		}
 		return ls, nil
 	}
 	if counts, err := peekCounts(dir); err == nil {
@@ -230,6 +238,36 @@ func loadAskStore(ctx context.Context, fixture, configPath, dataDirFlag string, 
 		return nil, fmt.Errorf("%w: live connectors returned no services", ErrEmptyStore)
 	}
 	return ls, nil
+}
+
+// liveHasIncidentSignal reports whether a live scrape produced usable incident
+// data beyond config seed. Successful Prom/AM scrapes set connector meta even
+// with zero alerts; k8s/git/helm must leave connector sources or rows. Merely
+// having a Prom/AM URL in config is not enough (avoids displacing state.db).
+func liveHasIncidentSignal(s *store.Store, _ *config.Config) bool {
+	if v, ok, err := s.GetMeta("connector:prometheus"); err == nil && ok && v == "ok" {
+		return true
+	}
+	if v, ok, err := s.GetMeta("connector:alertmanager"); err == nil && ok && v == "ok" {
+		return true
+	}
+	counts, err := s.Counts()
+	if err == nil && (counts["changes"] > 0 || counts["alerts"] > 0 || counts["evidence"] > 0) {
+		return true
+	}
+	svcs, err := s.ListServices()
+	if err != nil {
+		return false
+	}
+	for _, svc := range svcs {
+		for _, src := range svc.Sources {
+			switch src {
+			case "kubernetes", "prometheus", "alertmanager", "git", "helm", "fixture":
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // requireArg returns exit 2 when a positional argument is blank.

@@ -20,6 +20,12 @@ func TestAsOfRoundTrip(t *testing.T) {
 	if err != nil || !ok || !got.Equal(want) {
 		t.Fatalf("AsOf = %v ok=%v err=%v", got, ok, err)
 	}
+	if err := s.ClearAsOf(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := s.AsOf(); err != nil || ok {
+		t.Fatalf("ClearAsOf left as_of: ok=%v err=%v", ok, err)
+	}
 }
 
 func TestRequireTimeRejectsCorrupt(t *testing.T) {

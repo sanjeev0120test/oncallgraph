@@ -62,7 +62,7 @@ func failAsk(err error) error {
 	return fail(2, "%v", err)
 }
 
-// failLookup maps store service lookup errors (not found / ambiguous â†’ 1).
+// failLookup maps store service lookup errors (not found / ambiguous -> 1).
 func failLookup(query string, err error) error {
 	if err == nil {
 		return nil

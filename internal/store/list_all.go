@@ -6,6 +6,31 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
 
+// ListAllEvidence returns every evidence row, newest-first.
+func (s *Store) ListAllEvidence() ([]model.Evidence, error) {
+	rows, err := s.db.Query(`
+SELECT id,source,at,kind,summary,raw_ref,service_id FROM evidence ORDER BY at DESC, id`)
+	if err != nil {
+		return nil, wrap("list all evidence", err)
+	}
+	defer rows.Close()
+	var out []model.Evidence
+	for rows.Next() {
+		var v model.Evidence
+		var at string
+		if err := rows.Scan(&v.ID, &v.Source, &at, &v.Kind, &v.Summary, &v.RawRef, &v.ServiceID); err != nil {
+			return nil, wrap("scan evidence", err)
+		}
+		parsed, perr := requireTime(at, "evidence", v.ID)
+		if perr != nil {
+			return nil, perr
+		}
+		v.At = parsed
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 // ListAllChanges returns all changes newest-first (deterministic by at,id).
 func (s *Store) ListAllChanges() ([]model.Change, error) {
 	rows, err := s.db.Query(`

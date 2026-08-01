@@ -47,8 +47,16 @@ func newStatusCmd() *cobra.Command {
 			gitOK := pathExists(filepath.Join(gitPath, ".git"))
 			cmd.Printf("  git:          %v (repo %q has_git=%v)\n", cfg.Connectors.Git.Enabled, gitPath, gitOK)
 			cmd.Printf("  kubernetes:   %v (snapshot %q)\n", cfg.Connectors.Kubernetes.Enabled, cfg.Connectors.Kubernetes.Snapshot)
-			cmd.Printf("  prometheus:   %v (url %q)\n", cfg.Connectors.Prometheus.Enabled, cfg.Connectors.Prometheus.URL)
-			cmd.Printf("  alertmanager: %v (url %q)\n", cfg.Connectors.Alertmanager.Enabled, cfg.Connectors.Alertmanager.URL)
+			cmd.Printf("  prometheus:   %v (url %q", cfg.Connectors.Prometheus.Enabled, cfg.Connectors.Prometheus.URL)
+			if cfg.Connectors.Prometheus.Enabled {
+				cmd.Printf(" reachable=%v", probeHTTP(cmd.Context(), cfg.Connectors.Prometheus.URL, "/api/v1/alerts"))
+			}
+			cmd.Printf(")\n")
+			cmd.Printf("  alertmanager: %v (url %q", cfg.Connectors.Alertmanager.Enabled, cfg.Connectors.Alertmanager.URL)
+			if cfg.Connectors.Alertmanager.Enabled {
+				cmd.Printf(" reachable=%v", probeHTTP(cmd.Context(), cfg.Connectors.Alertmanager.URL, "/api/v2/alerts"))
+			}
+			cmd.Printf(")\n")
 
 			ollamaOK := probeOllama(cmd.Context(), cfg.AI.OllamaURL)
 			cmd.Printf("AI\n  enabled: %v  model: %s  embed: %s  url: %s  reachable: %v\n",
@@ -124,15 +132,22 @@ func pathExists(p string) bool {
 }
 
 func probeOllama(ctx context.Context, url string) bool {
-	if url == "" {
+	return probeHTTP(ctx, url, "/api/tags")
+}
+
+// probeHTTP GETs baseURL+path with a short timeout. Empty URL is unreachable.
+func probeHTTP(ctx context.Context, baseURL, path string) bool {
+	if strings.TrimSpace(baseURL) == "" {
 		return false
 	}
 	ctx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, trimSlash(url)+"/api/tags", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, trimSlash(baseURL)+path, nil)
 	if err != nil {
 		return false
 	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "opsgraph/1.0")
 	client := &http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {

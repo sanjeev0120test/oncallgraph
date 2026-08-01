@@ -74,25 +74,44 @@ try {
     if (-not $Version -or $Version -eq "latest") {
       throw "OPSGRAPH_VERSION must be set when using OPSGRAPH_RELEASE_DIR"
     }
-    $tag = $Version
-    $asset = "opsgraph_${tag}_${os}_${arch}.zip"
-    $zipPath = Join-Path $ReleaseDir $asset
-    if (-not (Test-Path $zipPath)) { throw "missing release asset $asset in $ReleaseDir" }
+    $tryTags = @($Version)
+    if ($Version -notlike "v*") { $tryTags += "v$Version" }
+    $tag = $null
+    $zipPath = $null
+    foreach ($try in $tryTags) {
+      $candidate = Join-Path $ReleaseDir "opsgraph_${try}_${os}_${arch}.zip"
+      if (Test-Path $candidate) { $tag = $try; $zipPath = $candidate; break }
+    }
+    if (-not $zipPath) { throw "missing release asset for $Version in $ReleaseDir" }
     $sumsPath = Join-Path $ReleaseDir "SHA256SUMS"
     $bin = Install-FromArchive -Tag $tag -ZipPath $zipPath -SumsPath $sumsPath
   } else {
     if ($Version -eq "latest") {
       $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
       $tag = $rel.tag_name
+      $tryTags = @($tag)
     } else {
-      $tag = $Version
+      $tryTags = @($Version)
+      if ($Version -notlike "v*") { $tryTags += "v$Version" }
     }
-    if (-not $tag) { throw "could not resolve release tag for $Repo" }
-    $asset = "opsgraph_${tag}_${os}_${arch}.zip"
-    $url = "https://github.com/$Repo/releases/download/$tag/$asset"
-    Write-Host "downloading $url"
-    $zipPath = Join-Path $tmp.FullName $asset
-    Invoke-WebRequest -Uri $url -OutFile $zipPath
+    if (-not $tryTags[0]) { throw "could not resolve release tag for $Repo" }
+    $tag = $null
+    $zipPath = $null
+    $asset = $null
+    foreach ($try in $tryTags) {
+      $asset = "opsgraph_${try}_${os}_${arch}.zip"
+      $url = "https://github.com/$Repo/releases/download/$try/$asset"
+      Write-Host "downloading $url"
+      $zipPath = Join-Path $tmp.FullName $asset
+      try {
+        Invoke-WebRequest -Uri $url -OutFile $zipPath
+        $tag = $try
+        break
+      } catch {
+        Remove-Item $zipPath -ErrorAction SilentlyContinue
+      }
+    }
+    if (-not $tag) { throw "failed to download release asset for $Version" }
     $sumsPath = Join-Path $tmp.FullName "SHA256SUMS"
     try {
       Invoke-WebRequest -Uri "https://github.com/$Repo/releases/download/$tag/SHA256SUMS" -OutFile $sumsPath

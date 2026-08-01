@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/sanjeev0120test/opsgraph/internal/config"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/runbook"
@@ -78,7 +79,7 @@ func LiveIngest(ctx context.Context, s *store.Store, cfg *config.Config, configD
 			if err := ingestK8sFiles(s, fsys, depFile, evFile, now); err != nil {
 				return fmt.Errorf("kubernetes snapshot: %w", err)
 			}
-			if err := ingestHelmReleases(s, fsys, relFile); err != nil {
+			if err := ingestHelmReleases(s, fsys, relFile, now); err != nil {
 				return fmt.Errorf("helm snapshot: %w", err)
 			}
 		}
@@ -121,6 +122,9 @@ func LiveIngest(ctx context.Context, s *store.Store, cfg *config.Config, configD
 func isMissingGit(err error) bool {
 	if err == nil {
 		return false
+	}
+	if errors.Is(err, git.ErrRepositoryNotExists) {
+		return true
 	}
 	msg := err.Error()
 	return strings.Contains(msg, "repository does not exist") ||
@@ -192,8 +196,7 @@ func seedRunbook(s *store.Store, rbPath, configDir string) error {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "warning: runbook %q not found; skipping\n", p)
-			return nil
+			return fmt.Errorf("configured runbook %q not found", p)
 		}
 		return fmt.Errorf("read runbook %q: %w", p, err)
 	}

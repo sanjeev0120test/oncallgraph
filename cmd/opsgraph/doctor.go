@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/sanjeev0120test/opsgraph/fixtures"
 	"github.com/sanjeev0120test/opsgraph/internal/config"
@@ -89,17 +90,21 @@ func newDoctorCmd() *cobra.Command {
 				}
 				if !cfg.Connectors.Prometheus.Enabled {
 					warnf("prometheus", "connector disabled")
-				} else if cfg.Connectors.Prometheus.URL == "" {
+				} else if strings.TrimSpace(cfg.Connectors.Prometheus.URL) == "" {
 					check("prometheus", false, "enabled but url is empty")
+				} else if probeHTTP(cmd.Context(), cfg.Connectors.Prometheus.URL, "/api/v1/alerts") {
+					check("prometheus", true, cfg.Connectors.Prometheus.URL)
 				} else {
-					warnf("prometheus", cfg.Connectors.Prometheus.URL+" (configured; not probed)")
+					check("prometheus", false, cfg.Connectors.Prometheus.URL+" unreachable")
 				}
 				if !cfg.Connectors.Alertmanager.Enabled {
 					warnf("alertmanager", "connector disabled")
-				} else if cfg.Connectors.Alertmanager.URL == "" {
+				} else if strings.TrimSpace(cfg.Connectors.Alertmanager.URL) == "" {
 					check("alertmanager", false, "enabled but url is empty")
+				} else if probeHTTP(cmd.Context(), cfg.Connectors.Alertmanager.URL, "/api/v2/alerts") {
+					check("alertmanager", true, cfg.Connectors.Alertmanager.URL)
 				} else {
-					warnf("alertmanager", cfg.Connectors.Alertmanager.URL+" (configured; not probed)")
+					check("alertmanager", false, cfg.Connectors.Alertmanager.URL+" unreachable")
 				}
 				if probeOllama(cmd.Context(), cfg.AI.OllamaURL) {
 					check("ollama", true, cfg.AI.OllamaURL)

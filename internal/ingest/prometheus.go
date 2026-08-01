@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -59,6 +60,10 @@ func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, clien
 	if _, err := s.ResolveActiveAlertsNotIn("prometheus", seen); err != nil {
 		return err
 	}
+	// Mark a successful scrape so live-prefer can trust empty quiet results.
+	if err := s.SetMeta("connector:prometheus", "ok"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -106,9 +111,19 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 	if name == "" {
 		return "", false, nil
 	}
-	svcID := resolveServiceLabel(labels)
-	if svcID == "" {
+	rawSvc := resolveServiceLabel(labels)
+	if rawSvc == "" {
 		return "", false, nil
+	}
+	// Map label aliases (checkout-api) onto canonical service ids when known.
+	svcID := rawSvc
+	if svc, err := s.GetServiceByNameOrAlias(rawSvc); err == nil {
+		svcID = svc.ID
+	} else if errors.Is(err, store.ErrAmbiguous) {
+		fmt.Fprintf(os.Stderr, "warning: %s alert %q service label %q is ambiguous; skipping\n", source, name, rawSvc)
+		return "", false, nil
+	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return "", false, err
 	}
 	var status string
 	switch strings.ToLower(strings.TrimSpace(state)) {
@@ -118,8 +133,8 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 		// Prometheus uses "inactive" for cleared alerts.
 		status = "resolved"
 	case "suppressed":
-		// Silenced in Alertmanager ≠ cleared; keep paging signal visible.
-		status = "firing"
+		// Silenced ≠ paging; keep visible but do not drive R3/score as active.
+		status = "suppressed"
 	case "pending", "unprocessed":
 		status = "pending"
 	default:

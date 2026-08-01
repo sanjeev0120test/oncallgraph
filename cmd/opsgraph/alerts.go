@@ -8,11 +8,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// alertAlwaysVisible reports statuses that ignore --since (still live / silenced).
+func alertAlwaysVisible(status string) bool {
+	return model.AlertActive(status) || status == "suppressed"
+}
+
 func newAlertsCmd() *cobra.Command {
 	var src sourceFlags
 	var format string
 	var firingOnly bool
 	var service string
+	var since time.Duration
 	cmd := &cobra.Command{
 		Use:   "alerts",
 		Short: "List alerts across the fleet",
@@ -21,11 +27,17 @@ func newAlertsCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, _, err := src.loadCtx(cmd.Context(), 0)
+			if err := validSince(since); err != nil {
+				return fail(2, "%v", err)
+			}
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}
 			defer ls.cleanup()
+			if since == 0 {
+				since = cfg.Since()
+			}
 			list, err := ls.store.ListAllAlerts()
 			if err != nil {
 				return fail(2, "%v", err)
@@ -54,6 +66,16 @@ func newAlertsCmd() *cobra.Command {
 					}
 				}
 				list = filtered
+			} else {
+				// Historical window: keep live statuses always; trim resolved by --since.
+				cutoff := ls.now.Add(-since)
+				filtered := list[:0]
+				for _, a := range list {
+					if alertAlwaysVisible(a.Status) || !a.At.Before(cutoff) {
+						filtered = append(filtered, a)
+					}
+				}
+				list = filtered
 			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), list)
@@ -73,5 +95,6 @@ func newAlertsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	cmd.Flags().BoolVar(&firingOnly, "firing", false, "only show firing or pending alerts")
 	cmd.Flags().StringVar(&service, "service", "", "filter to one service name/alias")
+	cmd.Flags().DurationVar(&since, "since", 0, "lookback for resolved alerts (active always shown; default: config)")
 	return cmd
 }

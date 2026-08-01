@@ -237,14 +237,14 @@ FROM changes WHERE service_id=? AND at>=? ORDER BY at DESC, id`,
 	return out, rows.Err()
 }
 
-// ListAlerts returns alerts for a service. Active (firing/pending) alerts are
-// always included regardless of since — their StartsAt may predate the window
-// while they are still paging. Resolved/historical alerts respect since.
-// Results are ordered firing/pending first, then newest.
+// ListAlerts returns alerts for a service. Live statuses (firing/pending/
+// suppressed) are always included regardless of since — StartsAt may predate
+// the window while they are still relevant. Resolved/historical alerts respect
+// since. Results are ordered firing/pending first, then newest.
 func (s *Store) ListAlerts(serviceID string, since time.Time) ([]model.Alert, error) {
 	rows, err := s.db.Query(`
 SELECT id,service_id,at,severity,name,status,summary,source,evidence_id
-FROM alerts WHERE service_id=? AND (status IN ('firing','pending') OR at>=?)`,
+FROM alerts WHERE service_id=? AND (status IN ('firing','pending','suppressed') OR at>=?)`,
 		serviceID, fmtTime(since))
 	if err != nil {
 		return nil, wrap("list alerts", err)
@@ -429,14 +429,14 @@ ORDER BY at DESC, id LIMIT 1`, serviceID, fmtTime(asOf))
 	return &v, true, nil
 }
 
-// ResolveActiveAlertsNotIn marks firing/pending alerts from source as resolved
-// when their id is not in keep. Used after Prometheus/Alertmanager scrapes so
-// absent series do not remain zombies. keep may be empty (resolve all active
-// for that source). Returns the number of rows updated.
+// ResolveActiveAlertsNotIn marks firing/pending/suppressed alerts from source
+// as resolved when their id is not in keep. Used after Prometheus/Alertmanager
+// scrapes so absent series do not remain zombies. keep may be empty (resolve
+// all live statuses for that source). Returns the number of rows updated.
 func (s *Store) ResolveActiveAlertsNotIn(source string, keep map[string]bool) (int, error) {
 	rows, err := s.db.Query(`
 SELECT id FROM alerts
-WHERE source=? AND status IN ('firing','pending')`, source)
+WHERE source=? AND status IN ('firing','pending','suppressed')`, source)
 	if err != nil {
 		return 0, wrap("list active alerts for resolve", err)
 	}

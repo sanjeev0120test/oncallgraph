@@ -61,7 +61,7 @@ func newServicesCmd() *cobra.Command {
 				if len(r.Aliases) > 0 {
 					alias = r.Aliases[0]
 					if len(r.Aliases) > 1 {
-						alias += ",â€¦"
+						alias += ",..."
 					}
 				}
 				cmd.Printf("%-16s %-12s %-16s %s\n", r.ID, r.Health, r.OwnerID, alias)

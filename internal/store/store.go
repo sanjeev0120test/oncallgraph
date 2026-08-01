@@ -82,6 +82,7 @@ func (s *Store) Path() string { return s.path }
 
 // ReplaceFromFile closes the current DB, copies srcDB over this store's path,
 // and reopens. Used for atomic live ingest (validate in temp, then swap).
+// On any post-close failure the previous state.db is reopened when possible.
 func (s *Store) ReplaceFromFile(srcDB string) error {
 	if strings.TrimSpace(srcDB) == "" {
 		return fmt.Errorf("replace store: empty source path")
@@ -89,28 +90,41 @@ func (s *Store) ReplaceFromFile(srcDB string) error {
 	if err := s.db.Close(); err != nil {
 		return fmt.Errorf("replace store: close: %w", err)
 	}
+	reopenPrev := func(cause error) error {
+		reopened, err := open(s.path)
+		if err != nil {
+			return fmt.Errorf("%w (also failed to reopen previous store: %v)", cause, err)
+		}
+		s.db = reopened.db
+		return cause
+	}
 	in, err := os.Open(srcDB)
 	if err != nil {
-		return fmt.Errorf("replace store: open source: %w", err)
+		return reopenPrev(fmt.Errorf("replace store: open source: %w", err))
 	}
 	defer in.Close()
 	tmp := s.path + ".tmp"
 	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
 	if err != nil {
-		return fmt.Errorf("replace store: create temp: %w", err)
+		return reopenPrev(fmt.Errorf("replace store: create temp: %w", err))
 	}
 	if _, err := io.Copy(out, in); err != nil {
 		_ = out.Close()
 		_ = os.Remove(tmp)
-		return fmt.Errorf("replace store: copy: %w", err)
+		return reopenPrev(fmt.Errorf("replace store: copy: %w", err))
+	}
+	if err := out.Sync(); err != nil {
+		_ = out.Close()
+		_ = os.Remove(tmp)
+		return reopenPrev(fmt.Errorf("replace store: sync temp: %w", err))
 	}
 	if err := out.Close(); err != nil {
 		_ = os.Remove(tmp)
-		return fmt.Errorf("replace store: close temp: %w", err)
+		return reopenPrev(fmt.Errorf("replace store: close temp: %w", err))
 	}
 	if err := os.Rename(tmp, s.path); err != nil {
 		_ = os.Remove(tmp)
-		return fmt.Errorf("replace store: rename: %w", err)
+		return reopenPrev(fmt.Errorf("replace store: rename: %w", err))
 	}
 	reopened, err := open(s.path)
 	if err != nil {

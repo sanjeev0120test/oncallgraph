@@ -37,8 +37,10 @@ func IngestGit(s *store.Store, repoPath string, services []ServicePaths, since, 
 	}
 	defer iter.Close()
 
+	nowUTC := now.UTC()
 	return iter.ForEach(func(c *object.Commit) error {
-		if c.Author.When.UTC().Before(sinceUTC) {
+		at := c.Author.When.UTC()
+		if at.Before(sinceUTC) || at.After(nowUTC) {
 			return nil
 		}
 		files, err := changedFiles(c)

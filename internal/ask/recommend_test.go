@@ -45,6 +45,25 @@ func TestRecommendR1SkipsFutureChange(t *testing.T) {
 	}
 }
 
+func TestRecommendR3SkipsFutureAlert(t *testing.T) {
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	res := model.AskResult{
+		Service:     model.Service{ID: "checkout"},
+		GeneratedAt: now,
+		Alerts: []model.Alert{{
+			Name: "FutureFire", Status: "firing", At: now.Add(time.Hour),
+		}},
+	}
+	// Ask filters futures before recommend; defend firstActiveAlert contract too.
+	res.Alerts = filterNotFutureAlerts(res.Alerts, now)
+	recs := recommend(res)
+	for _, r := range recs {
+		if strings.Contains(r, "FutureFire") || strings.Contains(r, "Acknowledge") {
+			t.Fatalf("R3 must not fire for future alert: %v", recs)
+		}
+	}
+}
+
 func TestRecommendR1SkipsFutureThenPicksValid(t *testing.T) {
 	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
 	res := model.AskResult{

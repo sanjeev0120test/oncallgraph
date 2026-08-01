@@ -1,6 +1,6 @@
 name: ci
 
-# Fast parallel quality gates. Wall-clock target: ~2–3 minutes on cache hits.
+# Fast parallel quality gates. Wall-clock target: ~2-3 minutes on cache hits.
 # Required aggregator job: "all checks passed".
 # Tag pushes are owned by release.yml (skip here to avoid duplicate runners).
 
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
@@ -108,7 +108,7 @@ jobs:
             race: false
             smoke: compact
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
@@ -172,7 +172,7 @@ jobs:
           test -s "$DATA/mermaid.txt"
           test ! -s "$DATA/mermaid.err"
           grep -F flowchart "$DATA/mermaid.txt" >/dev/null
-          # Fixture clock must survive ingest → --data-dir (generated_at parity).
+          # Fixture clock must survive ingest -> --data-dir (generated_at parity).
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > "$DATA/a.json"
           "$BIN" ask checkout --data-dir "$DATA" --format json > "$DATA/b.json"
           grep -F '"generated_at": "2026-07-31T12:00:00Z"' "$DATA/a.json" >/dev/null
@@ -183,7 +183,7 @@ jobs:
         run: |
           set -euo pipefail
           BIN=./bin/opsgraph
-          # Critical contracts only — broad command coverage lives in Go tests (features_test).
+          # Critical contracts only - broad command coverage lives in Go tests (features_test).
           out="$("$BIN" version 2>/tmp/version.err)"
           if [ -s /tmp/version.err ]; then
             echo "version wrote to stderr:" >&2
@@ -227,6 +227,9 @@ jobs:
           "$BIN_ABS" doctor --config fixtures/ci_live_k8s/.opsgraph.yaml >/dev/null
           "$BIN_ABS" validate-fixture ./fixtures/incident_checkout >/dev/null
           "$BIN_ABS" alerts --fixture ./fixtures/incident_checkout --service checkout --firing >/dev/null
+          "$BIN_ABS" alerts --fixture ./fixtures/incident_checkout --since 1h >/dev/null
+          "$BIN_ABS" top --fixture ./fixtures/incident_checkout >/dev/null
+          "$BIN" export checkout --fixture ./fixtures/incident_checkout --format markdown --out "$EXP/r.md" >/dev/null
           "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" services --fixture ./fixtures/incident_checkout --health degraded --format json >/dev/null
           # File redirect (not pipes): cobra historically wrote Print* to stderr.
@@ -332,7 +335,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
@@ -390,7 +393,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
@@ -406,7 +409,7 @@ jobs:
     permissions:
       contents: read
 
-  # Reusable security/workflow scanners — required by the aggregator.
+  # Reusable security/workflow scanners - required by the aggregator.
   gitleaks:
     name: gitleaks
     uses: ./.github/workflows/gitleaks.yml

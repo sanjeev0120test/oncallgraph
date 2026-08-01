@@ -54,6 +54,9 @@ func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, cli
 	if _, err := s.ResolveActiveAlertsNotIn("alertmanager", seen); err != nil {
 		return err
 	}
+	if err := s.SetMeta("connector:alertmanager", "ok"); err != nil {
+		return err
+	}
 	return nil
 }
 

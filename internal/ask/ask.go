@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/sanjeev0120test/opsgraph/internal/impact"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/runbook"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
@@ -68,15 +69,11 @@ func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 	if res.Changes, err = s.ListChanges(svc.ID, changeWindow); err != nil {
 		return model.AskResult{}, err
 	}
-	if res.Changes == nil {
-		res.Changes = []model.Change{}
-	}
+	res.Changes = filterNotFutureChanges(res.Changes, now)
 	if res.Alerts, err = s.ListAlerts(svc.ID, window); err != nil {
 		return model.AskResult{}, err
 	}
-	if res.Alerts == nil {
-		res.Alerts = []model.Alert{}
-	}
+	res.Alerts = filterNotFutureAlerts(res.Alerts, now)
 
 	up, down, err := blastRadius(s, svc.ID)
 	if err != nil {
@@ -100,7 +97,54 @@ func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 	res.Correlations = correlate(res)
 	res.Timeline = buildTimeline(res, now)
 	res.Recommendations = recommend(res)
+	if tip := transitiveImpactTip(s, svc.ID, len(res.Downstream)); tip != "" {
+		// Insert before trailing handoff (last recommendation).
+		recs := res.Recommendations
+		if n := len(recs); n > 0 {
+			res.Recommendations = append(append(recs[:n-1:n-1], tip), recs[n-1])
+		} else {
+			res.Recommendations = []string{tip}
+		}
+	}
 	return res, nil
+}
+
+func filterNotFutureChanges(in []model.Change, now time.Time) []model.Change {
+	out := make([]model.Change, 0, len(in))
+	for _, c := range in {
+		if c.At.IsZero() || c.At.After(now) {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+func filterNotFutureAlerts(in []model.Alert, now time.Time) []model.Alert {
+	out := make([]model.Alert, 0, len(in))
+	for _, a := range in {
+		if a.At.IsZero() || a.At.After(now) {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+func transitiveImpactTip(s *store.Store, root string, oneHop int) string {
+	svcs, err := s.ListServices()
+	if err != nil {
+		return ""
+	}
+	deps, err := s.ListAllDependencies()
+	if err != nil {
+		return ""
+	}
+	imp := impact.Downstream(root, svcs, deps)
+	if len(imp.Affected) <= oneHop {
+		return ""
+	}
+	return fmt.Sprintf("Review transitive impact: %d downstream services (opsgraph impact %s).", len(imp.Affected), root)
 }
 
 // blastRadius returns upstream (services this one depends on) and downstream

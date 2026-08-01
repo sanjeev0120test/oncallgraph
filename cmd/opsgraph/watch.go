@@ -2,10 +2,12 @@ package main
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -96,7 +98,10 @@ func newWatchCmd() *cobra.Command {
 func watchTick(cmd *cobra.Command, src *sourceFlags, query string, since time.Duration) (healthy bool, svcID, health, line string, cont bool, err error) {
 	ls, cfg, err := src.loadCtx(cmd.Context(), since)
 	if err != nil {
-		return false, "", "", "warning: watch load: " + err.Error(), true, nil
+		if watchFatalLoad(err) {
+			return false, "", "", "", false, failSource(err)
+		}
+		return false, "", "", "warning: watch load: "+err.Error(), true, nil
 	}
 	win := since
 	if win == 0 {
@@ -105,11 +110,33 @@ func watchTick(cmd *cobra.Command, src *sourceFlags, query string, since time.Du
 	res, err := askService(ls, query, win)
 	ls.cleanup()
 	if err != nil {
-		if errors.Is(err, ask.ErrServiceNotFound) {
+		if errors.Is(err, ask.ErrServiceNotFound) || errors.Is(err, store.ErrAmbiguous) {
 			return false, "", "", "", false, failAsk(err)
 		}
-		return false, "", "", "warning: watch ask: " + err.Error(), true, nil
+		return false, "", "", "warning: watch ask: "+err.Error(), true, nil
 	}
 	line = res.Service.ID + " " + res.Service.Health
 	return res.Service.Health == model.HealthHealthy, res.Service.ID, res.Service.Health, line, false, nil
+}
+
+func watchFatalLoad(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrEmptyStore) {
+		return true
+	}
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "no data source"):
+		return true
+	case strings.Contains(msg, "negative --since"), strings.Contains(msg, "invalid --since"):
+		return true
+	case strings.Contains(msg, "parse") && strings.Contains(msg, "yaml"):
+		return true
+	case strings.Contains(msg, "load config"), strings.Contains(msg, "read config"):
+		return true
+	default:
+		return false
+	}
 }

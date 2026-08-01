@@ -59,6 +59,15 @@ func newChangesCmd() *cobra.Command {
 					list = append(list, c)
 				}
 			}
+			// Match ask/git ingest: never surface future-dated rows from clock skew.
+			trimmed := list[:0]
+			for _, c := range list {
+				if c.At.IsZero() || c.At.After(ls.now) {
+					continue
+				}
+				trimmed = append(trimmed, c)
+			}
+			list = trimmed
 			if len(list) > limit {
 				list = list[:limit]
 			}
