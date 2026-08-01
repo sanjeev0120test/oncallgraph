@@ -196,7 +196,9 @@ func seedRunbook(s *store.Store, rbPath, configDir string) error {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("configured runbook %q not found", p)
+			// Missing optional path must not abort Prom/k8s ingest.
+			fmt.Fprintf(os.Stderr, "warning: configured runbook %q not found; skipping\n", p)
+			return nil
 		}
 		return fmt.Errorf("read runbook %q: %w", p, err)
 	}

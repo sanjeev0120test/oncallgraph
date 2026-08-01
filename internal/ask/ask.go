@@ -213,11 +213,16 @@ func buildTimeline(res model.AskResult, now time.Time) []model.TimelineEvent {
 		})
 	}
 	for _, a := range res.Alerts {
-		if a.At.IsZero() || a.At.After(now) {
+		at := a.At
+		if model.AlertLive(a.Status) {
+			if at.IsZero() || at.After(now) {
+				at = now // skewed StartsAt still belongs on the timeline
+			}
+		} else if at.IsZero() || at.After(now) {
 			continue
 		}
 		events = append(events, model.TimelineEvent{
-			At: a.At, Kind: "alert", Summary: a.Name + " (" + a.Status + ")", ServiceID: a.ServiceID,
+			At: at, Kind: "alert", Summary: a.Name + " (" + a.Status + ")", ServiceID: a.ServiceID,
 			EvidenceID: a.EvidenceID, Severity: a.Severity,
 		})
 	}

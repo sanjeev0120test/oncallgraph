@@ -21,15 +21,23 @@ func correlate(res model.AskResult) []model.Correlation {
 	if len(res.Changes) == 0 || len(res.Alerts) == 0 {
 		return out
 	}
+	anchor := res.GeneratedAt
+	if anchor.IsZero() {
+		anchor = time.Now().UTC()
+	}
 	for _, a := range res.Alerts {
 		if !model.AlertActive(a.Status) || a.At.IsZero() {
 			continue
 		}
-		ch, ok := precedingChange(res.Changes, a.At)
+		alertAt := a.At
+		if alertAt.After(anchor) {
+			alertAt = anchor // do not invent links from future StartsAt skew
+		}
+		ch, ok := precedingChange(res.Changes, alertAt)
 		if !ok {
 			continue
 		}
-		gap := a.At.Sub(ch.At)
+		gap := alertAt.Sub(ch.At)
 		out = append(out, model.Correlation{
 			Kind:           "change_then_alert",
 			Summary:        fmt.Sprintf("%s %q preceded alert %s by %s", ch.Type, ch.Summary, a.Name, roundDur(gap)),

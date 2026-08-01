@@ -315,7 +315,9 @@ func (s *Store) GetRunbook(serviceID string) (*model.Runbook, error) {
 	if err != nil {
 		return nil, wrap("get runbook", err)
 	}
-	fromJSON(steps, &v.Steps)
+	if err := decodeJSON(steps, &v.Steps); err != nil {
+		return nil, wrap("decode runbook steps", err)
+	}
 	return &v, nil
 }
 

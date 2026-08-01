@@ -252,8 +252,18 @@ func liveHasIncidentSignal(s *store.Store, _ *config.Config) bool {
 		return true
 	}
 	counts, err := s.Counts()
-	if err == nil && (counts["alerts"] > 0 || counts["evidence"] > 0) {
+	if err == nil && counts["alerts"] > 0 {
 		return true
+	}
+	if err == nil && counts["evidence"] > 0 {
+		if evs, cerr := s.ListAllEvidence(); cerr == nil {
+			for _, e := range evs {
+				switch e.Source {
+				case "kubernetes", "prometheus", "alertmanager", "helm", "fixture":
+					return true
+				}
+			}
+		}
 	}
 	// Prefer connector-tagged services / non-git change sources so a local git
 	// scan alone cannot displace a richer persisted incident store.

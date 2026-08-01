@@ -1,6 +1,10 @@
 package store
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/sanjeev0120test/opsgraph/internal/model"
+)
 
 // MergeFrom upserts all entities from src into s (no second network scrape).
 // Live Prom/AM alert zombies in s are resolved against the live statuses present
@@ -23,6 +27,7 @@ func (s *Store) MergeFrom(src *Store) error {
 		return err
 	}
 	for _, svc := range svcs {
+		svc = mergeServiceRow(s, svc)
 		if err := s.UpsertService(svc); err != nil {
 			return err
 		}
@@ -106,4 +111,35 @@ func (s *Store) MergeFrom(src *Store) error {
 func srcHasConnector(src *Store, source string) bool {
 	v, ok, err := src.GetMeta("connector:" + source)
 	return err == nil && ok && v == "ok"
+}
+
+// mergeServiceRow keeps richer destination health/sources when the scrape only
+// carries config-seed unknowns (temp LiveIngest seed must not wipe k8s health).
+func mergeServiceRow(dst *Store, svc model.Service) model.Service {
+	existing, err := dst.GetService(svc.ID)
+	if err != nil {
+		return svc
+	}
+	if svc.Health == model.HealthUnknown && existing.Health != "" && existing.Health != model.HealthUnknown {
+		svc.Health = existing.Health
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(existing.Sources)+len(svc.Sources))
+	for _, src := range append(append([]string{}, existing.Sources...), svc.Sources...) {
+		if src == "" || seen[src] {
+			continue
+		}
+		seen[src] = true
+		out = append(out, src)
+	}
+	svc.Sources = out
+	if svc.Name == "" || svc.Name == svc.ID {
+		if existing.Name != "" {
+			svc.Name = existing.Name
+		}
+	}
+	if svc.OwnerID == "" {
+		svc.OwnerID = existing.OwnerID
+	}
+	return svc
 }

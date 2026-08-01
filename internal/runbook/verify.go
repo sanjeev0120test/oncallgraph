@@ -225,10 +225,7 @@ func (v *Verifier) checkAlertFiring(serviceID, name string, sr model.StepVerifyR
 	if err != nil {
 		return sr, err
 	}
-	// Future StartsAt is clock skew / bad ingest — do not false-pass verify.
-	if ok && !v.now.IsZero() && al.At.After(v.now) {
-		ok = false
-	}
+	// Live status wins over skewed StartsAt (same contract as ask/R3).
 	if ok {
 		sr.Status = model.StatusPass
 		status := al.Status

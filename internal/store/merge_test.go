@@ -63,3 +63,43 @@ func TestMergeFromUpsertsAndResolvesZombies(t *testing.T) {
 		t.Fatalf("meta copy: v=%q ok=%v err=%v", v, ok, err)
 	}
 }
+
+func TestMergeFromPreservesDestinationHealth(t *testing.T) {
+	dst, cleanupDst, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanupDst)
+	src, cleanupSrc, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanupSrc)
+	if err := dst.UpsertService(model.Service{
+		ID: "checkout", Name: "Checkout", Health: model.HealthDegraded, Sources: []string{"kubernetes"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.UpsertService(model.Service{
+		ID: "checkout", Name: "checkout", Health: model.HealthUnknown, Sources: []string{"config"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := dst.MergeFrom(src); err != nil {
+		t.Fatal(err)
+	}
+	svc, err := dst.GetService("checkout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc.Health != model.HealthDegraded {
+		t.Fatalf("merge wiped health: %+v", svc)
+	}
+	seen := map[string]bool{}
+	for _, s := range svc.Sources {
+		seen[s] = true
+	}
+	if !seen["kubernetes"] || !seen["config"] {
+		t.Fatalf("sources not merged: %v", svc.Sources)
+	}
+}
