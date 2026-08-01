@@ -26,7 +26,7 @@
    - Git alone, or seed-only / empty snapshot scrapes, do **not** prefer live over a populated store.
    - Prom/AM scrape failures hard-fail; `ask`/`status` fall back to populated `state.db` with a stderr warning. `--data-dir` always forces the store.
 2. Upsert entities into SQLite.
-3. `ask` assembles owner, changes, alerts, 1-hop blast, runbook verify, timeline, recommendations, evidence (filters future-dated rows; suppressed AM alerts are not “active”).
+3. `ask` assembles owner, changes, alerts, 1-hop blast, runbook verify, timeline, recommendations, evidence (keeps live alerts even with skewed StartsAt; drops future resolved/historical rows; suppressed AM alerts are visible but not “active”).
 4. Render table or JSON via `internal/output` (`SetEscapeHTML(false)`, indent, trailing newline).
 
 ## Cross-platform

@@ -122,7 +122,15 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 	} else if errors.Is(err, store.ErrAmbiguous) {
 		fmt.Fprintf(os.Stderr, "warning: %s alert %q service label %q is ambiguous; skipping\n", source, name, rawSvc)
 		return "", false, nil
-	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+	} else if errors.Is(err, store.ErrNotFound) {
+		// Synthesize a stub so orphan alerts remain ask/resolve-able.
+		if err := s.UpsertService(model.Service{
+			ID: rawSvc, Name: rawSvc, Health: model.HealthUnknown, Sources: []string{source},
+		}); err != nil {
+			return "", false, err
+		}
+		svcID = rawSvc
+	} else if err != nil {
 		return "", false, err
 	}
 	var status string

@@ -63,6 +63,26 @@ func TestUpsertRemoteAlertUnknownStateSkipped(t *testing.T) {
 	}
 }
 
+func TestUpsertRemoteAlertUnknownServiceSynthesizesStub(t *testing.T) {
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	_, ok, err := upsertRemoteAlert(s,
+		map[string]string{"alertname": "Orphan", "severity": "warning", "service": "payments-edge"},
+		map[string]string{"summary": "x"},
+		"firing", now, "prometheus", now)
+	if err != nil || !ok {
+		t.Fatalf("upsert: ok=%v err=%v", ok, err)
+	}
+	svc, err := s.GetService("payments-edge")
+	if err != nil || svc.Health != model.HealthUnknown {
+		t.Fatalf("stub service: %+v err=%v", svc, err)
+	}
+}
+
 func TestUpsertRemoteAlertAmbiguousAliasSkipped(t *testing.T) {
 	s, cleanup, err := store.OpenTemp()
 	if err != nil {

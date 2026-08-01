@@ -71,9 +71,14 @@ func newAlertsCmd() *cobra.Command {
 				cutoff := ls.now.Add(-since)
 				filtered := list[:0]
 				for _, a := range list {
-					if alertAlwaysVisible(a.Status) || !a.At.Before(cutoff) {
+					if alertAlwaysVisible(a.Status) {
 						filtered = append(filtered, a)
+						continue
 					}
+					if a.At.IsZero() || a.At.After(ls.now) || a.At.Before(cutoff) {
+						continue
+					}
+					filtered = append(filtered, a)
 				}
 				list = filtered
 			}
