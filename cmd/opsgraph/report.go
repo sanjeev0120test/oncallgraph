@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/report"
@@ -27,7 +28,7 @@ func newReportCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
-			cmd.Print(report.Markdown(res))
+			fmt.Fprint(cmd.OutOrStdout(), report.Markdown(res))
 			return nil
 		},
 	}

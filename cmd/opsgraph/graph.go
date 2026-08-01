@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/sanjeev0120test/opsgraph/internal/graphviz"
 	"github.com/spf13/cobra"
 )
@@ -32,11 +34,16 @@ func newGraphCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "%v", err)
 			}
+			out := cmd.OutOrStdout()
+			var body string
 			if format == "mermaid" {
-				cmd.Print(graphviz.Mermaid(svcs, deps))
-				return nil
+				body = graphviz.Mermaid(svcs, deps)
+			} else {
+				body = graphviz.ASCII(svcs, deps)
 			}
-			cmd.Print(graphviz.ASCII(svcs, deps))
+			if _, err := fmt.Fprint(out, body); err != nil {
+				return fail(2, "%v", err)
+			}
 			return nil
 		},
 	}

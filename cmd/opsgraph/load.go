@@ -18,6 +18,9 @@ type sourceFlags struct {
 }
 
 func (f *sourceFlags) load(since time.Duration) (*loadedStore, *config.Config, error) {
+	if err := validSince(since); err != nil {
+		return nil, nil, err
+	}
 	cfg, err := config.Load(f.configPath)
 	if err != nil {
 		return nil, nil, err

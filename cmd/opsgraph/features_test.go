@@ -65,9 +65,16 @@ func TestNewFeatureCommands(t *testing.T) {
 			if code != tc.code {
 				t.Fatalf("exit=%d want %d\nout=%s\nerr=%s", code, tc.code, out, errOut)
 			}
-			combined := out + errOut
-			if tc.want != "" && !strings.Contains(combined, tc.want) {
-				t.Fatalf("output missing %q:\n%s", tc.want, combined)
+			if tc.want == "" {
+				return
+			}
+			// Success-path machine output must land on stdout (redirects/CI).
+			haystack := out
+			if tc.code != 0 {
+				haystack = out + errOut
+			}
+			if !strings.Contains(haystack, tc.want) {
+				t.Fatalf("output missing %q:\nstdout=%s\nstderr=%s", tc.want, out, errOut)
 			}
 		})
 	}

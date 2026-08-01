@@ -202,3 +202,12 @@ func validFormat(f string) error {
 	}
 	return nil
 }
+
+// validSince rejects negative lookback windows (a negative duration would
+// invert the cutoff and silently drop all history).
+func validSince(d time.Duration) error {
+	if d < 0 {
+		return fmt.Errorf("invalid --since %s (must be >= 0)", d)
+	}
+	return nil
+}

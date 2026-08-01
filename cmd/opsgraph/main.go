@@ -48,6 +48,10 @@ func main() {
 	defer stop()
 
 	root := newRootCmd()
+	// Cobra's Print/Printf/Println fall back to stderr when Command.out is
+	// unset. Wire stdout explicitly so redirects and CI smoke captures work.
+	root.SetOut(os.Stdout)
+	root.SetErr(os.Stderr)
 	err := root.ExecuteContext(ctx)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "opsgraph:", err)

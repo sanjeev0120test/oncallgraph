@@ -25,6 +25,9 @@ func newIngestCmd() *cobra.Command {
 		Short: "Load fixture or live connectors into the local store",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validSince(since); err != nil {
+				return fail(2, "%v", err)
+			}
 			cfg, err := config.Load(configPath)
 			if err != nil {
 				return fail(2, "%v", err)

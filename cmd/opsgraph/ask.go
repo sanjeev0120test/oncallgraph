@@ -30,6 +30,9 @@ func newAskCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
+			if err := validSince(since); err != nil {
+				return fail(2, "%v", err)
+			}
 			cfg, err := config.Load(configPath)
 			if err != nil {
 				return fail(2, "%v", err)

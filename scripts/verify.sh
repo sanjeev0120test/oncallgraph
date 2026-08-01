@@ -35,4 +35,12 @@ if [ -f ./fixtures/ci_live_k8s/.opsgraph.yaml ]; then
   ./bin/opsgraph ask checkout --config ./fixtures/ci_live_k8s/.opsgraph.yaml --format json >/dev/null
 fi
 
+echo "==> graph mermaid stdout"
+mermaid_out="$(mktemp)"
+mermaid_err="$(mktemp)"
+./bin/opsgraph graph --fixture ./fixtures/incident_checkout --format mermaid >"$mermaid_out" 2>"$mermaid_err"
+test -s "$mermaid_out"
+test ! -s "$mermaid_err"
+grep -F flowchart "$mermaid_out" >/dev/null
+
 echo "OK - local validation passed"

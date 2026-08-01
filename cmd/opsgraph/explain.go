@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/explain"
@@ -27,7 +28,7 @@ func newExplainCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
-			cmd.Print(explain.Narrative(res))
+			fmt.Fprint(cmd.OutOrStdout(), explain.Narrative(res))
 			return nil
 		},
 	}

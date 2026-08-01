@@ -48,4 +48,12 @@ if (Test-Path ./fixtures/ci_live_k8s/.opsgraph.yaml) {
     if ($LASTEXITCODE -ne 0) { exit 1 }
 }
 
+Write-Host "==> graph mermaid stdout" -ForegroundColor Cyan
+$mermaid = & ./bin/opsgraph.exe graph --fixture ./fixtures/incident_checkout --format mermaid 2>$null
+if ($LASTEXITCODE -ne 0) { exit 1 }
+if ($mermaid -notmatch 'flowchart') {
+    Write-Host "mermaid output missing flowchart" -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "OK - local validation passed" -ForegroundColor Green

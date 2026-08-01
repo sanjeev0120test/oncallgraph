@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,24 +54,29 @@ func newExportCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "create %s: %v", outPath, err)
 			}
-			defer f.Close()
-			if format == "json" {
-				if err := output.JSON(f, res); err != nil {
-					return fail(2, "%v", err)
+			writeErr := func() error {
+				if format == "json" {
+					return output.JSON(f, res)
 				}
-			} else {
 				md := report.Markdown(res)
 				if !strings.HasSuffix(md, "\n") {
 					md += "\n"
 				}
-				if _, err := f.WriteString(md); err != nil {
-					return fail(2, "%v", err)
-				}
+				_, err := f.WriteString(md)
+				return err
+			}()
+			if writeErr != nil {
+				_ = f.Close()
+				return fail(2, "%v", writeErr)
 			}
 			if err := f.Sync(); err != nil {
+				_ = f.Close()
 				return fail(2, "sync %s: %v", outPath, err)
 			}
-			cmd.Printf("wrote %s\n", outPath)
+			if err := f.Close(); err != nil {
+				return fail(2, "close %s: %v", outPath, err)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "wrote", outPath)
 			return nil
 		},
 	}

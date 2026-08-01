@@ -71,7 +71,11 @@ func Mermaid(services []model.Service, deps []model.Dependency) string {
 		}
 		fmt.Fprintf(&b, "  %s -->|%s| %s\n", safeID(d.FromServiceID), mermaidEscape(d.Type), safeID(d.ToServiceID))
 	}
-	return b.String()
+	out := b.String()
+	if !strings.HasSuffix(out, "\n") {
+		out += "\n"
+	}
+	return out
 }
 
 func safeID(id string) string {

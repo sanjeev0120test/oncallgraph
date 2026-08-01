@@ -29,7 +29,7 @@ func newWhyCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
-			cmd.Println(whyLine(res))
+			fmt.Fprintln(cmd.OutOrStdout(), whyLine(res))
 			return nil
 		},
 	}

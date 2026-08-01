@@ -4,9 +4,22 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/config"
 )
+
+func TestValidSince(t *testing.T) {
+	if err := validSince(0); err != nil {
+		t.Fatalf("zero: %v", err)
+	}
+	if err := validSince(time.Hour); err != nil {
+		t.Fatalf("positive: %v", err)
+	}
+	if err := validSince(-time.Minute); err == nil {
+		t.Fatal("expected error for negative since")
+	}
+}
 
 func TestLiveConnectorsEnabledRequiresUsableConfig(t *testing.T) {
 	if liveConnectorsEnabled(nil) {

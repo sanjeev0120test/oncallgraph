@@ -32,7 +32,7 @@ func newHandoffCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
-			cmd.Print(handoffNote(res))
+			fmt.Fprint(cmd.OutOrStdout(), handoffNote(res))
 			return nil
 		},
 	}

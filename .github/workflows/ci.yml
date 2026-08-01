@@ -156,6 +156,11 @@ jobs:
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" ask checkout --config fixtures/ci_live_k8s/.opsgraph.yaml --format json >/dev/null
+          # Graph must write mermaid to stdout (not stderr) so redirects work.
+          "$BIN" graph --fixture ./fixtures/incident_checkout --format mermaid > "$DATA/mermaid.txt" 2>"$DATA/mermaid.err"
+          test -s "$DATA/mermaid.txt"
+          test ! -s "$DATA/mermaid.err"
+          grep -F flowchart "$DATA/mermaid.txt" >/dev/null
       - name: Full CLI smoke (ubuntu)
         if: ${{ matrix.smoke == 'full' }}
         shell: bash
@@ -208,14 +213,21 @@ jobs:
           "$BIN_ABS" alerts --fixture ./fixtures/incident_checkout --service checkout --firing >/dev/null
           "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" services --fixture ./fixtures/incident_checkout --health degraded --format json >/dev/null
-          # Write to a file (command substitution + pipefail/SIGPIPE are brittle here).
-          "$BIN" graph --fixture ./fixtures/incident_checkout --format mermaid > /tmp/opsgraph-mermaid.txt
-          grep -F flowchart /tmp/opsgraph-mermaid.txt >/dev/null
+          # File redirect (not pipes): cobra historically wrote Print* to stderr.
+          MERMAID="$(mktemp)"
+          MERMAID_ERR="$(mktemp)"
+          "$BIN" graph --fixture ./fixtures/incident_checkout --format mermaid >"$MERMAID" 2>"$MERMAID_ERR"
+          test -s "$MERMAID"
+          test ! -s "$MERMAID_ERR"
+          grep -F flowchart "$MERMAID" >/dev/null
           set +e
           "$BIN" services --fixture ./fixtures/incident_checkout --health nope >/dev/null
           bad_health=$?
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --since=-1h >/dev/null
+          bad_since=$?
           set -e
           test "$bad_health" -eq 2
+          test "$bad_since" -eq 2
       - name: go install smoke
         if: matrix.os == 'ubuntu-latest'
         shell: bash

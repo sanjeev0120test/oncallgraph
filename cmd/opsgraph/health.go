@@ -35,8 +35,14 @@ func newHealthCmd() *cobra.Command {
 			}
 			by := map[string][]string{}
 			for _, s := range svcs {
-				counts[s.Health]++
-				by[s.Health] = append(by[s.Health], s.ID)
+				h := s.Health
+				switch h {
+				case model.HealthHealthy, model.HealthDegraded, model.HealthUnhealthy, model.HealthUnknown:
+				default:
+					h = model.HealthUnknown
+				}
+				counts[h]++
+				by[h] = append(by[h], s.ID)
 			}
 			for k := range by {
 				sort.Strings(by[k])
