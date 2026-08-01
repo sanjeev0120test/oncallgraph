@@ -12,7 +12,7 @@ type Node struct {
 	ID       string `json:"id"`
 	Health   string `json:"health,omitempty"`
 	Depth    int    `json:"depth"`
-	Children []Node `json:"children,omitempty"`
+	Children []Node `json:"children"`
 }
 
 // Result is the full downstream impact of a service outage.
@@ -39,7 +39,7 @@ func Downstream(root string, services []model.Service, deps []model.Dependency) 
 	}
 
 	seen := map[string]bool{root: true}
-	var affected []string
+	affected := []string{}
 	maxDepth := 0
 
 	var walk func(id string, depth int) Node
@@ -47,7 +47,7 @@ func Downstream(root string, services []model.Service, deps []model.Dependency) 
 		if depth > maxDepth {
 			maxDepth = depth
 		}
-		n := Node{ID: id, Health: health[id], Depth: depth}
+		n := Node{ID: id, Health: health[id], Depth: depth, Children: []Node{}}
 		for _, child := range children[id] {
 			if seen[child] {
 				continue

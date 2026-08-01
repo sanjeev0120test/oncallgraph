@@ -16,7 +16,7 @@ go mod tidy
 git diff --exit-code go.mod go.sum
 
 echo "==> go build"
-go build -o bin/opsgraph ./cmd/opsgraph
+go build -trimpath -ldflags="-s -w -buildid=" -o bin/opsgraph ./cmd/opsgraph
 
 echo "==> go test (no race)"
 go test ./...

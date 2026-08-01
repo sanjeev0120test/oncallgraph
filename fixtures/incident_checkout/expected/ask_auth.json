@@ -73,6 +73,7 @@
       "service_id": "auth"
     }
   ],
+  "correlations": [],
   "recommendations": [
     "Investigate auth health (unhealthy) and stabilize before further changes.",
     "Notify owner Identity Team.",
@@ -85,6 +86,7 @@
       "at": "2026-07-31T09:00:00Z",
       "kind": "rollout",
       "summary": "rollout auth (0/2 ready)",
+      "raw_ref": "auth",
       "service_id": "auth"
     }
   ]

@@ -21,7 +21,7 @@ git diff --exit-code go.mod go.sum
 if ($LASTEXITCODE -ne 0) { Write-Host "go.mod/go.sum dirty after tidy" -ForegroundColor Red; exit 1 }
 
 Write-Host "==> go build" -ForegroundColor Cyan
-go build -o bin/opsgraph.exe ./cmd/opsgraph
+go build -trimpath -ldflags="-s -w -buildid=" -o bin/opsgraph.exe ./cmd/opsgraph
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Write-Host "==> go test (no race)" -ForegroundColor Cyan

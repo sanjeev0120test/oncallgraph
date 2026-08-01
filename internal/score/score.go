@@ -19,7 +19,7 @@ type Result struct {
 // Compute returns a deterministic severity score for an ask result.
 func Compute(res model.AskResult) Result {
 	b := map[string]int{}
-	var highlights []string
+	highlights := []string{}
 
 	switch res.Service.Health {
 	case model.HealthUnhealthy:

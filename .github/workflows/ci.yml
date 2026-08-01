@@ -113,7 +113,7 @@ jobs:
           set -euo pipefail
           out=bin/opsgraph
           if [ "${RUNNER_OS}" = Windows ]; then out=bin/opsgraph.exe; fi
-          go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/opsgraph
+          go build -trimpath -ldflags="-s -w -buildid=" -o "$out" ./cmd/opsgraph
           test -s "$out"
       - name: Unit tests
         if: ${{ !matrix.race }}
@@ -331,7 +331,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           VERSION="ci-${GITHUB_SHA::7}"
-          LDFLAGS="-s -w -X github.com/sanjeev0120test/opsgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/opsgraph/internal/version.Commit=${GITHUB_SHA} -X github.com/sanjeev0120test/opsgraph/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          LDFLAGS="-s -w -buildid= -X github.com/sanjeev0120test/opsgraph/internal/version.Version=${VERSION} -X github.com/sanjeev0120test/opsgraph/internal/version.Commit=${GITHUB_SHA} -X github.com/sanjeev0120test/opsgraph/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           pids=()
           for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             GOOS="${pair%/*}"
@@ -387,8 +387,13 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           "$(go env GOPATH)/bin/govulncheck" ./...
 
-  # Reusable security/workflow scanners — required by the aggregator so "all
-  # checks passed" cannot go green while these fail in their standalone runs.
+  repro:
+    name: repro-build
+    uses: ./.github/workflows/repro-build.yml
+    permissions:
+      contents: read
+
+  # Reusable security/workflow scanners — required by the aggregator.
   gitleaks:
     name: gitleaks
     uses: ./.github/workflows/gitleaks.yml
@@ -400,7 +405,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-      security-events: write
   actionlint:
     name: actionlint
     uses: ./.github/workflows/actionlint.yml
@@ -409,7 +413,7 @@ jobs:
 
   ci-ok:
     name: all checks passed
-    needs: [lint, staticcheck, test, cross, vuln, gitleaks, zizmor, actionlint]
+    needs: [lint, staticcheck, test, cross, vuln, repro, gitleaks, zizmor, actionlint]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     if: always()
@@ -422,6 +426,7 @@ jobs:
           echo "test=${{ needs.test.result }}"
           echo "cross=${{ needs.cross.result }}"
           echo "vuln=${{ needs.vuln.result }}"
+          echo "repro=${{ needs.repro.result }}"
           echo "gitleaks=${{ needs.gitleaks.result }}"
           echo "zizmor=${{ needs.zizmor.result }}"
           echo "actionlint=${{ needs.actionlint.result }}"
@@ -430,6 +435,7 @@ jobs:
           test "${{ needs.test.result }}" = "success"
           test "${{ needs.cross.result }}" = "success"
           test "${{ needs.vuln.result }}" = "success"
+          test "${{ needs.repro.result }}" = "success"
           test "${{ needs.gitleaks.result }}" = "success"
           test "${{ needs.zizmor.result }}" = "success"
           test "${{ needs.actionlint.result }}" = "success"

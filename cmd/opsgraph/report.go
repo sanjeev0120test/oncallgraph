@@ -16,7 +16,10 @@ func newReportCmd() *cobra.Command {
 		Short: "Export a markdown incident report for a service",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ls, cfg, err := src.load(since)
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}

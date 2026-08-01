@@ -21,6 +21,9 @@ var ErrAmbiguous = errors.New("ambiguous service match")
 
 // UpsertService inserts or updates a service.
 func (s *Store) UpsertService(v model.Service) error {
+	if strings.TrimSpace(v.ID) == "" {
+		return fmt.Errorf("upsert service: empty id")
+	}
 	_, err := s.db.Exec(`
 INSERT INTO services (id,name,aliases,owner_id,health,labels,sources)
 VALUES (?,?,?,?,?,?,?)
@@ -33,6 +36,9 @@ ON CONFLICT(id) DO UPDATE SET
 
 // UpsertOwner inserts or updates an owner.
 func (s *Store) UpsertOwner(v model.Owner) error {
+	if strings.TrimSpace(v.ID) == "" {
+		return fmt.Errorf("upsert owner: empty id")
+	}
 	_, err := s.db.Exec(`
 INSERT INTO owners (id,name,team,email) VALUES (?,?,?,?)
 ON CONFLICT(id) DO UPDATE SET name=excluded.name, team=excluded.team, email=excluded.email`,
@@ -42,6 +48,9 @@ ON CONFLICT(id) DO UPDATE SET name=excluded.name, team=excluded.team, email=excl
 
 // UpsertChange inserts or updates a change.
 func (s *Store) UpsertChange(v model.Change) error {
+	if strings.TrimSpace(v.ID) == "" {
+		return fmt.Errorf("upsert change: empty id")
+	}
 	_, err := s.db.Exec(`
 INSERT INTO changes (id,service_id,at,type,summary,author,revision,source,evidence_id)
 VALUES (?,?,?,?,?,?,?,?,?)
@@ -55,6 +64,9 @@ ON CONFLICT(id) DO UPDATE SET
 
 // UpsertDependency inserts or updates a dependency edge.
 func (s *Store) UpsertDependency(v model.Dependency) error {
+	if strings.TrimSpace(v.FromServiceID) == "" || strings.TrimSpace(v.ToServiceID) == "" {
+		return fmt.Errorf("upsert dependency: empty from/to service id")
+	}
 	if v.Type == "" {
 		v.Type = "unknown"
 	}
@@ -68,6 +80,9 @@ ON CONFLICT(from_service_id,to_service_id,type) DO UPDATE SET source=excluded.so
 
 // UpsertAlert inserts or updates an alert.
 func (s *Store) UpsertAlert(v model.Alert) error {
+	if strings.TrimSpace(v.ID) == "" {
+		return fmt.Errorf("upsert alert: empty id")
+	}
 	_, err := s.db.Exec(`
 INSERT INTO alerts (id,service_id,at,severity,name,status,summary,source,evidence_id)
 VALUES (?,?,?,?,?,?,?,?,?)
@@ -81,6 +96,9 @@ ON CONFLICT(id) DO UPDATE SET
 
 // UpsertRunbook inserts or updates a runbook (keyed by service).
 func (s *Store) UpsertRunbook(v model.Runbook) error {
+	if strings.TrimSpace(v.ServiceID) == "" {
+		return fmt.Errorf("upsert runbook: empty service id")
+	}
 	_, err := s.db.Exec(`
 INSERT INTO runbooks (service_id,id,path,owner_id,steps) VALUES (?,?,?,?,?)
 ON CONFLICT(service_id) DO UPDATE SET
@@ -91,6 +109,9 @@ ON CONFLICT(service_id) DO UPDATE SET
 
 // UpsertEvidence inserts or updates evidence.
 func (s *Store) UpsertEvidence(v model.Evidence) error {
+	if strings.TrimSpace(v.ID) == "" {
+		return fmt.Errorf("upsert evidence: empty id")
+	}
 	_, err := s.db.Exec(`
 INSERT INTO evidence (id,source,at,kind,summary,raw_ref,service_id) VALUES (?,?,?,?,?,?,?)
 ON CONFLICT(id) DO UPDATE SET
@@ -443,14 +464,69 @@ WHERE source=? AND status IN ('firing','pending')`, source)
 }
 
 // FindFiringAlert returns the newest active (firing/pending) alert matching an
-// alert name. Name match is preferred so a check like alert_firing:checkout
-// does not incorrectly pass when only service_id="checkout" has some other alert.
-func (s *Store) FindFiringAlert(nameOrService string) (*model.Alert, bool, error) {
-	al, ok, err := s.findFiringAlertBy(`name=?`, nameOrService)
-	if err != nil || ok {
-		return al, ok, err
+// alert name exactly. It does NOT fall back to service_id — that false-passed
+// checks like alert_firing:checkout when any alert existed for the service.
+func (s *Store) FindFiringAlert(name string) (*model.Alert, bool, error) {
+	return s.findFiringAlertBy(`name=?`, name)
+}
+
+// FindRolloutEvidence finds rollout evidence for a deployment name. Matches
+// raw_ref (preferred), legacy id ev-k8s-rollout-<name>, or namespaced
+// ev-k8s-rollout-<ns>-<name>. Suffix-only LIKE matches are rejected.
+func (s *Store) FindRolloutEvidence(name string) (*model.Evidence, bool, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, false, nil
 	}
-	return s.findFiringAlertBy(`service_id=?`, nameOrService)
+	rows, err := s.db.Query(`
+SELECT id,source,at,kind,summary,raw_ref,service_id FROM evidence
+WHERE kind='rollout' AND (raw_ref=? OR id LIKE 'ev-k8s-rollout-%')
+ORDER BY id`, name)
+	if err != nil {
+		return nil, false, wrap("find rollout evidence", err)
+	}
+	defer rows.Close()
+	var matches []model.Evidence
+	for rows.Next() {
+		var v model.Evidence
+		var at string
+		if err := rows.Scan(&v.ID, &v.Source, &at, &v.Kind, &v.Summary, &v.RawRef, &v.ServiceID); err != nil {
+			return nil, false, wrap("scan rollout evidence", err)
+		}
+		if v.RawRef != name && !rolloutIDMatches(v.ID, name) {
+			continue
+		}
+		parsed, perr := requireTime(at, "evidence", v.ID)
+		if perr != nil {
+			return nil, false, perr
+		}
+		v.At = parsed
+		matches = append(matches, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, wrap("iterate rollout evidence", err)
+	}
+	switch len(matches) {
+	case 0:
+		return nil, false, nil
+	case 1:
+		return &matches[0], true, nil
+	default:
+		ids := make([]string, len(matches))
+		for i, m := range matches {
+			ids[i] = m.ID
+		}
+		return nil, false, fmt.Errorf("%w: deployment %q matches multiple rollouts: %s", ErrAmbiguous, name, strings.Join(ids, ", "))
+	}
+}
+
+func rolloutIDMatches(id, name string) bool {
+	const prefix = "ev-k8s-rollout-"
+	if !strings.HasPrefix(id, prefix) {
+		return false
+	}
+	suf := strings.TrimPrefix(id, prefix)
+	return suf == name || strings.HasSuffix(suf, "-"+name)
 }
 
 func (s *Store) findFiringAlertBy(pred string, arg string) (*model.Alert, bool, error) {

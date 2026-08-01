@@ -55,7 +55,7 @@ func newStatusCmd() *cobra.Command {
 				cfg.AI.Enabled, cfg.AI.Model, cfg.AI.EmbedModel, cfg.AI.OllamaURL, ollamaOK)
 
 			// Same source selection as ask (live k8s/prom/AM preferred over stale db).
-			ls, err := loadAskStore(fixture, configPath, dataDir, cfg, cfg.Since())
+			ls, err := loadAskStore(cmd.Context(), fixture, configPath, dataDir, cfg, cfg.Since())
 			if err != nil {
 				if fixture == "" && dataDir == "" && (errors.Is(err, ErrEmptyStore) || isNoDataSource(err)) {
 					cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")

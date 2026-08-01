@@ -2,11 +2,14 @@ package ingest
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -126,7 +129,8 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 			at = time.Now().UTC()
 		}
 	}
-	id = source + "-" + slug(name) + "-" + slug(svcID)
+	// Fingerprint remaining labels so multiple series (instance, pod, …) do not collapse.
+	id = source + "-" + slug(name) + "-" + slug(svcID) + "-" + labelFingerprint(labels)
 	evID := "ev-" + id
 	summary := firstNonEmpty(annotations["summary"], annotations["description"], name)
 	if err := s.UpsertAlert(model.Alert{
@@ -154,6 +158,34 @@ func resolveServiceLabel(labels map[string]string) string {
 		labels["app_kubernetes_io_name"],
 		labels["label_app_kubernetes_io_name"],
 	)
+}
+
+func labelFingerprint(labels map[string]string) string {
+	if len(labels) == 0 {
+		return "none"
+	}
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		switch k {
+		case "alertname",
+			"service", "service_name", "exported_service", "label_service",
+			"app", "app_kubernetes_io_name", "label_app_kubernetes_io_name",
+			"severity":
+			// Already in the id prefix (name/service) or intentionally mutable.
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		b.WriteString(k)
+		b.WriteByte('=')
+		b.WriteString(labels[k])
+		b.WriteByte('|')
+	}
+	sum := sha256.Sum256([]byte(b.String()))
+	return hex.EncodeToString(sum[:4])
 }
 
 func firstNonEmpty(vals ...string) string {

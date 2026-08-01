@@ -29,7 +29,7 @@ func (v *Verifier) VerifyService(serviceID string) (model.VerifyResult, error) {
 	rb, err := v.store.GetRunbook(serviceID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return model.VerifyResult{ServiceID: serviceID, Status: model.StatusMissing}, nil
+			return model.VerifyResult{ServiceID: serviceID, Status: model.StatusMissing, Steps: []model.StepVerifyResult{}}, nil
 		}
 		return model.VerifyResult{}, err
 	}
@@ -96,16 +96,42 @@ func (v *Verifier) verifyStep(serviceID string, step model.RunbookStep) (model.S
 	}
 
 	name, arg, _ := strings.Cut(check, ":")
+	arg = strings.TrimSpace(arg)
 	switch name {
 	case "deploy_age_lt", "deploy_age_gt":
+		if arg == "" {
+			sr.Status = model.StatusError
+			sr.Message = "missing duration argument"
+			return sr, nil
+		}
 		return v.checkDeployAge(serviceID, name, arg, sr)
 	case "k8s_deployment_exists":
+		if arg == "" {
+			sr.Status = model.StatusError
+			sr.Message = "missing deployment name"
+			return sr, nil
+		}
 		return v.checkDeploymentExists(arg, sr)
 	case "service_healthy":
+		if arg == "" {
+			sr.Status = model.StatusError
+			sr.Message = "missing service name"
+			return sr, nil
+		}
 		return v.checkServiceHealth(arg, true, sr)
 	case "service_unhealthy":
+		if arg == "" {
+			sr.Status = model.StatusError
+			sr.Message = "missing service name"
+			return sr, nil
+		}
 		return v.checkServiceHealth(arg, false, sr)
 	case "alert_firing":
+		if arg == "" {
+			sr.Status = model.StatusError
+			sr.Message = "missing alert name"
+			return sr, nil
+		}
 		return v.checkAlertFiring(arg, sr)
 	default:
 		sr.Status = model.StatusError
@@ -116,9 +142,9 @@ func (v *Verifier) verifyStep(serviceID string, step model.RunbookStep) (model.S
 
 func (v *Verifier) checkDeployAge(serviceID, kind, arg string, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
 	dur, err := time.ParseDuration(arg)
-	if err != nil {
+	if err != nil || dur <= 0 {
 		sr.Status = model.StatusError
-		sr.Message = fmt.Sprintf("invalid duration %q", arg)
+		sr.Message = fmt.Sprintf("invalid duration %q (must be > 0)", arg)
 		return sr, nil
 	}
 	ch, ok, err := v.store.LatestDeployOrRollout(serviceID)
@@ -128,6 +154,12 @@ func (v *Verifier) checkDeployAge(serviceID, kind, arg string, sr model.StepVeri
 	if !ok {
 		sr.Status = model.StatusStale
 		sr.Message = "no deploy/rollout on record"
+		return sr, nil
+	}
+	if ch.At.After(v.now) {
+		sr.Status = model.StatusStale
+		sr.Message = "last deploy/rollout is in the future (clock skew)"
+		sr.EvidenceID = ch.EvidenceID
 		return sr, nil
 	}
 	sr.EvidenceID = ch.EvidenceID
@@ -149,11 +181,16 @@ func (v *Verifier) checkDeployAge(serviceID, kind, arg string, sr model.StepVeri
 func (v *Verifier) checkDeploymentExists(name string, sr model.StepVerifyResult) (model.StepVerifyResult, error) {
 	// Require explicit rollout evidence for this deployment name. A service with
 	// source "kubernetes" is not enough (avoids false pass on unrelated deploy).
-	ev, err := v.store.GetEvidence("ev-k8s-rollout-" + name)
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
+	ev, ok, err := v.store.FindRolloutEvidence(name)
+	if err != nil {
+		if errors.Is(err, store.ErrAmbiguous) {
+			sr.Status = model.StatusError
+			sr.Message = err.Error()
+			return sr, nil
+		}
 		return sr, err
 	}
-	if ev != nil {
+	if ok {
 		sr.Status = model.StatusPass
 		sr.Message = fmt.Sprintf("deployment %q present in snapshot", name)
 		sr.EvidenceID = ev.ID

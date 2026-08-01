@@ -27,6 +27,9 @@ func newAskCmd() *cobra.Command {
 		Short: "Show evidence-backed incident context for a service",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
@@ -41,7 +44,7 @@ func newAskCmd() *cobra.Command {
 				since = cfg.Since()
 			}
 
-			ls, err := loadAskStore(fixture, configPath, dataDir, cfg, since)
+			ls, err := loadAskStore(cmd.Context(), fixture, configPath, dataDir, cfg, since)
 			if err != nil {
 				if errors.Is(err, ErrEmptyStore) {
 					return fail(1, "%v", err)

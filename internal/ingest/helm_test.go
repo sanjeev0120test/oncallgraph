@@ -1,6 +1,7 @@
 package ingest_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -61,7 +62,7 @@ owners:
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
-	if err := ingest.LiveIngest(s, cfgLoaded, dir, now.Add(-time.Hour), now); err != nil {
+	if err := ingest.LiveIngest(context.Background(), s, cfgLoaded, dir, now.Add(-time.Hour), now); err != nil {
 		t.Fatal(err)
 	}
 	changes, err := s.ListChanges("checkout", now.Add(-time.Hour))

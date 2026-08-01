@@ -23,6 +23,9 @@ func newExportCmd() *cobra.Command {
 		Short: "Export ask result to a file (json or markdown)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
 			if format != "json" && format != "markdown" && format != "md" {
 				return fail(2, "invalid --format %q (want json|markdown)", format)
 			}
@@ -33,7 +36,7 @@ func newExportCmd() *cobra.Command {
 				}
 				outPath = sanitizeFileStem(args[0]) + "-incident." + ext
 			}
-			ls, cfg, err := src.load(since)
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}

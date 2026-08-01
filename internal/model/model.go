@@ -130,7 +130,7 @@ type AskResult struct {
 	Downstream      []Service       `json:"downstream"`
 	RunbookResult   *VerifyResult   `json:"runbook,omitempty"`
 	Timeline        []TimelineEvent `json:"timeline"`
-	Correlations    []Correlation   `json:"correlations,omitempty"`
+	Correlations    []Correlation   `json:"correlations"`
 	Recommendations []string        `json:"recommendations"`
 	Evidence        []Evidence      `json:"evidence"`
 	AISummary       string          `json:"ai_summary,omitempty"`

@@ -16,7 +16,7 @@ func newOwnersCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, _, err := src.load(0)
+			ls, _, err := src.loadCtx(cmd.Context(), 0)
 			if err != nil {
 				return failSource(err)
 			}

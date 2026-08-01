@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -114,13 +115,16 @@ func storeFromDataDir(dataDir string, now time.Time) (*loadedStore, error) {
 
 // storeFromConfig builds an ephemeral store from the live connectors described
 // in cfg (seeded services/owners/runbooks + local git + k8s snapshot).
-func storeFromConfig(cfg *config.Config, configDir string, since time.Duration, now time.Time) (*loadedStore, error) {
+func storeFromConfig(ctx context.Context, cfg *config.Config, configDir string, since time.Duration, now time.Time) (*loadedStore, error) {
 	s, cleanup, err := store.OpenTemp()
 	if err != nil {
 		return nil, err
 	}
 	lookback := ask.ChangeLookback(since)
-	if err := ingest.LiveIngest(s, cfg, configDir, now.Add(-lookback), now); err != nil {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ingest.LiveIngest(ctx, s, cfg, configDir, now.Add(-lookback), now); err != nil {
 		cleanup()
 		return nil, err
 	}
@@ -148,7 +152,7 @@ func liveConnectorsEnabled(cfg *config.Config) bool {
 }
 
 // loadAskStore resolves fixture / data-dir / live-config into a store.
-func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, since time.Duration) (*loadedStore, error) {
+func loadAskStore(ctx context.Context, fixture, configPath, dataDirFlag string, cfg *config.Config, since time.Duration) (*loadedStore, error) {
 	if fixture != "" {
 		return storeFromFixtureDir(fixture)
 	}
@@ -174,19 +178,34 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 		configDir = dirOf(effPath)
 	}
 	dir := resolveDataDir("", cfg, configDir)
+	fallbackPersisted := func(reason error) (*loadedStore, error) {
+		if counts, peekErr := peekCounts(dir); peekErr == nil && counts["services"] > 0 {
+			fmt.Fprintf(os.Stderr, "warning: live connectors %v; using persisted store at %s\n", reason, dir)
+			return storeFromDataDir(dir, time.Now().UTC())
+		}
+		return nil, reason
+	}
 	// Live connectors beat a stale state.db so ask/why/watch see fresh signals
 	// when a config is present. Explicit --data-dir still forces the store.
 	if effPath != "" && liveConnectorsEnabled(cfg) {
-		ls, err := storeFromConfig(cfg, configDir, since, time.Now().UTC())
-		if err == nil {
-			return ls, nil
+		ls, err := storeFromConfig(ctx, cfg, configDir, since, time.Now().UTC())
+		if err != nil {
+			return fallbackPersisted(err)
 		}
-		// Mid-incident: prefer answering from a populated store over hard-fail.
-		if counts, peekErr := peekCounts(dir); peekErr == nil && counts["services"] > 0 {
-			fmt.Fprintf(os.Stderr, "warning: live connectors failed (%v); using persisted store at %s\n", err, dir)
-			return storeFromDataDir(dir, time.Now().UTC())
+		counts, cerr := ls.store.Counts()
+		if cerr != nil {
+			ls.cleanup()
+			return nil, cerr
 		}
-		return nil, err
+		// Enabled-but-empty live must not displace a populated state.db.
+		if counts["services"] == 0 {
+			ls.cleanup()
+			if fb, fbErr := fallbackPersisted(fmt.Errorf("returned no services")); fbErr == nil {
+				return fb, nil
+			}
+			return nil, fmt.Errorf("%w: live connectors returned no services", ErrEmptyStore)
+		}
+		return ls, nil
 	}
 	if counts, err := peekCounts(dir); err == nil {
 		if counts["services"] > 0 {
@@ -197,7 +216,28 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 	if effPath == "" {
 		return nil, fmt.Errorf("no data source: pass --fixture <pack>, run `opsgraph ingest`, or add a .opsgraph.yaml")
 	}
-	return storeFromConfig(cfg, configDir, since, time.Now().UTC())
+	ls, err := storeFromConfig(ctx, cfg, configDir, since, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	counts, cerr := ls.store.Counts()
+	if cerr != nil {
+		ls.cleanup()
+		return nil, cerr
+	}
+	if counts["services"] == 0 {
+		ls.cleanup()
+		return nil, fmt.Errorf("%w: live connectors returned no services", ErrEmptyStore)
+	}
+	return ls, nil
+}
+
+// requireArg returns exit 2 when a positional argument is blank.
+func requireArg(name, v string) error {
+	if strings.TrimSpace(v) == "" {
+		return fail(2, "%s is required", name)
+	}
+	return nil
 }
 
 func peekCounts(dataDir string) (map[string]int, error) {

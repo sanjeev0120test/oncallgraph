@@ -82,7 +82,8 @@ install_from_archive() {
     if command -v unzip >/dev/null 2>&1; then
       unzip -q -o "$asset_path" -d "$tmp"
     else
-      powershell.exe -NoProfile -Command "Expand-Archive -Path '$asset_path' -DestinationPath '$tmp' -Force"
+      OPSGRAPH_EXPAND_SRC="$asset_path" OPSGRAPH_EXPAND_DST="$tmp" powershell.exe -NoProfile -Command \
+        "Expand-Archive -Path \$env:OPSGRAPH_EXPAND_SRC -DestinationPath \$env:OPSGRAPH_EXPAND_DST -Force"
     fi
     bin="$tmp/opsgraph_${tag}_${os}_${arch}.exe"
   else
@@ -130,8 +131,13 @@ elif [[ -n "$RELEASE_DIR" ]]; then
 else
   if [[ "$VERSION" == "latest" ]]; then
     api_json="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest")"
-    tag="$(printf '%s\n' "$api_json" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
-    tag="${tag%%$'\n'*}"
+    # Prefer jq when present; otherwise take the first tag_name occurrence.
+    if command -v jq >/dev/null 2>&1; then
+      tag="$(printf '%s' "$api_json" | jq -r '.tag_name // empty')"
+    else
+      tag="$(printf '%s' "$api_json" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+    fi
+    tag="$(printf '%s' "$tag" | tr -d '\r\n')"
   else
     tag="$VERSION"
   fi

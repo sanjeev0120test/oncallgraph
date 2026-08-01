@@ -35,8 +35,14 @@ func openK8sSnapshotFS(snap string) (fsys fs.FS, depFile, evFile, relFile string
 // LiveIngest seeds the store from config and runs the enabled live connectors
 // (local git, kubernetes snapshot, optional prometheus/alertmanager). configDir
 // is used to resolve relative runbook/snapshot paths. Missing git repo is skipped.
-func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now time.Time) error {
+func LiveIngest(ctx context.Context, s *store.Store, cfg *config.Config, configDir string, since, now time.Time) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if err := seedFromConfig(s, cfg, configDir); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if cfg.Connectors.Git.Enabled {
@@ -53,6 +59,9 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 				return fmt.Errorf("git connector: %w", err)
 			}
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if cfg.Connectors.Kubernetes.Enabled {
 		if cfg.Connectors.Kubernetes.Snapshot == "" {
@@ -74,12 +83,15 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			}
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if cfg.Connectors.Prometheus.Enabled {
 		if cfg.Connectors.Prometheus.URL == "" {
 			fmt.Fprintln(os.Stderr, "warning: prometheus connector enabled but url is empty; skipping")
 		} else {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil, now)
+			pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			err := IngestPrometheus(pctx, s, cfg.Connectors.Prometheus.URL, nil, now)
 			cancel()
 			if err != nil {
 				// Soft-fail: during an incident Prom is often unhealthy too.
@@ -87,12 +99,15 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			}
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if cfg.Connectors.Alertmanager.Enabled {
 		if cfg.Connectors.Alertmanager.URL == "" {
 			fmt.Fprintln(os.Stderr, "warning: alertmanager connector enabled but url is empty; skipping")
 		} else {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil, now)
+			actx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			err := IngestAlertmanager(actx, s, cfg.Connectors.Alertmanager.URL, nil, now)
 			cancel()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: alertmanager connector: %v; continuing\n", err)

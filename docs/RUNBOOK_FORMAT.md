@@ -37,7 +37,8 @@ binds to the nearest preceding numbered step.
 | `deploy_age_lt:Xm` / `deploy_age_gt:Xm` | Newest **deploy/rollout** age vs window (commits ignored) |
 | `k8s_deployment_exists:name` | Rollout evidence `ev-k8s-rollout-<name>` present |
 | `service_healthy:name` / `service_unhealthy:name` | Health matches |
-| `alert_firing:name` | Alert status is `firing` or `pending` (active) |
+| `alert_firing:name` | Alert with that exact name is `firing` or `pending` (no service-id fallback) |
+| `k8s_deployment_exists:name` | Rollout evidence for that deployment name (default or namespaced id / raw_ref) |
 | `manual` | Always manual (never fails the step) |
 
 ### Roll-up

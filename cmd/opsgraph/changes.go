@@ -26,7 +26,7 @@ func newChangesCmd() *cobra.Command {
 			if limit < 1 {
 				return fail(2, "invalid --limit %d (must be >= 1)", limit)
 			}
-			ls, cfg, err := src.load(since)
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}
@@ -37,7 +37,7 @@ func newChangesCmd() *cobra.Command {
 			// Same floor as ask so the change browser cannot hide a prime suspect.
 			cutoff := ls.now.Add(-ask.ChangeLookback(since))
 
-			var list []model.Change
+			list := make([]model.Change, 0)
 			if service != "" {
 				svc, err := ls.store.GetServiceByNameOrAlias(service)
 				if err != nil {

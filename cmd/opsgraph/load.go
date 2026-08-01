@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -18,6 +19,10 @@ type sourceFlags struct {
 }
 
 func (f *sourceFlags) load(since time.Duration) (*loadedStore, *config.Config, error) {
+	return f.loadCtx(context.Background(), since)
+}
+
+func (f *sourceFlags) loadCtx(ctx context.Context, since time.Duration) (*loadedStore, *config.Config, error) {
 	if err := validSince(since); err != nil {
 		return nil, nil, err
 	}
@@ -28,7 +33,7 @@ func (f *sourceFlags) load(since time.Duration) (*loadedStore, *config.Config, e
 	if since == 0 {
 		since = cfg.Since()
 	}
-	ls, err := loadAskStore(f.fixture, f.configPath, f.dataDir, cfg, since)
+	ls, err := loadAskStore(ctx, f.fixture, f.configPath, f.dataDir, cfg, since)
 	return ls, cfg, err
 }
 
@@ -61,7 +66,7 @@ func failAsk(err error) error {
 	return fail(2, "%v", err)
 }
 
-// failLookup maps store service lookup errors (not found / ambiguous → 1).
+// failLookup maps store service lookup errors (not found / ambiguous â†’ 1).
 func failLookup(query string, err error) error {
 	if err == nil {
 		return nil

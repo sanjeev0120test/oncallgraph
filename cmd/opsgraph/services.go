@@ -25,7 +25,7 @@ func newServicesCmd() *cobra.Command {
 					return fail(2, "invalid --health %q (want healthy|degraded|unhealthy|unknown)", health)
 				}
 			}
-			ls, _, err := src.load(0)
+			ls, _, err := src.loadCtx(cmd.Context(), 0)
 			if err != nil {
 				return failSource(err)
 			}
@@ -61,7 +61,7 @@ func newServicesCmd() *cobra.Command {
 				if len(r.Aliases) > 0 {
 					alias = r.Aliases[0]
 					if len(r.Aliases) > 1 {
-						alias += ",…"
+						alias += ",â€¦"
 					}
 				}
 				cmd.Printf("%-16s %-12s %-16s %s\n", r.ID, r.Health, r.OwnerID, alias)

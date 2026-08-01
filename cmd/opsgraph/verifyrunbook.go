@@ -30,7 +30,10 @@ func newVerifyRunbookCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, err := loadAskStore(fixture, configPath, dataDir, cfg, cfg.Since())
+			if err := requireArg("service-or-file", args[0]); err != nil {
+				return err
+			}
+			ls, err := loadAskStore(cmd.Context(), fixture, configPath, dataDir, cfg, cfg.Since())
 			if err != nil {
 				return failSource(err)
 			}

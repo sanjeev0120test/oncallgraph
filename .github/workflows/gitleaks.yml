@@ -1,18 +1,12 @@
 name: gitleaks
 
-# Fast secret scan. Parallel; usually <20s. Tags owned by release.yml.
+# Secret scan. Invoked from ci.yml (workflow_call) so it participates in
+# "all checks passed". Standalone push/PR triggers removed to avoid concurrency
+# cancel races with the reusable call on the same ref.
 
 on:
   workflow_call:
-  push:
-    branches: ['**']
-    tags-ignore: ['v*']
-  pull_request:
   workflow_dispatch:
-
-concurrency:
-  group: gitleaks-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read

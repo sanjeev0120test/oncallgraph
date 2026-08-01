@@ -71,7 +71,7 @@ func newIngestCmd() *cobra.Command {
 				if effPath == "" {
 					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
 				}
-				err = ingest.LiveIngest(s, cfg, configDir, now.Add(-ask.ChangeLookback(lookback)), now)
+				err = ingest.LiveIngest(cmd.Context(), s, cfg, configDir, now.Add(-ask.ChangeLookback(lookback)), now)
 				if err == nil {
 					err = s.SetAsOf(now)
 				}
@@ -83,6 +83,13 @@ func newIngestCmd() *cobra.Command {
 				return fail(2, "%v", cerr)
 			} else if len(collisions) > 0 {
 				return fail(1, "ambiguous service aliases after ingest: %s", strings.Join(collisions, "; "))
+			}
+			countsCheck, cerr := s.Counts()
+			if cerr != nil {
+				return fail(2, "%v", cerr)
+			}
+			if countsCheck["services"] == 0 {
+				return fail(1, "ingest produced zero services")
 			}
 
 			counts, err := s.Counts()
@@ -105,7 +112,7 @@ func newIngestCmd() *cobra.Command {
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory (default: config data_dir or .opsgraph/data)")
-	cmd.Flags().BoolVar(&replace, "replace", false, "clear the store before ingest (default for fixture and live)")
+	cmd.Flags().BoolVar(&replace, "replace", false, "clear the store before ingest (implied unless --merge)")
 	cmd.Flags().BoolVar(&merge, "merge", false, "upsert without clearing prior rows (live ingest only; fixtures always replace)")
 	cmd.Flags().DurationVar(&since, "since", 0, "change lookback for live git/helm ingest (default: config default_since)")
 	return cmd

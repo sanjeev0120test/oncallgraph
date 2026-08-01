@@ -1,10 +1,13 @@
 package ingest
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
@@ -33,6 +36,7 @@ type k8sEvents struct {
 
 type k8sEvent struct {
 	ServiceID  string    `yaml:"service_id"`
+	Namespace  string    `yaml:"namespace"`
 	At         time.Time `yaml:"at"`
 	Reason     string    `yaml:"reason"`
 	Message    string    `yaml:"message"`
@@ -91,10 +95,24 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string) error {
 			skipped++
 			continue
 		}
+		if e.At.IsZero() {
+			skipped++
+			continue
+		}
 		evID := e.EvidenceID
 		if evID == "" {
 			// Synthesize a stable id so partial snapshots still contribute timeline evidence.
-			evID = "ev-k8s-" + slug(e.ServiceID) + "-" + e.At.UTC().Format("20060102T150405") + "-" + slug(e.Reason)
+			// Namespace + message digest avoid same-second collisions across namespaces.
+			ns := e.Namespace
+			if ns == "" {
+				ns = "default"
+			}
+			sum := sha256.Sum256([]byte(ns + "|" + e.Message + "|" + e.Reason))
+			reason := slug(e.Reason)
+			if reason == "" {
+				reason = "event"
+			}
+			evID = "ev-k8s-" + slug(e.ServiceID) + "-" + slug(ns) + "-" + e.At.UTC().Format("20060102T150405") + "-" + reason + "-" + hex.EncodeToString(sum[:4])
 		}
 		if err := s.UpsertEvidence(model.Evidence{
 			ID: evID, Source: "kubernetes", At: e.At, Kind: "k8s-event",
@@ -164,19 +182,27 @@ func healthRank(h string) int {
 }
 
 func emitRollout(s *store.Store, d k8sDeployment) error {
-	if d.UpdatedAt.IsZero() {
+	if d.UpdatedAt.IsZero() || strings.TrimSpace(d.Name) == "" {
 		return nil
 	}
-	evID := "ev-k8s-rollout-" + d.Name
+	// Keep short legacy ids for default-namespace fixtures; namespace elsewhere
+	// so same deployment name in two namespaces cannot overwrite.
+	suffix := d.Name
+	if ns := d.Namespace; ns != "" && ns != "default" {
+		suffix = slug(ns) + "-" + d.Name
+	}
+	evID := "ev-k8s-rollout-" + suffix
+	changeID := "k8s-rollout-" + suffix
 	summary := fmt.Sprintf("rollout %s (%d/%d ready)", d.Name, d.Ready, d.Desired)
 	if err := s.UpsertChange(model.Change{
-		ID: "k8s-rollout-" + d.Name, ServiceID: d.ServiceID, At: d.UpdatedAt, Type: "rollout",
+		ID: changeID, ServiceID: d.ServiceID, At: d.UpdatedAt, Type: "rollout",
 		Summary: summary, Source: "kubernetes", EvidenceID: evID,
 	}); err != nil {
 		return err
 	}
 	return s.UpsertEvidence(model.Evidence{
-		ID: evID, Source: "kubernetes", At: d.UpdatedAt, Kind: "rollout", Summary: summary, ServiceID: d.ServiceID,
+		ID: evID, Source: "kubernetes", At: d.UpdatedAt, Kind: "rollout",
+		Summary: summary, RawRef: d.Name, ServiceID: d.ServiceID,
 	})
 }
 

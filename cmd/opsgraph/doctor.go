@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,7 +100,7 @@ func newDoctorCmd() *cobra.Command {
 				} else {
 					warnf("alertmanager", cfg.Connectors.Alertmanager.URL+" (configured; not probed)")
 				}
-				if probeOllama(context.Background(), cfg.AI.OllamaURL) {
+				if probeOllama(cmd.Context(), cfg.AI.OllamaURL) {
 					check("ollama", true, cfg.AI.OllamaURL)
 				} else {
 					warnf("ollama", "unreachable at "+cfg.AI.OllamaURL+" (optional)")

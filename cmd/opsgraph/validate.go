@@ -20,6 +20,9 @@ func newValidateFixtureCmd() *cobra.Command {
 		Short: "Validate a fixture pack can be ingested and has required files",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("fixture-dir", args[0]); err != nil {
+				return err
+			}
 			dir := args[0]
 			required := []string{
 				"meta.yaml", "services.yaml", "owners.yaml", "changes.yaml",
@@ -32,7 +35,7 @@ func newValidateFixtureCmd() *cobra.Command {
 				}
 			}
 			if len(missing) > 0 {
-				return fail(1, "missing required files: %v", missing)
+				return fail(2, "missing required files: %v", missing)
 			}
 			if _, err := os.Stat(filepath.Join(dir, "runbooks")); err != nil {
 				cmd.PrintErrln("warning: no runbooks/ directory (opsgraph test may skip verify goldens)")

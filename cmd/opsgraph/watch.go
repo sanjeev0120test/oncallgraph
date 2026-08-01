@@ -19,6 +19,9 @@ func newWatchCmd() *cobra.Command {
 			"Fixture packs are static snapshots — watch will timeout if the fixture service is not healthy.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
 			if interval <= 0 {
 				return fail(2, "invalid --interval %s (must be > 0)", interval)
 			}
@@ -45,7 +48,7 @@ func newWatchCmd() *cobra.Command {
 					}
 					return fail(1, "watch timeout: %s", svcID)
 				}
-				ls, cfg, err := src.load(since)
+				ls, cfg, err := src.loadCtx(cmd.Context(), since)
 				if err != nil {
 					return failSource(err)
 				}

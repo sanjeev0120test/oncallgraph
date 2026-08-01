@@ -1,18 +1,11 @@
 name: repro-build
 
-# Same inputs → same linux/amd64 binary hash. Parallel; usually <60s.
-# Tags owned by release.yml.
+# Same inputs → same linux/amd64 binary hash.
+# Invoked from ci.yml (+ manual dispatch) to avoid duplicate runners.
 
 on:
-  push:
-    branches: ['**']
-    tags-ignore: ['v*']
-  pull_request:
+  workflow_call:
   workflow_dispatch:
-
-concurrency:
-  group: repro-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read

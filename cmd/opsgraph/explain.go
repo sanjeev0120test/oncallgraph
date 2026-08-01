@@ -16,7 +16,10 @@ func newExplainCmd() *cobra.Command {
 		Short: "Deterministic root-cause narrative for a service",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ls, cfg, err := src.load(since)
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}

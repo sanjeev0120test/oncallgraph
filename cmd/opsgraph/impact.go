@@ -15,10 +15,13 @@ func newImpactCmd() *cobra.Command {
 		Long:  "Walks the dependency graph transitively to list every downstream service that would be impacted. For 1-hop neighbors only, use `opsgraph blast`.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, _, err := src.load(0)
+			ls, _, err := src.loadCtx(cmd.Context(), 0)
 			if err != nil {
 				return failSource(err)
 			}

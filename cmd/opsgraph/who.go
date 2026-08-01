@@ -16,10 +16,13 @@ func newWhoCmd() *cobra.Command {
 		Short: "Show who owns a service and who last changed it",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, cfg, err := src.load(since)
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}

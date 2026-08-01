@@ -21,7 +21,7 @@ func newGraphCmd() *cobra.Command {
 			default:
 				return fail(2, "invalid --format %q (want ascii|table|mermaid)", format)
 			}
-			ls, _, err := src.load(0)
+			ls, _, err := src.loadCtx(cmd.Context(), 0)
 			if err != nil {
 				return failSource(err)
 			}

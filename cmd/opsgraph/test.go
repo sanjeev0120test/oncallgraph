@@ -23,6 +23,9 @@ func newTestCmd() *cobra.Command {
 			"the pack's expected/ directory. Use --update to (re)generate goldens.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("fixture-dir", args[0]); err != nil {
+				return err
+			}
 			dir := args[0]
 			ls, err := storeFromFixtureDir(dir)
 			if err != nil {

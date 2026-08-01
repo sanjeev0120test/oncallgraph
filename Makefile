@@ -16,7 +16,7 @@ BIN := $(BIN_DIR)/$(BINARY)$(EXE)
 VERSION     ?= dev
 COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE        ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-LDFLAGS     := -s -w \
+LDFLAGS     := -s -w -buildid= \
 	-X github.com/sanjeev0120test/opsgraph/internal/version.Version=$(VERSION) \
 	-X github.com/sanjeev0120test/opsgraph/internal/version.Commit=$(COMMIT) \
 	-X github.com/sanjeev0120test/opsgraph/internal/version.Date=$(DATE)
@@ -26,7 +26,7 @@ export CGO_ENABLED := 0
 .PHONY: build test fixture-test demo quick lint fmt vet tidy-check race ci cross clean
 
 build: ## Build the static binary
-	go build -ldflags "$(LDFLAGS)" -o $(BIN) $(PKG)
+	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN) $(PKG)
 
 test: ## Run unit tests (no race - fast, local-friendly)
 	go test ./...
@@ -57,12 +57,12 @@ ci: fmt vet tidy-check build test fixture-test demo ## Local gate (race/matrix l
 
 cross: ## Cross-compile release binaries (linux/darwin/windows × amd64/arm64)
 	@mkdir -p dist
-	GOOS=linux   GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-amd64   $(PKG)
-	GOOS=linux   GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-arm64   $(PKG)
-	GOOS=darwin  GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-amd64  $(PKG)
-	GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-arm64  $(PKG)
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe $(PKG)
-	GOOS=windows GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-arm64.exe $(PKG)
+	GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-amd64   $(PKG)
+	GOOS=linux   GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-arm64   $(PKG)
+	GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-amd64  $(PKG)
+	GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-arm64  $(PKG)
+	GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe $(PKG)
+	GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-arm64.exe $(PKG)
 
 pack-release: cross ## Package archives + SHA256SUMS via scripts/pack-release.sh (VERSION=vX.Y.Z)
 	@test -n "$(filter-out dev,$(VERSION))" || (echo "set VERSION=vX.Y.Z" >&2; exit 1)

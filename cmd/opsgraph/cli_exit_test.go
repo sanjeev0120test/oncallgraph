@@ -187,3 +187,35 @@ func TestCLIExitDemo(t *testing.T) {
 		t.Fatalf("demo exit = %d, want 0", code)
 	}
 }
+
+func TestCLIExitBlankServiceArg(t *testing.T) {
+	_, _, code := runRoot(t, "ask", " ", "--fixture", fixtureDir(t))
+	if code != 2 {
+		t.Fatalf("ask blank service exit = %d, want 2", code)
+	}
+}
+
+func TestCLIExitValidateMissingFiles(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runRoot(t, "validate-fixture", dir)
+	if code != 2 {
+		t.Fatalf("validate missing files exit = %d, want 2", code)
+	}
+}
+
+func TestCLIJSONEmptySlicesNotNull(t *testing.T) {
+	out, _, code := runRoot(t, "blast", "auth", "--fixture", fixtureDir(t), "--format", "json")
+	if code != 0 {
+		t.Fatalf("blast exit = %d", code)
+	}
+	if strings.Contains(out, `"upstream": null`) || strings.Contains(out, `"downstream": null`) {
+		t.Fatalf("blast JSON has null slices: %s", out)
+	}
+	out, _, code = runRoot(t, "ask", "auth", "--fixture", fixtureDir(t), "--format", "json")
+	if code != 0 {
+		t.Fatalf("ask exit = %d", code)
+	}
+	if strings.Contains(out, `"correlations": null`) {
+		t.Fatalf("ask JSON has null correlations: %s", out)
+	}
+}

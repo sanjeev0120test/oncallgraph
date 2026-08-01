@@ -18,10 +18,16 @@ func newCompareCmd() *cobra.Command {
 		Short: "Compare health, blast radius, and severity of two services",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
+			if err := requireArg("service", args[1]); err != nil {
+				return err
+			}
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, cfg, err := src.load(since)
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}

@@ -1,31 +1,15 @@
 name: zizmor
 
-# Audit workflow YAML for common CI security footguns. Parallel; usually <30s.
+# Audit workflow YAML for common CI security footguns.
+# Invoked from ci.yml only (plus manual dispatch) to avoid cancel races.
 
 on:
   workflow_call:
-  push:
-    branches: ['**']
-    tags-ignore: ['v*']
-    paths:
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - '.github/zizmor.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - '.github/zizmor.yml'
   workflow_dispatch:
-
-concurrency:
-  group: zizmor-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
   actions: read
-  security-events: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"

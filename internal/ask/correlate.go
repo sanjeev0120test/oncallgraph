@@ -17,10 +17,10 @@ const correlateWindow = 60 * time.Minute
 // fire after a service change within correlateWindow. Prefer deploy/rollout
 // over commit when both precede the same alert.
 func correlate(res model.AskResult) []model.Correlation {
+	out := []model.Correlation{}
 	if len(res.Changes) == 0 || len(res.Alerts) == 0 {
-		return nil
+		return out
 	}
-	var out []model.Correlation
 	for _, a := range res.Alerts {
 		if !model.AlertActive(a.Status) || a.At.IsZero() {
 			continue
@@ -80,10 +80,13 @@ func changeRank(t string) int {
 }
 
 func roundDur(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
 	if d < time.Minute {
 		sec := int(d.Round(time.Second) / time.Second)
-		if sec < 1 {
-			sec = 1
+		if sec < 0 {
+			sec = 0
 		}
 		return fmt.Sprintf("%ds", sec)
 	}

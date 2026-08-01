@@ -1,6 +1,7 @@
 package runbook_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -8,6 +9,55 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/runbook"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
+
+func TestDeployAgeRejectsNonPositiveDuration(t *testing.T) {
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	v := runbook.NewVerifier(s, now)
+	res, err := v.Verify(model.Runbook{
+		ServiceID: "checkout",
+		Steps:     []model.RunbookStep{{Number: 1, Text: "age", Check: "deploy_age_lt:0s"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Steps[0].Status != model.StatusError {
+		t.Fatalf("status=%s want error", res.Steps[0].Status)
+	}
+}
+
+func TestDeployAgeFutureIsStale(t *testing.T) {
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	if err := s.UpsertChange(model.Change{
+		ID: "c1", ServiceID: "checkout", At: now.Add(time.Hour), Type: "deploy",
+		Summary: "future", Source: "fixture", EvidenceID: "ev1",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	v := runbook.NewVerifier(s, now)
+	res, err := v.Verify(model.Runbook{
+		ServiceID: "checkout",
+		Steps:     []model.RunbookStep{{Number: 1, Text: "age", Check: "deploy_age_lt:30m"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Steps[0].Status != model.StatusStale {
+		t.Fatalf("status=%s want stale", res.Steps[0].Status)
+	}
+	if !strings.Contains(res.Steps[0].Message, "future") {
+		t.Fatalf("message=%q", res.Steps[0].Message)
+	}
+}
 
 func TestDeployAgeIgnoresCommits(t *testing.T) {
 	s, cleanup, err := store.OpenTemp()

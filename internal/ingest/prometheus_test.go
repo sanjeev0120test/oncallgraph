@@ -46,6 +46,43 @@ func TestIngestPrometheus(t *testing.T) {
 	if len(alerts) != 1 || alerts[0].Name != "CheckoutErrorRateHigh" || alerts[0].Source != "prometheus" {
 		t.Fatalf("alerts = %+v", alerts)
 	}
+	// Fingerprinted id: prometheus-<slug-name>-<slug-svc>-<8hex|none>
+	if got := alerts[0].ID; len(got) < len("prometheus-checkouterrorratehigh-checkout-")+4 {
+		t.Fatalf("alert id missing fingerprint suffix: %q", got)
+	}
+}
+
+func TestIngestPrometheusDistinctInstances(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{
+		  "status":"success",
+		  "data":{"alerts":[
+		    {"labels":{"alertname":"HighErr","severity":"critical","service":"checkout","instance":"a:9090"},
+		     "annotations":{"summary":"a"},"state":"firing","activeAt":"2026-07-31T11:45:00Z"},
+		    {"labels":{"alertname":"HighErr","severity":"critical","service":"checkout","instance":"b:9090"},
+		     "annotations":{"summary":"b"},"state":"firing","activeAt":"2026-07-31T11:45:00Z"}
+		  ]}
+		}`))
+	}))
+	t.Cleanup(srv.Close)
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := s.ListAlerts("checkout", time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) != 2 {
+		t.Fatalf("want 2 distinct series alerts, got %+v", alerts)
+	}
+	if alerts[0].ID == alerts[1].ID {
+		t.Fatalf("instance labels must produce distinct ids: %q", alerts[0].ID)
+	}
 }
 
 func TestIngestPrometheusServiceNameLabel(t *testing.T) {

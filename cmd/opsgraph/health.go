@@ -20,7 +20,7 @@ func newHealthCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, _, err := src.load(0)
+			ls, _, err := src.loadCtx(cmd.Context(), 0)
 			if err != nil {
 				return failSource(err)
 			}
@@ -33,7 +33,10 @@ func newHealthCmd() *cobra.Command {
 				model.HealthHealthy: 0, model.HealthDegraded: 0,
 				model.HealthUnhealthy: 0, model.HealthUnknown: 0,
 			}
-			by := map[string][]string{}
+			by := map[string][]string{
+				model.HealthHealthy: {}, model.HealthDegraded: {},
+				model.HealthUnhealthy: {}, model.HealthUnknown: {},
+			}
 			for _, s := range svcs {
 				h := s.Health
 				switch h {

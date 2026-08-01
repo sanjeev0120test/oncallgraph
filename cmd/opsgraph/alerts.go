@@ -21,7 +21,7 @@ func newAlertsCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, _, err := src.load(0)
+			ls, _, err := src.loadCtx(cmd.Context(), 0)
 			if err != nil {
 				return failSource(err)
 			}
@@ -29,6 +29,9 @@ func newAlertsCmd() *cobra.Command {
 			list, err := ls.store.ListAllAlerts()
 			if err != nil {
 				return fail(2, "%v", err)
+			}
+			if list == nil {
+				list = []model.Alert{}
 			}
 			if service != "" {
 				svc, err := ls.store.GetServiceByNameOrAlias(service)

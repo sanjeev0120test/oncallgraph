@@ -17,10 +17,13 @@ func newBlastCmd() *cobra.Command {
 		Long:  "Shows immediate (1-hop) upstream and downstream neighbors. For recursive downstream impact, use `opsgraph impact`.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, cfg, err := src.load(since)
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}
@@ -38,8 +41,10 @@ func newBlastCmd() *cobra.Command {
 				Upstream   []map[string]string `json:"upstream"`
 				Downstream []map[string]string `json:"downstream"`
 			}{
-				Service: res.Service.ID,
-				Health:  res.Service.Health,
+				Service:    res.Service.ID,
+				Health:     res.Service.Health,
+				Upstream:   []map[string]string{},
+				Downstream: []map[string]string{},
 			}
 			for _, u := range res.Upstream {
 				out.Upstream = append(out.Upstream, map[string]string{"id": u.ID, "health": u.Health})

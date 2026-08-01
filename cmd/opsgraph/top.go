@@ -25,7 +25,7 @@ func newTopCmd() *cobra.Command {
 			if limit < 1 {
 				return fail(2, "invalid --limit %d (must be >= 1)", limit)
 			}
-			ls, cfg, err := src.load(since)
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}

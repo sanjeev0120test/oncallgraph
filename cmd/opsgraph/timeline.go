@@ -16,10 +16,13 @@ func newTimelineCmd() *cobra.Command {
 		Short: "Show only the incident timeline for a service",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireArg("service", args[0]); err != nil {
+				return err
+			}
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			ls, cfg, err := src.load(since)
+			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
 				return failSource(err)
 			}
@@ -51,8 +54,12 @@ func newTimelineCmd() *cobra.Command {
 }
 
 func trunc(s string, n int) string {
-	if len(s) <= n {
+	if n <= 1 {
+		return "…"
+	}
+	r := []rune(s)
+	if len(r) <= n {
 		return s
 	}
-	return s[:n-1] + "…"
+	return string(r[:n-1]) + "…"
 }
