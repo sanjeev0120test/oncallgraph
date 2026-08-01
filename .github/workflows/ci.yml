@@ -208,7 +208,9 @@ jobs:
           "$BIN_ABS" alerts --fixture ./fixtures/incident_checkout --service checkout --firing >/dev/null
           "$BIN_ABS" compare checkout auth --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN_ABS" services --fixture ./fixtures/incident_checkout --health degraded --format json >/dev/null
-          "$BIN_ABS" graph --fixture ./fixtures/incident_checkout --format mermaid | grep -q flowchart
+          # Avoid `cmd | grep -q` under pipefail (SIGPIPE → non-zero writer exit).
+          mermaid="$("$BIN_ABS" graph --fixture ./fixtures/incident_checkout --format mermaid)"
+          case "$mermaid" in *flowchart*) ;; *) echo "mermaid output missing flowchart" >&2; exit 1 ;; esac
           set +e
           "$BIN_ABS" services --fixture ./fixtures/incident_checkout --health nope >/dev/null
           bad_health=$?
