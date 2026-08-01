@@ -47,7 +47,11 @@ func newDoctorCmd() *cobra.Command {
 				} else if eff := resolveConfigPath(configPath); eff != "" {
 					check("config_file", true, eff)
 				}
-				dir := resolveDataDir("", cfg)
+				cfgDir := "."
+				if eff := resolveConfigPath(configPath); eff != "" {
+					cfgDir = dirOf(eff)
+				}
+				dir := resolveDataDir("", cfg, cfgDir)
 				db := filepath.Join(dir, "state.db")
 				if pathExists(db) {
 					check("persistent_db", true, db)
@@ -57,10 +61,6 @@ func newDoctorCmd() *cobra.Command {
 				if !cfg.Connectors.Git.Enabled {
 					warnf("git_repo", "connector disabled")
 				} else {
-					cfgDir := "."
-					if eff := resolveConfigPath(configPath); eff != "" {
-						cfgDir = dirOf(eff)
-					}
 					gitPath := resolveGitRepoPath(cfg.Connectors.Git.RepoPath, cfgDir)
 					gitDir := filepath.Join(gitPath, ".git")
 					gitOK := pathExists(gitDir)
@@ -77,10 +77,6 @@ func newDoctorCmd() *cobra.Command {
 				} else if cfg.Connectors.Kubernetes.Snapshot == "" {
 					check("k8s_snapshot", false, "enabled but snapshot path is empty")
 				} else {
-					cfgDir := "."
-					if eff := resolveConfigPath(configPath); eff != "" {
-						cfgDir = dirOf(eff)
-					}
 					snap := cfg.Connectors.Kubernetes.Snapshot
 					if !filepath.IsAbs(snap) {
 						snap = filepath.Join(cfgDir, snap)
@@ -90,6 +86,20 @@ func newDoctorCmd() *cobra.Command {
 					} else {
 						check("k8s_snapshot", false, snap+" missing")
 					}
+				}
+				if !cfg.Connectors.Prometheus.Enabled {
+					warnf("prometheus", "connector disabled")
+				} else if cfg.Connectors.Prometheus.URL == "" {
+					check("prometheus", false, "enabled but url is empty")
+				} else {
+					check("prometheus", true, cfg.Connectors.Prometheus.URL)
+				}
+				if !cfg.Connectors.Alertmanager.Enabled {
+					warnf("alertmanager", "connector disabled")
+				} else if cfg.Connectors.Alertmanager.URL == "" {
+					check("alertmanager", false, "enabled but url is empty")
+				} else {
+					check("alertmanager", true, cfg.Connectors.Alertmanager.URL)
 				}
 				if probeOllama(context.Background(), cfg.AI.OllamaURL) {
 					check("ollama", true, cfg.AI.OllamaURL)

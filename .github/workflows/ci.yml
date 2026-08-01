@@ -155,6 +155,7 @@ jobs:
           DATA="$(mktemp -d 2>/dev/null || mktemp -d -t opsgraph)"
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
+          "$BIN" ask checkout --config fixtures/ci_live_k8s/.opsgraph.yaml --format json >/dev/null
       - name: Full CLI smoke (ubuntu)
         if: ${{ matrix.smoke == 'full' }}
         shell: bash

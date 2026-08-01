@@ -147,7 +147,13 @@ func stepTally(steps []model.StepVerifyResult) string {
 }
 
 func ago(now, then time.Time) string {
+	if then.IsZero() || now.IsZero() {
+		return "?"
+	}
 	d := now.Sub(then)
+	if d < 0 {
+		return "0s"
+	}
 	if d < time.Minute {
 		return strconv.Itoa(int(d.Seconds())) + "s"
 	}

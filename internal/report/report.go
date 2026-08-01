@@ -19,7 +19,11 @@ func Markdown(res model.AskResult) string {
 	fmt.Fprintf(&b, "- **Severity score:** %d (%s)\n", sc.Score, sc.Level)
 	fmt.Fprintf(&b, "- **Window:** last %s (as of %s)\n", res.Window, res.GeneratedAt.UTC().Format(time.RFC3339))
 	if res.Owner != nil {
-		fmt.Fprintf(&b, "- **Owner:** %s", res.Owner.Name)
+		who := res.Owner.Name
+		if who == "" {
+			who = res.Owner.ID
+		}
+		fmt.Fprintf(&b, "- **Owner:** %s", who)
 		if res.Owner.Email != "" {
 			fmt.Fprintf(&b, " <%s>", res.Owner.Email)
 		}

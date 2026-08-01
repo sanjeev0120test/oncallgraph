@@ -20,10 +20,10 @@
 1. Resolve source (same rules for `ask` / `status` / fleet helpers):
    - `--fixture` → ephemeral fixture pack
    - explicit `--data-dir` → persistent store only
-   - else if config enables kubernetes / Prometheus / Alertmanager → live scrape (ephemeral)
-   - else populated `state.db` under data_dir
+   - else if config has a *usable* kubernetes snapshot and/or Prometheus/Alertmanager URL → live scrape (ephemeral)
+   - else populated `state.db` under `data_dir` (resolved relative to the config file when set in YAML)
    - else live config seed (git + services) when `.opsgraph.yaml` exists
-   - Git alone does **not** prefer live over a populated store (git is enrichment, not a fresh-signal source).
+   - Git alone, or enabled-but-empty connectors, do **not** prefer live over a populated store.
 2. Upsert entities into SQLite.
 3. `ask` assembles owner, changes, alerts, 1-hop blast, runbook verify, timeline, recommendations, evidence.
 4. Render table or JSON via `internal/output` (`SetEscapeHTML(false)`, indent, trailing newline).

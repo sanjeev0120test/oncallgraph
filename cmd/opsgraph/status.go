@@ -29,13 +29,13 @@ func newStatusCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-			dir := resolveDataDir(dataDir, cfg)
-			dbPath := filepath.Join(dir, "state.db")
 			effPath := resolveConfigPath(configPath)
 			configDir := "."
 			if effPath != "" {
 				configDir = dirOf(effPath)
 			}
+			dir := resolveDataDir(dataDir, cfg, configDir)
+			dbPath := filepath.Join(dir, "state.db")
 
 			cmd.Println("STORE")
 			cmd.Printf("  data_dir: %s\n", dir)

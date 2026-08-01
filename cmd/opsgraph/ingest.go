@@ -29,7 +29,12 @@ func newIngestCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-			dir := resolveDataDir(dataDir, cfg)
+			effPath := resolveConfigPath(configPath)
+			configDir := "."
+			if effPath != "" {
+				configDir = filepath.Dir(effPath)
+			}
+			dir := resolveDataDir(dataDir, cfg, configDir)
 			s, err := store.Open(dir)
 			if err != nil {
 				return fail(2, "%v", err)
@@ -54,11 +59,10 @@ func newIngestCmd() *cobra.Command {
 			case fixture != "":
 				now, err = ingest.IngestFixtureDir(s, fixture)
 			default:
-				effPath := resolveConfigPath(configPath)
 				if effPath == "" {
 					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
 				}
-				err = ingest.LiveIngest(s, cfg, filepath.Dir(effPath), now.Add(-ask.ChangeLookback(lookback)), now)
+				err = ingest.LiveIngest(s, cfg, configDir, now.Add(-ask.ChangeLookback(lookback)), now)
 			}
 			if err != nil {
 				return fail(2, "%v", err)

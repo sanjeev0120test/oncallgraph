@@ -40,7 +40,7 @@ Flags: `--fixture`, `--config`, `--data-dir`, `--since`, `--runbook` (default tr
 Notes:
 - Active (`firing`/`pending`) alerts are always shown; `--since` filters resolved/historical alerts only.
 - Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower. The reported window shows both when they differ (e.g. `10m (changes 60m)`).
-- If kubernetes / Prometheus / Alertmanager are enabled in `.opsgraph.yaml`, `ask`/`status`/`why`/`watch` re-scrape them (a prior `state.db` alone will not freeze the view). Git alone does not displace a populated store. Use `--data-dir` to force the persistent store.
+- If kubernetes (with snapshot path) / Prometheus / Alertmanager (with URL) are configured in `.opsgraph.yaml`, `ask`/`status`/`why`/`watch` re-scrape them. Enabled-but-empty connectors and git-alone do not displace a populated store. Use `--data-dir` to force the persistent store. Config `data_dir` is resolved relative to the config file.
 
 Exit codes: `0` success, `1` service not found / empty store, `2` usage/config error.
 

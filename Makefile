@@ -52,7 +52,8 @@ tidy-check: ## Ensure go.mod/go.sum are tidy
 
 quick: fmt vet build test fixture-test demo ## Fast local validation (recommended)
 
-ci: fmt vet tidy-check race build fixture-test demo ## Heavy validation (mirrors GitHub Actions)
+# Local "ci" stays laptop-friendly (no -race). GitHub Actions runs the race matrix.
+ci: fmt vet tidy-check build test fixture-test demo ## Local gate (race/matrix live in Actions)
 
 cross: ## Cross-compile release binaries (linux/darwin/windows × amd64/arm64)
 	@mkdir -p dist

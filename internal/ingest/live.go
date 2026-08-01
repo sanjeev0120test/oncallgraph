@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -110,12 +111,24 @@ func isMissingGit(err error) bool {
 }
 
 func seedFromConfig(s *store.Store, cfg *config.Config, configDir string) error {
-	for id, o := range cfg.Owners {
+	ownerIDs := make([]string, 0, len(cfg.Owners))
+	for id := range cfg.Owners {
+		ownerIDs = append(ownerIDs, id)
+	}
+	sort.Strings(ownerIDs)
+	for _, id := range ownerIDs {
+		o := cfg.Owners[id]
 		if err := s.UpsertOwner(model.Owner{ID: id, Name: o.Name, Team: o.Team, Email: o.Email}); err != nil {
 			return err
 		}
 	}
-	for id, sc := range cfg.Services {
+	svcIDs := make([]string, 0, len(cfg.Services))
+	for id := range cfg.Services {
+		svcIDs = append(svcIDs, id)
+	}
+	sort.Strings(svcIDs)
+	for _, id := range svcIDs {
+		sc := cfg.Services[id]
 		health := model.HealthUnknown
 		name := id
 		sources := []string{"config"}
@@ -140,7 +153,7 @@ func seedFromConfig(s *store.Store, cfg *config.Config, configDir string) error 
 				return err
 			}
 			if err := s.UpsertDependency(model.Dependency{
-				FromServiceID: id, ToServiceID: dep, Type: "unknown", Source: "config",
+				FromServiceID: id, ToServiceID: dep, Type: "depends_on", Source: "config",
 			}); err != nil {
 				return err
 			}

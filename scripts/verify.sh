@@ -22,10 +22,17 @@ echo "==> go test (no race)"
 go test ./...
 
 if [ -d ./fixtures/incident_checkout ]; then
+  echo "==> validate-fixture"
+  ./bin/opsgraph validate-fixture ./fixtures/incident_checkout
   echo "==> fixture/golden test"
   ./bin/opsgraph test ./fixtures/incident_checkout
   echo "==> demo"
   ./bin/opsgraph demo --format json >/dev/null
+fi
+
+if [ -f ./fixtures/ci_live_k8s/.opsgraph.yaml ]; then
+  echo "==> live k8s smoke"
+  ./bin/opsgraph ask checkout --config ./fixtures/ci_live_k8s/.opsgraph.yaml --format json >/dev/null
 fi
 
 echo "OK - local validation passed"

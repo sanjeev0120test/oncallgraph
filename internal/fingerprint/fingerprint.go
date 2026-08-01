@@ -30,19 +30,18 @@ func Of(res model.AskResult) Result {
 			parts = append(parts, "alert="+a.Name+":"+a.Severity)
 		}
 	}
-	for _, c := range res.Changes {
-		if c.At.IsZero() {
-			continue
+	// Changes require GeneratedAt so the suspect window is well-defined.
+	if !res.GeneratedAt.IsZero() {
+		for _, c := range res.Changes {
+			if c.At.IsZero() || c.At.After(res.GeneratedAt) || res.GeneratedAt.Sub(c.At) > ask.SuspectChangeWindow {
+				continue
+			}
+			ref := c.Revision
+			if ref == "" {
+				ref = c.ID
+			}
+			parts = append(parts, "change="+c.Type+":"+ref)
 		}
-		// When GeneratedAt is set, only suspect-window changes count (align with R1).
-		if !res.GeneratedAt.IsZero() && (c.At.After(res.GeneratedAt) || res.GeneratedAt.Sub(c.At) > ask.SuspectChangeWindow) {
-			continue
-		}
-		ref := c.Revision
-		if ref == "" {
-			ref = c.ID
-		}
-		parts = append(parts, "change="+c.Type+":"+ref)
 	}
 	for _, u := range res.Upstream {
 		if u.Health == model.HealthUnhealthy || u.Health == model.HealthDegraded {

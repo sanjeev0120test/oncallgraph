@@ -44,7 +44,7 @@ func newCompareCmd() *cobra.Command {
 				Score      int      `json:"score"`
 				Level      string   `json:"level"`
 				Changes    int      `json:"changes"`
-				Alerts     int      `json:"alerts"`
+				Alerts     int      `json:"alerts"` // active (firing/pending) only
 				Upstream   []string `json:"upstream"`
 				Downstream []string `json:"downstream"`
 			}
@@ -54,12 +54,12 @@ func newCompareCmd() *cobra.Command {
 			}{
 				A: side{
 					Service: a.Service.ID, Health: a.Service.Health, Score: sa.Score, Level: sa.Level,
-					Changes: len(a.Changes), Alerts: len(a.Alerts),
+					Changes: len(a.Changes), Alerts: countActiveAlerts(a.Alerts),
 					Upstream: svcIDs(a.Upstream), Downstream: svcIDs(a.Downstream),
 				},
 				B: side{
 					Service: b.Service.ID, Health: b.Service.Health, Score: sb.Score, Level: sb.Level,
-					Changes: len(b.Changes), Alerts: len(b.Alerts),
+					Changes: len(b.Changes), Alerts: countActiveAlerts(b.Alerts),
 					Upstream: svcIDs(b.Upstream), Downstream: svcIDs(b.Downstream),
 				},
 			}
@@ -87,4 +87,14 @@ func svcIDs(svcs []model.Service) []string {
 		out = append(out, s.ID)
 	}
 	return out
+}
+
+func countActiveAlerts(alerts []model.Alert) int {
+	n := 0
+	for _, a := range alerts {
+		if model.AlertActive(a.Status) {
+			n++
+		}
+	}
+	return n
 }

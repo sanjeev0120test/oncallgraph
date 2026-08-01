@@ -29,12 +29,22 @@ go test ./...
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 if (Test-Path ./fixtures/incident_checkout) {
+    Write-Host "==> validate-fixture" -ForegroundColor Cyan
+    & ./bin/opsgraph.exe validate-fixture ./fixtures/incident_checkout
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+
     Write-Host "==> fixture/golden test" -ForegroundColor Cyan
     & ./bin/opsgraph.exe test ./fixtures/incident_checkout
     if ($LASTEXITCODE -ne 0) { exit 1 }
 
     Write-Host "==> demo" -ForegroundColor Cyan
     & ./bin/opsgraph.exe demo --format json | Out-Null
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+}
+
+if (Test-Path ./fixtures/ci_live_k8s/.opsgraph.yaml) {
+    Write-Host "==> live k8s smoke" -ForegroundColor Cyan
+    & ./bin/opsgraph.exe ask checkout --config ./fixtures/ci_live_k8s/.opsgraph.yaml --format json | Out-Null
     if ($LASTEXITCODE -ne 0) { exit 1 }
 }
 

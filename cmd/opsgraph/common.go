@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/fixtures"
@@ -75,15 +76,23 @@ func resolveConfigPath(configPath string) string {
 	return ""
 }
 
-// resolveDataDir picks --data-dir, else config.data_dir, else the default.
-func resolveDataDir(flag string, cfg *config.Config) string {
+// resolveDataDir picks --data-dir (CWD-relative), else config.data_dir resolved
+// against the config file's directory, else the default under configDir/CWD.
+func resolveDataDir(flag string, cfg *config.Config, configDir string) string {
 	if flag != "" {
 		return flag
 	}
-	if cfg != nil && cfg.DataDir != "" && cfg.DataDir != config.DefaultDataDir {
-		return cfg.DataDir
+	dir := config.DefaultDataDir
+	if cfg != nil && strings.TrimSpace(cfg.DataDir) != "" {
+		dir = cfg.DataDir
 	}
-	return config.DefaultDataDir
+	if filepath.IsAbs(dir) {
+		return dir
+	}
+	if configDir == "" {
+		configDir = "."
+	}
+	return filepath.Clean(filepath.Join(configDir, dir))
 }
 
 // storeFromDataDir opens the persistent store under dataDir (no re-ingest).
@@ -110,15 +119,24 @@ func storeFromConfig(cfg *config.Config, configDir string, since time.Duration, 
 	return &loadedStore{store: s, now: now, cleanup: cleanup}, nil
 }
 
-// liveConnectorsEnabled reports whether config would scrape *fresh incident*
-// signals. Git-alone is excluded: it is local history enrichment and must not
-// displace a populated persistent store after `opsgraph ingest --fixture`.
+// liveConnectorsEnabled reports whether config can scrape *usable* fresh
+// incident signals. Git-alone is excluded. Enabled-but-empty k8s/prom/AM
+// must not displace a populated state.db with an empty ephemeral scrape.
 func liveConnectorsEnabled(cfg *config.Config) bool {
 	if cfg == nil {
 		return false
 	}
 	c := cfg.Connectors
-	return c.Kubernetes.Enabled || c.Prometheus.Enabled || c.Alertmanager.Enabled
+	if c.Kubernetes.Enabled && strings.TrimSpace(c.Kubernetes.Snapshot) != "" {
+		return true
+	}
+	if c.Prometheus.Enabled && strings.TrimSpace(c.Prometheus.URL) != "" {
+		return true
+	}
+	if c.Alertmanager.Enabled && strings.TrimSpace(c.Alertmanager.URL) != "" {
+		return true
+	}
+	return false
 }
 
 // loadAskStore resolves fixture / data-dir / live-config into a store.
@@ -143,12 +161,16 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 		return ls, nil
 	}
 	effPath := resolveConfigPath(configPath)
+	configDir := "."
+	if effPath != "" {
+		configDir = dirOf(effPath)
+	}
 	// Live connectors beat a stale state.db so ask/why/watch see fresh signals
 	// when a config is present. Explicit --data-dir still forces the store.
 	if effPath != "" && liveConnectorsEnabled(cfg) {
-		return storeFromConfig(cfg, dirOf(effPath), since, time.Now().UTC())
+		return storeFromConfig(cfg, configDir, since, time.Now().UTC())
 	}
-	dir := resolveDataDir("", cfg)
+	dir := resolveDataDir("", cfg, configDir)
 	if counts, err := peekCounts(dir); err == nil {
 		if counts["services"] > 0 {
 			return storeFromDataDir(dir, time.Now().UTC())
@@ -158,7 +180,7 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 	if effPath == "" {
 		return nil, fmt.Errorf("no data source: pass --fixture <pack>, run `opsgraph ingest`, or add a .opsgraph.yaml")
 	}
-	return storeFromConfig(cfg, dirOf(effPath), since, time.Now().UTC())
+	return storeFromConfig(cfg, configDir, since, time.Now().UTC())
 }
 
 func peekCounts(dataDir string) (map[string]int, error) {
