@@ -161,14 +161,11 @@ jobs:
           zip="dist/opsgraph_${VERSION}_windows_amd64.zip"
           test -s "$zip"
           tmp="$(mktemp -d)"
-          python3 -c 'import sys, zipfile
-z, d = sys.argv[1], sys.argv[2]
-with zipfile.ZipFile(z) as zf:
-    zf.extractall(d)
-    names = zf.namelist()
-assert any(n.endswith(".exe") for n in names), names
-print("windows zip ok:", ", ".join(names))' "$zip" "$tmp"
-          # Also verify darwin archive is non-empty (no execute on linux runner).
+          # unzip is available on ubuntu-latest; validates zip structure without YAML multiline pitfalls.
+          unzip -l "$zip" | grep -E '\.exe$' >/dev/null
+          unzip -q -o "$zip" -d "$tmp"
+          test -s "$tmp/opsgraph_${VERSION}_windows_amd64.exe"
+          # Darwin archive integrity (list only; cannot execute on linux runner).
           dar="dist/opsgraph_${VERSION}_darwin_arm64.tar.gz"
           test -s "$dar"
           tar -tzf "$dar" | grep -F "opsgraph_${VERSION}_darwin_arm64" >/dev/null
