@@ -82,7 +82,8 @@ fi
 
 (
   cd "$OUT_DIR"
-  "${HASH_CMD[@]}" -- ./*.tar.gz ./*.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
+  # -- stops option parsing so a leading-dash archive name cannot break hashing.
+  "${HASH_CMD[@]}" -- *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
   test "$(grep -c . SHA256SUMS)" -eq 10
   "${CHECK_CMD[@]}" SHA256SUMS
   echo "--- SHA256SUMS ---"
