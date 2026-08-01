@@ -39,7 +39,11 @@ func (s *Store) GetEvidence(id string) (*model.Evidence, error) {
 	if err != nil {
 		return nil, wrap("get evidence", err)
 	}
-	v.At = parseTime(at)
+	parsed, perr := requireTime(at, "evidence", v.ID)
+	if perr != nil {
+		return nil, perr
+	}
+	v.At = parsed
 	return &v, nil
 }
 

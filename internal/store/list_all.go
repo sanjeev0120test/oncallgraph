@@ -22,7 +22,11 @@ FROM changes ORDER BY at DESC, id`)
 		if err := rows.Scan(&v.ID, &v.ServiceID, &at, &v.Type, &v.Summary, &v.Author, &v.Revision, &v.Source, &v.EvidenceID); err != nil {
 			return nil, wrap("scan change", err)
 		}
-		v.At = parseTime(at)
+		parsed, perr := requireTime(at, "change", v.ID)
+		if perr != nil {
+			return nil, perr
+		}
+		v.At = parsed
 		out = append(out, v)
 	}
 	return out, rows.Err()
@@ -43,7 +47,11 @@ SELECT id,service_id,at,severity,name,status,summary,source,evidence_id FROM ale
 		if err := rows.Scan(&v.ID, &v.ServiceID, &at, &v.Severity, &v.Name, &v.Status, &v.Summary, &v.Source, &v.EvidenceID); err != nil {
 			return nil, wrap("scan alert", err)
 		}
-		v.At = parseTime(at)
+		parsed, perr := requireTime(at, "alert", v.ID)
+		if perr != nil {
+			return nil, perr
+		}
+		v.At = parsed
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {

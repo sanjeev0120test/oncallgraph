@@ -206,7 +206,11 @@ FROM changes WHERE service_id=? AND at>=? ORDER BY at DESC, id`,
 		if err := rows.Scan(&v.ID, &v.ServiceID, &at, &v.Type, &v.Summary, &v.Author, &v.Revision, &v.Source, &v.EvidenceID); err != nil {
 			return nil, wrap("scan change", err)
 		}
-		v.At = parseTime(at)
+		parsed, perr := requireTime(at, "change", v.ID)
+		if perr != nil {
+			return nil, perr
+		}
+		v.At = parsed
 		out = append(out, v)
 	}
 	return out, rows.Err()
@@ -232,7 +236,11 @@ FROM alerts WHERE service_id=? AND (status IN ('firing','pending') OR at>=?)`,
 		if err := rows.Scan(&v.ID, &v.ServiceID, &at, &v.Severity, &v.Name, &v.Status, &v.Summary, &v.Source, &v.EvidenceID); err != nil {
 			return nil, wrap("scan alert", err)
 		}
-		v.At = parseTime(at)
+		parsed, perr := requireTime(at, "alert", v.ID)
+		if perr != nil {
+			return nil, perr
+		}
+		v.At = parsed
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {
@@ -311,7 +319,11 @@ func (s *Store) ListEvidence(ids []string) ([]model.Evidence, error) {
 		if err := rows.Scan(&v.ID, &v.Source, &at, &v.Kind, &v.Summary, &v.RawRef, &v.ServiceID); err != nil {
 			return nil, wrap("scan evidence", err)
 		}
-		v.At = parseTime(at)
+		parsed, perr := requireTime(at, "evidence", v.ID)
+		if perr != nil {
+			return nil, perr
+		}
+		v.At = parsed
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {
@@ -343,7 +355,11 @@ func (s *Store) ListEvidenceForService(serviceID string) ([]model.Evidence, erro
 		if err := rows.Scan(&v.ID, &v.Source, &at, &v.Kind, &v.Summary, &v.RawRef, &v.ServiceID); err != nil {
 			return nil, wrap("scan evidence", err)
 		}
-		v.At = parseTime(at)
+		parsed, perr := requireTime(at, "evidence", v.ID)
+		if perr != nil {
+			return nil, perr
+		}
+		v.At = parsed
 		out = append(out, v)
 	}
 	return out, rows.Err()
@@ -380,7 +396,11 @@ ORDER BY at DESC, id LIMIT 1`, serviceID)
 	if err := rows.Scan(&v.ID, &v.ServiceID, &at, &v.Type, &v.Summary, &v.Author, &v.Revision, &v.Source, &v.EvidenceID); err != nil {
 		return nil, false, wrap("scan deploy/rollout", err)
 	}
-	v.At = parseTime(at)
+	parsed, perr := requireTime(at, "change", v.ID)
+	if perr != nil {
+		return nil, false, perr
+	}
+	v.At = parsed
 	return &v, true, nil
 }
 
@@ -450,7 +470,11 @@ ORDER BY CASE status WHEN 'firing' THEN 0 ELSE 1 END, at DESC, id LIMIT 1`, arg)
 	if err := rows.Scan(&v.ID, &v.ServiceID, &at, &v.Severity, &v.Name, &v.Status, &v.Summary, &v.Source, &v.EvidenceID); err != nil {
 		return nil, false, wrap("scan firing alert", err)
 	}
-	v.At = parseTime(at)
+	parsed, perr := requireTime(at, "alert", v.ID)
+	if perr != nil {
+		return nil, false, perr
+	}
+	v.At = parsed
 	return &v, true, nil
 }
 

@@ -173,12 +173,21 @@ func loadAskStore(fixture, configPath, dataDirFlag string, cfg *config.Config, s
 	if effPath != "" {
 		configDir = dirOf(effPath)
 	}
+	dir := resolveDataDir("", cfg, configDir)
 	// Live connectors beat a stale state.db so ask/why/watch see fresh signals
 	// when a config is present. Explicit --data-dir still forces the store.
 	if effPath != "" && liveConnectorsEnabled(cfg) {
-		return storeFromConfig(cfg, configDir, since, time.Now().UTC())
+		ls, err := storeFromConfig(cfg, configDir, since, time.Now().UTC())
+		if err == nil {
+			return ls, nil
+		}
+		// Mid-incident: prefer answering from a populated store over hard-fail.
+		if counts, peekErr := peekCounts(dir); peekErr == nil && counts["services"] > 0 {
+			fmt.Fprintf(os.Stderr, "warning: live connectors failed (%v); using persisted store at %s\n", err, dir)
+			return storeFromDataDir(dir, time.Now().UTC())
+		}
+		return nil, err
 	}
-	dir := resolveDataDir("", cfg, configDir)
 	if counts, err := peekCounts(dir); err == nil {
 		if counts["services"] > 0 {
 			return storeFromDataDir(dir, time.Now().UTC())

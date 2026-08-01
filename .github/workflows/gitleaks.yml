@@ -3,6 +3,7 @@ name: gitleaks
 # Fast secret scan. Parallel; usually <20s. Tags owned by release.yml.
 
 on:
+  workflow_call:
   push:
     branches: ['**']
     tags-ignore: ['v*']

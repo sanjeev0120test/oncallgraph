@@ -167,13 +167,19 @@ CREATE INDEX IF NOT EXISTS idx_deps_to ON dependencies(to_service_id);
 	if ver > SchemaVersion {
 		return fmt.Errorf("database schema v%d is newer than this binary (supports v%d); upgrade opsgraph", ver, SchemaVersion)
 	}
-	// Future: apply migrations for ver < SchemaVersion here.
-	if ver != SchemaVersion {
+	switch {
+	case ver == SchemaVersion:
+		return nil
+	case ver == 0:
+		// Fresh database: stamp current schema version.
 		if _, err := s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", SchemaVersion)); err != nil {
 			return fmt.Errorf("set user_version: %w", err)
 		}
+		return nil
+	default:
+		// Never silently stamp over an older populated schema without migrations.
+		return fmt.Errorf("database schema v%d needs migration to v%d; recreate with `opsgraph ingest --replace` or upgrade opsgraph", ver, SchemaVersion)
 	}
-	return nil
 }
 
 // UserVersion returns PRAGMA user_version.
@@ -222,6 +228,14 @@ func fmtTime(t time.Time) string {
 func parseTime(s string) time.Time {
 	t, _ := parseTimeOK(s)
 	return t
+}
+
+func requireTime(at, kind, id string) (time.Time, error) {
+	t, ok := parseTimeOK(at)
+	if !ok {
+		return time.Time{}, fmt.Errorf("corrupt %s timestamp %q for id %s", kind, at, id)
+	}
+	return t, nil
 }
 
 // parseTimeOK accepts RFC3339 and RFC3339Nano (and a few common variants

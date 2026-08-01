@@ -248,7 +248,7 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           opsgraph version >/dev/null
           opsgraph ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
-      - name: install.sh from local dist (macos)
+      - name: install.sh from local dist + release archive (macos)
         if: runner.os == 'macOS'
         shell: bash
         run: |
@@ -265,6 +265,25 @@ jobs:
           INSTALL_DIR="$(mktemp -d)"
           OPSGRAPH_DIST_DIR="$PWD/dist" OPSGRAPH_INSTALL_DIR="$INSTALL_DIR" ./scripts/install.sh
           "$INSTALL_DIR/opsgraph" version
+
+          # Release-shaped install path (tar.gz + SHA256SUMS) used by real macOS users.
+          REL_VERSION="v0.0.0-ci"
+          REL="$(mktemp -d)"
+          base="opsgraph_${REL_VERSION}_darwin_${arch}"
+          cp bin/opsgraph "${REL}/${base}"
+          tar -czf "${REL}/${base}.tar.gz" -C "$REL" "$base"
+          rm -f "${REL}/${base}"
+          (
+            cd "$REL"
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "${base}.tar.gz" > SHA256SUMS
+            else
+              shasum -a 256 "${base}.tar.gz" > SHA256SUMS
+            fi
+          )
+          INSTALL_REL="$(mktemp -d)"
+          OPSGRAPH_RELEASE_DIR="$REL" OPSGRAPH_VERSION="$REL_VERSION" OPSGRAPH_INSTALL_DIR="$INSTALL_REL" ./scripts/install.sh
+          "$INSTALL_REL/opsgraph" version
       - name: install.ps1 from local dist + release zip (windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -368,9 +387,29 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           "$(go env GOPATH)/bin/govulncheck" ./...
 
+  # Reusable security/workflow scanners — required by the aggregator so "all
+  # checks passed" cannot go green while these fail in their standalone runs.
+  gitleaks:
+    name: gitleaks
+    uses: ./.github/workflows/gitleaks.yml
+    permissions:
+      contents: read
+  zizmor:
+    name: zizmor
+    uses: ./.github/workflows/zizmor.yml
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+  actionlint:
+    name: actionlint
+    uses: ./.github/workflows/actionlint.yml
+    permissions:
+      contents: read
+
   ci-ok:
     name: all checks passed
-    needs: [lint, staticcheck, test, cross, vuln]
+    needs: [lint, staticcheck, test, cross, vuln, gitleaks, zizmor, actionlint]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     if: always()
@@ -383,9 +422,15 @@ jobs:
           echo "test=${{ needs.test.result }}"
           echo "cross=${{ needs.cross.result }}"
           echo "vuln=${{ needs.vuln.result }}"
+          echo "gitleaks=${{ needs.gitleaks.result }}"
+          echo "zizmor=${{ needs.zizmor.result }}"
+          echo "actionlint=${{ needs.actionlint.result }}"
           test "${{ needs.lint.result }}" = "success"
           test "${{ needs.staticcheck.result }}" = "success"
           test "${{ needs.test.result }}" = "success"
           test "${{ needs.cross.result }}" = "success"
           test "${{ needs.vuln.result }}" = "success"
+          test "${{ needs.gitleaks.result }}" = "success"
+          test "${{ needs.zizmor.result }}" = "success"
+          test "${{ needs.actionlint.result }}" = "success"
           echo "all required CI jobs passed"

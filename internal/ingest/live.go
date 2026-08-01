@@ -82,7 +82,8 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil, now)
 			cancel()
 			if err != nil {
-				return fmt.Errorf("prometheus connector: %w", err)
+				// Soft-fail: during an incident Prom is often unhealthy too.
+				fmt.Fprintf(os.Stderr, "warning: prometheus connector: %v; continuing\n", err)
 			}
 		}
 	}
@@ -94,7 +95,7 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil, now)
 			cancel()
 			if err != nil {
-				return fmt.Errorf("alertmanager connector: %w", err)
+				fmt.Fprintf(os.Stderr, "warning: alertmanager connector: %v; continuing\n", err)
 			}
 		}
 	}

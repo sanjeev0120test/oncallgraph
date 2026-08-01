@@ -22,6 +22,16 @@ func TestAsOfRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRequireTimeRejectsCorrupt(t *testing.T) {
+	if _, err := requireTime("not-a-time", "change", "c1"); err == nil {
+		t.Fatal("expected corrupt timestamp error")
+	}
+	got, err := requireTime("2026-07-31T12:00:00Z", "change", "c1")
+	if err != nil || !got.Equal(time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)) {
+		t.Fatalf("got %v err %v", got, err)
+	}
+}
+
 func TestFindAliasCollisions(t *testing.T) {
 	s := newTestStore(t)
 	if err := s.UpsertService(model.Service{ID: "a", Name: "a", Aliases: []string{"shared"}, Health: model.HealthUnknown}); err != nil {

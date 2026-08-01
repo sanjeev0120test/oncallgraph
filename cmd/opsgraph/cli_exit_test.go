@@ -138,6 +138,33 @@ func TestCLIRejectBadLimitAndWatchFlags(t *testing.T) {
 	}
 }
 
+func TestCLILiveFailFallsBackToPersistedStore(t *testing.T) {
+	fx := fixtureDir(t)
+	root := t.TempDir()
+	data := filepath.Join(root, "data")
+	_, _, code := runRoot(t, "ingest", "--fixture", fx, "--data-dir", data)
+	if code != 0 {
+		t.Fatalf("ingest exit = %d", code)
+	}
+	cfgPath := filepath.Join(root, ".opsgraph.yaml")
+	cfg := "version: 1\n" +
+		"data_dir: data\n" +
+		"connectors:\n" +
+		"  kubernetes:\n" +
+		"    enabled: true\n" +
+		"    snapshot: missing-k8s-snapshot\n"
+	if err := os.WriteFile(cfgPath, []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, code := runRoot(t, "ask", "checkout", "--config", cfgPath, "--format", "json")
+	if code != 0 {
+		t.Fatalf("ask fallback exit = %d err=%q out=%q", code, errOut, out)
+	}
+	if !strings.Contains(out, `"generated_at": "2026-07-31T12:00:00Z"`) {
+		t.Fatalf("expected persisted fixture clock after live fail, got %s", out)
+	}
+}
+
 func TestCLIExitVerifyUnknownService(t *testing.T) {
 	_, _, code := runRoot(t, "verify-runbook", "nosuch", "--fixture", fixtureDir(t))
 	if code != 1 {

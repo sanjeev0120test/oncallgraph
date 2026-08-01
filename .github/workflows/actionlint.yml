@@ -3,6 +3,7 @@ name: actionlint
 # Lint workflow YAML in seconds. Runs in parallel with ci/.
 
 on:
+  workflow_call:
   push:
     branches: ['**']
     tags-ignore: ['v*']

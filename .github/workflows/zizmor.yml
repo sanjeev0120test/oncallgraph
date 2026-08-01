@@ -3,6 +3,7 @@ name: zizmor
 # Audit workflow YAML for common CI security footguns. Parallel; usually <30s.
 
 on:
+  workflow_call:
   push:
     branches: ['**']
     tags-ignore: ['v*']
