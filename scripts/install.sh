@@ -84,12 +84,12 @@ install_from_archive() {
     else
       powershell.exe -NoProfile -Command "Expand-Archive -Path '$asset_path' -DestinationPath '$tmp' -Force"
     fi
-    bin="$(ls -1 "$tmp"/opsgraph_${tag}_${os}_${arch}.exe | head -n1)"
+    bin="$tmp/opsgraph_${tag}_${os}_${arch}.exe"
   else
     tar -xzf "$asset_path" -C "$tmp"
-    bin="$(ls -1 "$tmp"/opsgraph_${tag}_${os}_${arch} | head -n1)"
+    bin="$tmp/opsgraph_${tag}_${os}_${arch}"
   fi
-  if [[ -z "${bin:-}" || ! -e "$bin" ]]; then
+  if [[ ! -e "$bin" ]]; then
     echo "extracted binary missing for ${os}/${arch}" >&2
     exit 1
   fi
@@ -97,7 +97,10 @@ install_from_archive() {
 
 if [[ -n "$DIST_DIR" ]]; then
   # Local/CI mode: install from already-built raw dist binaries.
-  src="$(ls -1 "${DIST_DIR}"/opsgraph-"${os}"-"${arch}"* 2>/dev/null | head -n1 || true)"
+  shopt -s nullglob
+  matches=("${DIST_DIR}"/opsgraph-"${os}"-"${arch}"*)
+  shopt -u nullglob
+  src="${matches[0]:-}"
   if [[ -z "$src" ]]; then
     echo "no local binary for ${os}/${arch} in ${DIST_DIR}" >&2
     exit 1
@@ -126,7 +129,9 @@ elif [[ -n "$RELEASE_DIR" ]]; then
   install_from_archive "$tag" "${RELEASE_DIR}/${asset}" "${RELEASE_DIR}/SHA256SUMS"
 else
   if [[ "$VERSION" == "latest" ]]; then
-    tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)"
+    api_json="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest")"
+    tag="$(printf '%s\n' "$api_json" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
+    tag="${tag%%$'\n'*}"
   else
     tag="$VERSION"
   fi

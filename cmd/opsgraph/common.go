@@ -96,10 +96,18 @@ func resolveDataDir(flag string, cfg *config.Config, configDir string) string {
 }
 
 // storeFromDataDir opens the persistent store under dataDir (no re-ingest).
+// When ingest persisted as_of (fixture clock), that wins over wall clock so
+// ask/verify match --fixture determinism.
 func storeFromDataDir(dataDir string, now time.Time) (*loadedStore, error) {
 	s, err := store.Open(dataDir)
 	if err != nil {
 		return nil, err
+	}
+	if asOf, ok, err := s.AsOf(); err != nil {
+		_ = s.Close()
+		return nil, err
+	} else if ok {
+		now = asOf
 	}
 	return &loadedStore{store: s, now: now, cleanup: func() { _ = s.Close() }}, nil
 }

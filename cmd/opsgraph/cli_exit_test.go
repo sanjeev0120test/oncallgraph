@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -89,6 +90,51 @@ func TestCLIExitIngestAndAskDataDir(t *testing.T) {
 	_, _, code = runRoot(t, "ask", "checkout", "--data-dir", dir, "--format", "json")
 	if code != 0 {
 		t.Fatalf("ask --data-dir exit = %d, want 0", code)
+	}
+}
+
+func TestCLIExitEmptyDataDir(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runRoot(t, "ask", "checkout", "--data-dir", dir)
+	if code != 1 {
+		t.Fatalf("ask empty data-dir exit = %d, want 1", code)
+	}
+	_, _, code = runRoot(t, "status", "--data-dir", dir)
+	if code != 1 {
+		t.Fatalf("status empty data-dir exit = %d, want 1", code)
+	}
+}
+
+func TestCLIFixtureDataDirClockParity(t *testing.T) {
+	fx := fixtureDir(t)
+	dir := t.TempDir()
+	outFix, _, code := runRoot(t, "ask", "checkout", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("ask --fixture exit = %d", code)
+	}
+	_, _, code = runRoot(t, "ingest", "--fixture", fx, "--data-dir", dir)
+	if code != 0 {
+		t.Fatalf("ingest exit = %d", code)
+	}
+	outDir, _, code := runRoot(t, "ask", "checkout", "--data-dir", dir, "--format", "json")
+	if code != 0 {
+		t.Fatalf("ask --data-dir exit = %d", code)
+	}
+	const want = `"generated_at": "2026-07-31T12:00:00Z"`
+	if !strings.Contains(outFix, want) || !strings.Contains(outDir, want) {
+		t.Fatalf("clock parity failed\nfixture=%s\ndata-dir=%s", outFix, outDir)
+	}
+}
+
+func TestCLIRejectBadLimitAndWatchFlags(t *testing.T) {
+	fx := fixtureDir(t)
+	_, _, code := runRoot(t, "top", "--fixture", fx, "--limit", "0")
+	if code != 2 {
+		t.Fatalf("top --limit 0 exit = %d, want 2", code)
+	}
+	_, _, code = runRoot(t, "watch", "checkout", "--fixture", fx, "--timeout", "0")
+	if code != 2 {
+		t.Fatalf("watch --timeout 0 exit = %d, want 2", code)
 	}
 }
 

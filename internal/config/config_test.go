@@ -86,6 +86,16 @@ func TestLoadDefaultOpsgraphYAML(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidDefaultSince(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "bad-since.yaml")
+	if err := os.WriteFile(p, []byte("default_since: nope\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(p); err == nil {
+		t.Fatal("expected invalid default_since error")
+	}
+}
+
 func TestLoadValid(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "ok.yaml")
 	content := `version: 1

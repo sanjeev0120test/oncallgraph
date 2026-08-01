@@ -69,11 +69,22 @@ cp "${ROOT}/scripts/install.ps1" "${OUT_DIR}/install.ps1"
 chmod +x "${OUT_DIR}/install.sh"
 (cd "$ROOT" && go list -m all) > "${OUT_DIR}/DEPENDENCIES.txt"
 
+if command -v sha256sum >/dev/null 2>&1; then
+  HASH_CMD=(sha256sum)
+  CHECK_CMD=(sha256sum -c)
+elif command -v shasum >/dev/null 2>&1; then
+  HASH_CMD=(shasum -a 256)
+  CHECK_CMD=(shasum -a 256 -c)
+else
+  echo "need sha256sum or shasum to write SHA256SUMS" >&2
+  exit 1
+fi
+
 (
   cd "$OUT_DIR"
-  sha256sum *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
+  "${HASH_CMD[@]}" *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
   test "$(grep -c . SHA256SUMS)" -eq 10
-  sha256sum -c SHA256SUMS
+  "${CHECK_CMD[@]}" SHA256SUMS
   echo "--- SHA256SUMS ---"
   cat SHA256SUMS
 )

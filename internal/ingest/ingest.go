@@ -33,7 +33,8 @@ func FixtureNow(fsys fs.FS) (time.Time, bool, error) {
 }
 
 // IngestFixtureFS ingests a fixture pack from a filesystem and returns the
-// fixture's pinned "now" (or the real time if meta.yaml is absent).
+// fixture's pinned "now". meta.yaml with a non-zero now: is required so
+// ask/verify remain deterministic after ingest into a persistent store.
 func IngestFixtureFS(s *store.Store, fsys fs.FS) (time.Time, error) {
 	if err := ingestEntities(s, fsys); err != nil {
 		return time.Time{}, err
@@ -46,7 +47,10 @@ func IngestFixtureFS(s *store.Store, fsys fs.FS) (time.Time, error) {
 		return time.Time{}, err
 	}
 	if !ok {
-		return time.Now().UTC(), nil
+		return time.Time{}, fmt.Errorf("fixture missing meta.yaml with non-zero now: (required for determinism)")
+	}
+	if err := s.SetAsOf(now); err != nil {
+		return time.Time{}, err
 	}
 	return now, nil
 }

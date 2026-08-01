@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
@@ -18,6 +19,7 @@ func newIngestCmd() *cobra.Command {
 		configPath string
 		dataDir    string
 		replace    bool
+		merge      bool
 		since      time.Duration
 	)
 	cmd := &cobra.Command{
@@ -27,6 +29,9 @@ func newIngestCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validSince(since); err != nil {
 				return fail(2, "%v", err)
+			}
+			if replace && merge {
+				return fail(2, "use either --replace or --merge, not both")
 			}
 			cfg, err := config.Load(configPath)
 			if err != nil {
@@ -44,9 +49,10 @@ func newIngestCmd() *cobra.Command {
 			}
 			defer s.Close()
 
-			// Fixture packs are complete snapshots: always replace so removed
-			// entities do not linger. Live ingest replaces only with --replace.
-			if replace || fixture != "" {
+			// Fixtures always replace. Live ingest replaces by default so
+			// removed entities cannot linger; pass --merge to upsert-only.
+			doReset := fixture != "" || replace || !merge
+			if doReset {
 				if err := s.Reset(); err != nil {
 					return fail(2, "reset store: %v", err)
 				}
@@ -66,9 +72,17 @@ func newIngestCmd() *cobra.Command {
 					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
 				}
 				err = ingest.LiveIngest(s, cfg, configDir, now.Add(-ask.ChangeLookback(lookback)), now)
+				if err == nil {
+					err = s.SetAsOf(now)
+				}
 			}
 			if err != nil {
 				return fail(2, "%v", err)
+			}
+			if collisions, cerr := s.FindAliasCollisions(); cerr != nil {
+				return fail(2, "%v", cerr)
+			} else if len(collisions) > 0 {
+				return fail(1, "ambiguous service aliases after ingest: %s", strings.Join(collisions, "; "))
 			}
 
 			counts, err := s.Counts()
@@ -91,7 +105,8 @@ func newIngestCmd() *cobra.Command {
 	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory (default: config data_dir or .opsgraph/data)")
-	cmd.Flags().BoolVar(&replace, "replace", false, "clear the store before ingest (fixture ingest always replaces)")
+	cmd.Flags().BoolVar(&replace, "replace", false, "clear the store before ingest (default for fixture and live)")
+	cmd.Flags().BoolVar(&merge, "merge", false, "upsert without clearing prior rows (live ingest only; fixtures always replace)")
 	cmd.Flags().DurationVar(&since, "since", 0, "change lookback for live git/helm ingest (default: config default_since)")
 	return cmd
 }

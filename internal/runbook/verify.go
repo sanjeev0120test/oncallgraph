@@ -77,7 +77,8 @@ func rollup(steps []model.StepVerifyResult) string {
 	case hasManual:
 		return model.StatusManual
 	default:
-		return model.StatusPass
+		// Unknown step statuses are authoring bugs, not silent success.
+		return model.StatusFail
 	}
 }
 

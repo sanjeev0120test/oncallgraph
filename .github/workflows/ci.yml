@@ -148,8 +148,14 @@ jobs:
           set +e
           "$BIN" ask nosuch --fixture ./fixtures/incident_checkout >/dev/null
           code=$?
+          "$BIN" ask checkout >/dev/null
+          nosrc=$?
+          "$BIN" services --fixture ./fixtures/incident_checkout --health nope >/dev/null
+          bad_health=$?
           set -e
           test "$code" -eq 1
+          test "$nosrc" -eq 2
+          test "$bad_health" -eq 2
           "$BIN" path checkout-api auth --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" doctor >/dev/null
           DATA="$(mktemp -d 2>/dev/null || mktemp -d -t opsgraph)"
@@ -161,6 +167,11 @@ jobs:
           test -s "$DATA/mermaid.txt"
           test ! -s "$DATA/mermaid.err"
           grep -F flowchart "$DATA/mermaid.txt" >/dev/null
+          # Fixture clock must survive ingest → --data-dir (generated_at parity).
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > "$DATA/a.json"
+          "$BIN" ask checkout --data-dir "$DATA" --format json > "$DATA/b.json"
+          grep -F '"generated_at": "2026-07-31T12:00:00Z"' "$DATA/a.json" >/dev/null
+          grep -F '"generated_at": "2026-07-31T12:00:00Z"' "$DATA/b.json" >/dev/null
       - name: Full CLI smoke (ubuntu)
         if: ${{ matrix.smoke == 'full' }}
         shell: bash

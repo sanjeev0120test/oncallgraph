@@ -92,14 +92,14 @@ func newDoctorCmd() *cobra.Command {
 				} else if cfg.Connectors.Prometheus.URL == "" {
 					check("prometheus", false, "enabled but url is empty")
 				} else {
-					check("prometheus", true, cfg.Connectors.Prometheus.URL)
+					warnf("prometheus", cfg.Connectors.Prometheus.URL+" (configured; not probed)")
 				}
 				if !cfg.Connectors.Alertmanager.Enabled {
 					warnf("alertmanager", "connector disabled")
 				} else if cfg.Connectors.Alertmanager.URL == "" {
 					check("alertmanager", false, "enabled but url is empty")
 				} else {
-					check("alertmanager", true, cfg.Connectors.Alertmanager.URL)
+					warnf("alertmanager", cfg.Connectors.Alertmanager.URL+" (configured; not probed)")
 				}
 				if probeOllama(context.Background(), cfg.AI.OllamaURL) {
 					check("ollama", true, cfg.AI.OllamaURL)

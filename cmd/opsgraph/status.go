@@ -61,7 +61,8 @@ func newStatusCmd() *cobra.Command {
 					cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")
 					return nil
 				}
-				return fail(2, "%v", err)
+				// Empty explicit --data-dir is exit 1 (same contract as ask).
+				return failSource(err)
 			}
 			defer ls.cleanup()
 

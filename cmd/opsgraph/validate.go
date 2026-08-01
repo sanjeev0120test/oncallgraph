@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ingest"
@@ -88,6 +89,11 @@ func newValidateFixtureCmd() *cobra.Command {
 				if svc.Health != model.HealthUnknown {
 					cmd.PrintErrf("warning: synthesized service %q has health %q (expected unknown)\n", id, svc.Health)
 				}
+			}
+			if collisions, err := s.FindAliasCollisions(); err != nil {
+				return fail(2, "%v", err)
+			} else if len(collisions) > 0 {
+				return fail(1, "ambiguous service aliases: %s", strings.Join(collisions, "; "))
 			}
 			svcs, err := s.ListServices()
 			if err != nil {

@@ -28,8 +28,9 @@ permissions:
   contents: read
 
 concurrency:
-  # Never cancel an in-flight release publish — a second tag push must wait.
-  group: release-${{ github.ref }}
+  # Global gate so two tags cannot race on make_latest / release assets.
+  # Never cancel an in-flight publish — a second tag push must wait.
+  group: release-publish
   cancel-in-progress: false
 
 env:
@@ -46,12 +47,16 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      make_latest: ${{ steps.meta.outputs.make_latest }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup-go
+        with:
+          cache: 'false'
       - name: Resolve version metadata
         id: meta
         run: |
@@ -65,7 +70,15 @@ jobs:
           else
             VERSION="dev-${GITHUB_SHA::7}"
           fi
+          PRERELEASE=false
+          MAKE_LATEST=true
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE=true
+            MAKE_LATEST=false
+          fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
+          echo "make_latest=${MAKE_LATEST}" >> "$GITHUB_OUTPUT"
           echo "commit=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - name: Run unit + fixture gates before packaging
@@ -208,8 +221,8 @@ jobs:
           tag_name: ${{ needs.build.outputs.version }}
           name: ${{ needs.build.outputs.version }}
           draft: false
-          prerelease: false
-          make_latest: true
+          prerelease: ${{ needs.build.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.build.outputs.make_latest == 'true' }}
           generate_release_notes: true
           body: |
             ## opsgraph ${{ needs.build.outputs.version }}
@@ -217,13 +230,15 @@ jobs:
             Precompiled binaries for **linux / darwin / windows × amd64 / arm64**.
 
             - Binaries are distributed **only** via GitHub Releases (never committed to the git source tree).
-            - Verify downloads with `SHA256SUMS`.
+            - Verify downloads with `SHA256SUMS` before running installers.
             - Provenance attestation is attached to this release.
             - Installers: `install.sh` (Unix) and `install.ps1` (Windows).
 
             ```bash
             VERSION=${{ needs.build.outputs.version }}
+            curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/SHA256SUMS" -o SHA256SUMS
             curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/install.sh" -o install.sh
+            sha256sum -c SHA256SUMS --ignore-missing
             chmod +x install.sh
             OPSGRAPH_VERSION="$VERSION" ./install.sh
             ```

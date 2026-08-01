@@ -20,10 +20,10 @@ func newWatchCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if interval <= 0 {
-				interval = 2 * time.Second
+				return fail(2, "invalid --interval %s (must be > 0)", interval)
 			}
 			if timeout <= 0 {
-				timeout = 10 * time.Second
+				return fail(2, "invalid --timeout %s (must be > 0)", timeout)
 			}
 			if src.fixture != "" {
 				cmd.PrintErrln("note: --fixture is a static snapshot; watch only succeeds if the fixture service is already healthy")

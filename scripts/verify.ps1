@@ -49,8 +49,16 @@ if (Test-Path ./fixtures/ci_live_k8s/.opsgraph.yaml) {
 }
 
 Write-Host "==> graph mermaid stdout" -ForegroundColor Cyan
-$mermaid = & ./bin/opsgraph.exe graph --fixture ./fixtures/incident_checkout --format mermaid 2>$null
+$errFile = Join-Path $env:TEMP ("opsgraph-mermaid-err-" + [guid]::NewGuid().ToString() + ".txt")
+$mermaid = & ./bin/opsgraph.exe graph --fixture ./fixtures/incident_checkout --format mermaid 2>$errFile
 if ($LASTEXITCODE -ne 0) { exit 1 }
+if ((Test-Path $errFile) -and (Get-Item $errFile).Length -gt 0) {
+    Write-Host "graph wrote to stderr:" -ForegroundColor Red
+    Get-Content $errFile | Write-Host
+    Remove-Item $errFile -ErrorAction SilentlyContinue
+    exit 1
+}
+Remove-Item $errFile -ErrorAction SilentlyContinue
 if ($mermaid -notmatch 'flowchart') {
     Write-Host "mermaid output missing flowchart" -ForegroundColor Red
     exit 1

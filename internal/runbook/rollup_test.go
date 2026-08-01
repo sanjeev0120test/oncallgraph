@@ -31,3 +31,10 @@ func TestRollupPassWithManual(t *testing.T) {
 		t.Fatalf("pass+manual = %q, want pass", got)
 	}
 }
+
+func TestRollupUnknownStatusIsFail(t *testing.T) {
+	got := rollup([]model.StepVerifyResult{{Status: "weird"}})
+	if got != model.StatusFail {
+		t.Fatalf("unknown status rollup = %q, want fail", got)
+	}
+}

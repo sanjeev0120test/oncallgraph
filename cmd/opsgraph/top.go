@@ -22,8 +22,8 @@ func newTopCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			if limit <= 0 {
-				limit = 10
+			if limit < 1 {
+				return fail(2, "invalid --limit %d (must be >= 1)", limit)
 			}
 			ls, cfg, err := src.load(since)
 			if err != nil {
@@ -61,6 +61,9 @@ func newTopCmd() *cobra.Command {
 				}
 				return rows[i].Service < rows[j].Service
 			})
+			if len(rows) == 0 && skipped > 0 {
+				return fail(1, "top: all %d service(s) failed to score", skipped)
+			}
 			if len(rows) > limit {
 				rows = rows[:limit]
 			}

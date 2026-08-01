@@ -1,5 +1,10 @@
 name: Setup Go
 description: Fast, Node-24-ready Go toolchain setup with module cache
+inputs:
+  cache:
+    description: Enable module cache (disable for publish-capable release builds)
+    required: false
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -7,6 +12,6 @@ runs:
       uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
-        cache: true
+        cache: ${{ inputs.cache == 'true' }}
         cache-dependency-path: go.sum
         check-latest: false

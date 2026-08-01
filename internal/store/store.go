@@ -144,6 +144,10 @@ CREATE TABLE IF NOT EXISTS evidence (
 	raw_ref TEXT,
 	service_id TEXT
 );
+CREATE TABLE IF NOT EXISTS meta (
+	key TEXT PRIMARY KEY,
+	value TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_changes_service_at ON changes(service_id, at);
 CREATE INDEX IF NOT EXISTS idx_alerts_service_status_at ON alerts(service_id, status, at);
 CREATE INDEX IF NOT EXISTS idx_evidence_service ON evidence(service_id);
@@ -196,6 +200,7 @@ func (s *Store) Reset() error {
 		`DELETE FROM changes`,
 		`DELETE FROM services`,
 		`DELETE FROM owners`,
+		`DELETE FROM meta`,
 	} {
 		if _, err := tx.Exec(q); err != nil {
 			_ = tx.Rollback()

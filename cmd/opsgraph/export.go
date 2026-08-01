@@ -50,9 +50,10 @@ func newExportCmd() *cobra.Command {
 					return fail(2, "%v", err)
 				}
 			}
-			f, err := os.Create(outPath)
+			tmpPath := outPath + ".tmp"
+			f, err := os.Create(tmpPath)
 			if err != nil {
-				return fail(2, "create %s: %v", outPath, err)
+				return fail(2, "create %s: %v", tmpPath, err)
 			}
 			writeErr := func() error {
 				if format == "json" {
@@ -67,14 +68,25 @@ func newExportCmd() *cobra.Command {
 			}()
 			if writeErr != nil {
 				_ = f.Close()
+				_ = os.Remove(tmpPath)
 				return fail(2, "%v", writeErr)
 			}
 			if err := f.Sync(); err != nil {
 				_ = f.Close()
-				return fail(2, "sync %s: %v", outPath, err)
+				_ = os.Remove(tmpPath)
+				return fail(2, "sync %s: %v", tmpPath, err)
 			}
 			if err := f.Close(); err != nil {
-				return fail(2, "close %s: %v", outPath, err)
+				_ = os.Remove(tmpPath)
+				return fail(2, "close %s: %v", tmpPath, err)
+			}
+			if err := os.Rename(tmpPath, outPath); err != nil {
+				// Windows cannot rename over an existing file.
+				_ = os.Remove(outPath)
+				if err := os.Rename(tmpPath, outPath); err != nil {
+					_ = os.Remove(tmpPath)
+					return fail(2, "rename %s: %v", outPath, err)
+				}
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "wrote", outPath)
 			return nil

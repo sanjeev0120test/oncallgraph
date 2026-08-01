@@ -140,6 +140,9 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("parse config %q: %w", candidate, err)
 		}
 		cfg.applyDefaults()
+		if err := cfg.validate(); err != nil {
+			return nil, fmt.Errorf("config %q: %w", candidate, err)
+		}
 		return cfg, nil
 	}
 
@@ -173,7 +176,30 @@ func (c *Config) applyDefaults() {
 	}
 }
 
-// Since parses default_since, falling back to DefaultSince on empty/invalid.
+// validate rejects unusable duration fields so misconfig fails at load time.
+func (c *Config) validate() error {
+	if c.DefaultSince != "" {
+		d, err := time.ParseDuration(c.DefaultSince)
+		if err != nil {
+			return fmt.Errorf("invalid default_since %q: %w", c.DefaultSince, err)
+		}
+		if d <= 0 {
+			return fmt.Errorf("invalid default_since %q: must be > 0", c.DefaultSince)
+		}
+	}
+	if c.AI.Timeout != "" {
+		d, err := time.ParseDuration(c.AI.Timeout)
+		if err != nil {
+			return fmt.Errorf("invalid ai.timeout %q: %w", c.AI.Timeout, err)
+		}
+		if d <= 0 {
+			return fmt.Errorf("invalid ai.timeout %q: must be > 0", c.AI.Timeout)
+		}
+	}
+	return nil
+}
+
+// Since parses default_since, falling back to DefaultSince on empty.
 func (c *Config) Since() time.Duration {
 	if c.DefaultSince == "" {
 		return DefaultSince

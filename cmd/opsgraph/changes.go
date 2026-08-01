@@ -23,8 +23,8 @@ func newChangesCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			if limit <= 0 {
-				limit = 20
+			if limit < 1 {
+				return fail(2, "invalid --limit %d (must be >= 1)", limit)
 			}
 			ls, cfg, err := src.load(since)
 			if err != nil {
