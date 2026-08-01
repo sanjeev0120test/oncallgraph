@@ -32,15 +32,24 @@ func Compute(res model.AskResult) Result {
 		b["service_health"] = 10
 	}
 
+	seenAlert := map[string]bool{}
 	for _, a := range res.Alerts {
 		if !model.AlertActive(a.Status) {
 			continue
 		}
+		key := a.Name + ":" + a.Severity
+		if seenAlert[key] {
+			continue // distinct alert names — series fan-out must not inflate score
+		}
+		seenAlert[key] = true
 		pts := 15
 		if a.Severity == "critical" {
 			pts = 25
 		} else if a.Severity == "warning" {
 			pts = 18
+		}
+		if a.Status == "pending" {
+			pts = pts * 2 / 3 // pending is not yet paging
 		}
 		b["firing_alerts"] += pts
 		highlights = append(highlights, a.Status+" alert "+a.Name)

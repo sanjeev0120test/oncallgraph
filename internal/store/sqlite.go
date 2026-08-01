@@ -137,9 +137,15 @@ func (s *Store) ListServices() ([]model.Service, error) {
 		if err := rows.Scan(&v.ID, &v.Name, &aliases, &v.OwnerID, &v.Health, &labels, &sources); err != nil {
 			return nil, wrap("scan service", err)
 		}
-		fromJSON(aliases, &v.Aliases)
-		fromJSON(labels, &v.Labels)
-		fromJSON(sources, &v.Sources)
+		if err := decodeJSON(aliases, &v.Aliases); err != nil {
+			return nil, wrap("decode service aliases", err)
+		}
+		if err := decodeJSON(labels, &v.Labels); err != nil {
+			return nil, wrap("decode service labels", err)
+		}
+		if err := decodeJSON(sources, &v.Sources); err != nil {
+			return nil, wrap("decode service sources", err)
+		}
 		out = append(out, v)
 	}
 	return out, rows.Err()
@@ -268,18 +274,26 @@ FROM alerts WHERE service_id=? AND (status IN ('firing','pending','suppressed') 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	// active (firing/pending) first, then newest, then id for stability.
+	// Live (incl. suppressed) first, then active, then newest, then id.
 	sort.SliceStable(out, func(i, j int) bool {
-		fi, fj := model.AlertActive(out[i].Status), model.AlertActive(out[j].Status)
-		if fi != fj {
-			return fi
-		}
-		if !out[i].At.Equal(out[j].At) {
-			return out[i].At.After(out[j].At)
-		}
-		return out[i].ID < out[j].ID
+		return alertSortLess(out[i], out[j])
 	})
 	return out, nil
+}
+
+func alertSortLess(a, b model.Alert) bool {
+	la, lb := model.AlertLive(a.Status), model.AlertLive(b.Status)
+	if la != lb {
+		return la
+	}
+	aa, ab := model.AlertActive(a.Status), model.AlertActive(b.Status)
+	if aa != ab {
+		return aa
+	}
+	if !a.At.Equal(b.At) {
+		return a.At.After(b.At)
+	}
+	return a.ID < b.ID
 }
 
 // ListDependencies returns all edges touching the service (either direction).
@@ -533,12 +547,9 @@ ORDER BY id`, name)
 }
 
 func rolloutIDMatches(id, name string) bool {
-	const prefix = "ev-k8s-rollout-"
-	if !strings.HasPrefix(id, prefix) {
-		return false
-	}
-	suf := strings.TrimPrefix(id, prefix)
-	return suf == name || strings.HasSuffix(suf, "-"+name)
+	// Exact legacy id only. Namespaced rollouts match via raw_ref; suffix
+	// matching falsely paired short names (api) with compound ones (checkout-api).
+	return id == "ev-k8s-rollout-"+name
 }
 
 func (s *Store) findFiringAlertBy(pred string, args ...any) (*model.Alert, bool, error) {

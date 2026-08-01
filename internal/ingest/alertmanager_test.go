@@ -42,3 +42,31 @@ func TestIngestAlertmanager(t *testing.T) {
 		t.Fatalf("alerts = %+v", alerts)
 	}
 }
+
+func TestIngestAlertmanagerSilencedBySuppressed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{
+		  "labels":{"alertname":"Quiet","severity":"critical","service":"checkout"},
+		  "annotations":{"summary":"silenced"},
+		  "startsAt":"2026-07-31T11:40:00Z",
+		  "status":{"state":"active","silencedBy":["silence-1"]}
+		}]`))
+	}))
+	t.Cleanup(srv.Close)
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	if err := ingest.IngestAlertmanager(context.Background(), s, srv.URL, srv.Client(), now); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := s.ListAlerts("checkout", time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) != 1 || alerts[0].Status != "suppressed" {
+		t.Fatalf("silenced active must become suppressed: %+v", alerts)
+	}
+}

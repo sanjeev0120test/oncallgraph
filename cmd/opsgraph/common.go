@@ -213,6 +213,13 @@ func loadAskStore(ctx context.Context, fixture, configPath, dataDirFlag string, 
 			}
 			return nil, fmt.Errorf("%w: live connectors returned no incident signals", ErrEmptyStore)
 		}
+		// Quiet Prom/AM (meta ok, no rows) must not hide a richer persisted incident.
+		if liveIsQuietConnectorOnly(ls.store) {
+			if fb, fbErr := fallbackPersisted(fmt.Errorf("returned quiet Prom/AM scrape")); fbErr == nil {
+				ls.cleanup()
+				return fb, nil
+			}
+		}
 		return ls, nil
 	}
 	if counts, err := peekCounts(dir); err == nil {
@@ -240,17 +247,19 @@ func loadAskStore(ctx context.Context, fixture, configPath, dataDirFlag string, 
 	return ls, nil
 }
 
-// liveHasIncidentSignal reports whether a live scrape produced usable incident
-// data beyond config seed. Successful Prom/AM scrapes set connector meta even
-// with zero alerts; k8s/git/helm must leave connector sources or rows. Merely
-// having a Prom/AM URL in config is not enough (avoids displacing state.db).
-func liveHasIncidentSignal(s *store.Store, _ *config.Config) bool {
-	if v, ok, err := s.GetMeta("connector:prometheus"); err == nil && ok && v == "ok" {
-		return true
+// liveIsQuietConnectorOnly reports a successful Prom/AM scrape that left no
+// incident rows (config seed only). Used to prefer a richer state.db.
+func liveIsQuietConnectorOnly(s *store.Store) bool {
+	promOK, _, _ := s.GetMeta("connector:prometheus")
+	amOK, _, _ := s.GetMeta("connector:alertmanager")
+	if promOK != "ok" && amOK != "ok" {
+		return false
 	}
-	if v, ok, err := s.GetMeta("connector:alertmanager"); err == nil && ok && v == "ok" {
-		return true
-	}
+	return !liveHasRichSignal(s)
+}
+
+// liveHasRichSignal reports k8s/helm/fixture/alert rows (not merely Prom meta).
+func liveHasRichSignal(s *store.Store) bool {
 	counts, err := s.Counts()
 	if err == nil && counts["alerts"] > 0 {
 		return true
@@ -265,8 +274,6 @@ func liveHasIncidentSignal(s *store.Store, _ *config.Config) bool {
 			}
 		}
 	}
-	// Prefer connector-tagged services / non-git change sources so a local git
-	// scan alone cannot displace a richer persisted incident store.
 	if err == nil && counts["changes"] > 0 {
 		if changes, cerr := s.ListAllChanges(); cerr == nil {
 			for _, c := range changes {
@@ -290,6 +297,20 @@ func liveHasIncidentSignal(s *store.Store, _ *config.Config) bool {
 		}
 	}
 	return false
+}
+
+// liveHasIncidentSignal reports whether a live scrape produced usable incident
+// data beyond config seed. Successful Prom/AM scrapes set connector meta even
+// with zero alerts; k8s/git/helm must leave connector sources or rows. Merely
+// having a Prom/AM URL in config is not enough (avoids displacing state.db).
+func liveHasIncidentSignal(s *store.Store, _ *config.Config) bool {
+	if v, ok, err := s.GetMeta("connector:prometheus"); err == nil && ok && v == "ok" {
+		return true
+	}
+	if v, ok, err := s.GetMeta("connector:alertmanager"); err == nil && ok && v == "ok" {
+		return true
+	}
+	return liveHasRichSignal(s)
 }
 
 // requireArg returns exit 2 when a positional argument is blank.

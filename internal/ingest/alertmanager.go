@@ -38,6 +38,10 @@ func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, cli
 		if state == "" {
 			state = "active"
 		}
+		// Silenced/inhibited/muted alerts are not paging — treat as suppressed.
+		if len(a.Status.SilencedBy) > 0 || len(a.Status.InhibitedBy) > 0 || len(a.Status.MutedBy) > 0 {
+			state = "suppressed"
+		}
 		id, ok, err := upsertRemoteAlert(s, a.Labels, a.Annotations, state, a.StartsAt, "alertmanager", now)
 		if err != nil {
 			return err
@@ -65,6 +69,9 @@ type amAlert struct {
 	Annotations map[string]string `json:"annotations"`
 	StartsAt    time.Time         `json:"startsAt"`
 	Status      struct {
-		State string `json:"state"`
+		State       string   `json:"state"`
+		SilencedBy  []string `json:"silencedBy"`
+		InhibitedBy []string `json:"inhibitedBy"`
+		MutedBy     []string `json:"mutedBy"`
 	} `json:"status"`
 }

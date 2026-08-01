@@ -23,15 +23,16 @@ func correlate(res model.AskResult) []model.Correlation {
 	}
 	anchor := res.GeneratedAt
 	if anchor.IsZero() {
-		anchor = time.Now().UTC()
+		// Deterministic: never fall back to wall clock for goldens/tests.
+		return out
 	}
 	for _, a := range res.Alerts {
-		if !model.AlertActive(a.Status) || a.At.IsZero() {
+		if !model.AlertActive(a.Status) {
 			continue
 		}
 		alertAt := a.At
-		if alertAt.After(anchor) {
-			alertAt = anchor // do not invent links from future StartsAt skew
+		if alertAt.IsZero() || alertAt.After(anchor) {
+			alertAt = anchor // zero/future StartsAt still correlate at ask time
 		}
 		ch, ok := precedingChange(res.Changes, alertAt)
 		if !ok {

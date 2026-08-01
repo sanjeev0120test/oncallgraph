@@ -87,7 +87,8 @@ jobs:
           set -euo pipefail
           # Module cache from setup-go makes reinstall cheap; avoid actions/cache
           # (zizmor cache-poisoning with workflow_dispatch / publish-capable workflows).
-          go install honnef.co/go/tools/cmd/staticcheck@2025.1.1
+          # Pin module version (release tags can move; v0.6.1 == 2025.1.1).
+          go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
           "$(go env GOPATH)/bin/staticcheck" ./...
 
   test:
@@ -102,7 +103,7 @@ jobs:
             race: true
             smoke: full
           - os: macos-latest
-            race: false
+            race: true
             smoke: compact
           - os: windows-latest
             race: false
@@ -234,6 +235,11 @@ jobs:
           "$BIN_ABS" alerts --fixture ./fixtures/incident_checkout --since 1h >/dev/null
           "$BIN_ABS" top --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" export checkout --fixture ./fixtures/incident_checkout --format markdown --out "$EXP/r.md" >/dev/null
+          set +e
+          "$BIN" watch checkout --fixture ./fixtures/incident_checkout --interval -1s --timeout 1s >/dev/null
+          bad_watch=$?
+          set -e
+          test "$bad_watch" -eq 2
           "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout --format json >/dev/null
           "$BIN" services --fixture ./fixtures/incident_checkout --health degraded --format json >/dev/null
           # File redirect (not pipes): cobra historically wrote Print* to stderr.
@@ -404,6 +410,7 @@ jobs:
       - name: Run govulncheck
         run: |
           set -euo pipefail
+          # Pin module version for supply-chain stability.
           go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           "$(go env GOPATH)/bin/govulncheck" ./...
 

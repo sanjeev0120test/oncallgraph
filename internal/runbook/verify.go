@@ -203,6 +203,11 @@ func (v *Verifier) checkServiceHealth(name string, wantHealthy bool, sr model.St
 			sr.Message = fmt.Sprintf("service %q not found", name)
 			return sr, nil
 		}
+		if errors.Is(err, store.ErrAmbiguous) {
+			sr.Status = model.StatusError
+			sr.Message = err.Error()
+			return sr, nil
+		}
 		return sr, err
 	}
 	healthy := svc.Health == model.HealthHealthy

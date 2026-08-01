@@ -53,8 +53,12 @@ Load a fixture pack (or live config sources) into a persistent data dir.
 ```bash
 opsgraph ingest --fixture fixtures/incident_checkout --data-dir .opsgraph/data
 opsgraph ingest --since 2h          # live connectors; change lookback (default: config default_since)
+opsgraph ingest --replace           # default for live: atomic swap of validated scrape
+opsgraph ingest --merge             # upsert-only (does not delete removed topology; prefer --replace)
 opsgraph ask checkout --data-dir .opsgraph/data
 ```
+
+Quiet Prom/AM scrapes (reachable, zero alerts) fall back to a richer persisted `state.db` instead of answering from config seed alone.
 
 ### `opsgraph verify-runbook <service>`
 Checks whether a runbook is still valid against current state.

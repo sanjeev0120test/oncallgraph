@@ -39,6 +39,9 @@ func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, clien
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return fmt.Errorf("prometheus decode: %w", err)
 	}
+	if resp.Status != "" && !strings.EqualFold(resp.Status, "success") {
+		return fmt.Errorf("prometheus api status %q (want success)", resp.Status)
+	}
 	seen := map[string]bool{}
 	dropped := 0
 	for _, a := range resp.Data.Alerts {
@@ -68,7 +71,8 @@ func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, clien
 }
 
 type promAlertsResponse struct {
-	Data struct {
+	Status string `json:"status"`
+	Data   struct {
 		Alerts []promAlert `json:"alerts"`
 	} `json:"data"`
 }
@@ -99,9 +103,13 @@ func getJSON(ctx context.Context, client *http.Client, url string) ([]byte, erro
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
 		return nil, fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	const maxBody = 1 << 20
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
 	if err != nil {
 		return nil, err
+	}
+	if len(body) > maxBody {
+		return nil, fmt.Errorf("GET %s: response exceeds %d bytes", url, maxBody)
 	}
 	return body, nil
 }
@@ -175,16 +183,17 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 }
 
 func resolveServiceLabel(labels map[string]string) string {
-	// Intentionally omit job — it is usually a scrape target name, not a service.
-	return firstNonEmpty(
+	// Prefer explicit service labels. Demote generic app/k8s name labels — they
+	// often name the scrape target, not the owning on-call service.
+	if svc := firstNonEmpty(
 		labels["service"],
 		labels["service_name"],
 		labels["exported_service"],
 		labels["label_service"],
-		labels["app"],
-		labels["app_kubernetes_io_name"],
-		labels["label_app_kubernetes_io_name"],
-	)
+	); svc != "" {
+		return svc
+	}
+	return ""
 }
 
 func labelFingerprint(labels map[string]string) string {

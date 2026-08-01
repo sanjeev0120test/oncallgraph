@@ -83,14 +83,7 @@ SELECT id,service_id,at,severity,name,status,summary,source,evidence_id FROM ale
 		return nil, err
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		fi, fj := model.AlertActive(out[i].Status), model.AlertActive(out[j].Status)
-		if fi != fj {
-			return fi
-		}
-		if !out[i].At.Equal(out[j].At) {
-			return out[i].At.After(out[j].At)
-		}
-		return out[i].ID < out[j].ID
+		return alertSortLess(out[i], out[j])
 	})
 	return out, nil
 }

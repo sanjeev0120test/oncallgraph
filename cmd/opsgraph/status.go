@@ -154,7 +154,15 @@ func probeHTTP(ctx context.Context, baseURL, path string) bool {
 		return false
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return false
+	}
+	ct := strings.ToLower(resp.Header.Get("Content-Type"))
+	// Accept JSON APIs; allow empty CT for simple probes (Ollama varies by version).
+	if ct == "" {
+		return true
+	}
+	return strings.Contains(ct, "json") || strings.Contains(ct, "javascript")
 }
 
 // resolveGitRepoPath mirrors LiveIngest: relative repo_path is config-dir based.

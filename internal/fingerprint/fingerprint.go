@@ -30,18 +30,13 @@ func Of(res model.AskResult) Result {
 			parts = append(parts, "alert="+a.Name+":"+a.Severity)
 		}
 	}
-	// Changes require GeneratedAt so the suspect window is well-defined.
-	if !res.GeneratedAt.IsZero() {
-		for _, c := range res.Changes {
-			if c.At.IsZero() || c.At.After(res.GeneratedAt) || res.GeneratedAt.Sub(c.At) > ask.SuspectChangeWindow {
-				continue
-			}
-			ref := c.Revision
-			if ref == "" {
-				ref = c.ID
-			}
-			parts = append(parts, "change="+c.Type+":"+ref)
+	// Fingerprint the same single R1 suspect — extra commits in-window must not churn.
+	if c, ok := ask.RecentSuspectChange(res); ok {
+		ref := c.Revision
+		if ref == "" {
+			ref = c.ID
 		}
+		parts = append(parts, "change="+c.Type+":"+ref)
 	}
 	for _, u := range res.Upstream {
 		if u.Health == model.HealthUnhealthy || u.Health == model.HealthDegraded {

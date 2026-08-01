@@ -122,14 +122,31 @@ func (s *Store) ReplaceFromFile(srcDB string) error {
 		_ = os.Remove(tmp)
 		return reopenPrev(fmt.Errorf("replace store: close temp: %w", err))
 	}
+	bak := s.path + ".bak"
+	_ = os.Remove(bak)
+	if err := os.Rename(s.path, bak); err != nil && !os.IsNotExist(err) {
+		_ = os.Remove(tmp)
+		return reopenPrev(fmt.Errorf("replace store: backup: %w", err))
+	}
 	if err := os.Rename(tmp, s.path); err != nil {
 		_ = os.Remove(tmp)
+		if _, st := os.Stat(bak); st == nil {
+			_ = os.Rename(bak, s.path)
+		}
 		return reopenPrev(fmt.Errorf("replace store: rename: %w", err))
 	}
 	reopened, err := open(s.path)
 	if err != nil {
+		if _, st := os.Stat(bak); st == nil {
+			_ = os.Rename(bak, s.path)
+			if prev, perr := open(s.path); perr == nil {
+				s.db = prev.db
+				return fmt.Errorf("replace store: reopen: %w (restored backup)", err)
+			}
+		}
 		return fmt.Errorf("replace store: reopen: %w", err)
 	}
+	_ = os.Remove(bak)
 	s.db = reopened.db
 	return nil
 }
