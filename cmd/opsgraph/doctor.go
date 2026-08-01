@@ -68,7 +68,8 @@ func newDoctorCmd() *cobra.Command {
 					} else if pathExists(gitPath) {
 						warnf("git_repo", gitPath+" exists but has no .git (not a repository)")
 					} else {
-						check("git_repo", false, gitPath+" missing")
+						// Missing git is non-fatal for live ingest; keep doctor usable offline.
+						warnf("git_repo", gitPath+" missing (optional)")
 					}
 				}
 				if !cfg.Connectors.Kubernetes.Enabled {

@@ -12,8 +12,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # Per-SHA groups avoid canceling required main jobs on rapid pushes.
-  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # Never cancel in-flight required jobs on main; cancel PR/branch supersessions.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:

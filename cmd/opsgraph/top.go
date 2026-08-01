@@ -76,6 +76,7 @@ func newTopCmd() *cobra.Command {
 			}
 			if skipped > 0 {
 				cmd.Printf("\n(%d service(s) skipped due to errors)\n", skipped)
+				return fail(1, "top: %d service(s) failed to score", skipped)
 			}
 			return nil
 		},

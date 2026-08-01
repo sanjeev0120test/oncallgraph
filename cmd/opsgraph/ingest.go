@@ -59,6 +59,7 @@ func newIngestCmd() *cobra.Command {
 			}
 
 			now := time.Now().UTC()
+			liveClock := false
 			switch {
 			case fixture != "":
 				if doReset {
@@ -72,27 +73,36 @@ func newIngestCmd() *cobra.Command {
 					return fail(2, "no data source: pass --fixture <pack> or add a .opsgraph.yaml")
 				}
 				sinceAt := now.Add(-ask.ChangeLookback(lookback))
-				// Validate live scrape into a temp store first so a failed
-				// Prom/AM/k8s scrape cannot wipe a populated state.db.
+				// Always scrape into a temp store first. On replace, atomically
+				// swap the validated DB (no second scrape that can wipe state).
+				tmp, cleanup, terr := store.OpenTemp()
+				if terr != nil {
+					return fail(2, "%v", terr)
+				}
+				terr = ingest.LiveIngest(cmd.Context(), tmp, cfg, configDir, sinceAt, now)
+				if terr != nil {
+					cleanup()
+					return fail(2, "%v", terr)
+				}
 				if doReset {
-					tmp, cleanup, terr := store.OpenTemp()
-					if terr != nil {
-						return fail(2, "%v", terr)
-					}
-					terr = ingest.LiveIngest(cmd.Context(), tmp, cfg, configDir, sinceAt, now)
+					terr = s.ReplaceFromFile(tmp.Path())
 					cleanup()
 					if terr != nil {
 						return fail(2, "%v", terr)
 					}
-					if err := s.Reset(); err != nil {
-						return fail(2, "reset store: %v", err)
+				} else {
+					cleanup()
+					// Merge: re-scrape into the persistent store (upsert-only).
+					terr = ingest.LiveIngest(cmd.Context(), s, cfg, configDir, sinceAt, now)
+					if terr != nil {
+						return fail(2, "%v", terr)
 					}
 				}
-				err = ingest.LiveIngest(cmd.Context(), s, cfg, configDir, sinceAt, now)
-				if err == nil {
-					// Live data ages against wall clock, not ingest instant.
-					err = s.ClearAsOf()
+				if err := s.ClearAsOf(); err != nil {
+					return fail(2, "%v", err)
 				}
+				liveClock = true
+				err = nil
 			}
 			if err != nil {
 				return fail(2, "%v", err)
@@ -123,7 +133,12 @@ func newIngestCmd() *cobra.Command {
 			for _, k := range keys {
 				cmd.Printf("  %-13s %d\n", k+":", counts[k])
 			}
-			cmd.Printf("  as_of:        %s\n", now.UTC().Format(time.RFC3339))
+			if liveClock {
+				cmd.Printf("  ingested_at:  %s\n", now.UTC().Format(time.RFC3339))
+				cmd.Printf("  as_of:        (wall clock)\n")
+			} else {
+				cmd.Printf("  as_of:        %s\n", now.UTC().Format(time.RFC3339))
+			}
 			return nil
 		},
 	}

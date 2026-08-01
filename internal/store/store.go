@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,6 +79,46 @@ func (s *Store) Close() error { return s.db.Close() }
 
 // Path returns the on-disk SQLite path.
 func (s *Store) Path() string { return s.path }
+
+// ReplaceFromFile closes the current DB, copies srcDB over this store's path,
+// and reopens. Used for atomic live ingest (validate in temp, then swap).
+func (s *Store) ReplaceFromFile(srcDB string) error {
+	if strings.TrimSpace(srcDB) == "" {
+		return fmt.Errorf("replace store: empty source path")
+	}
+	if err := s.db.Close(); err != nil {
+		return fmt.Errorf("replace store: close: %w", err)
+	}
+	in, err := os.Open(srcDB)
+	if err != nil {
+		return fmt.Errorf("replace store: open source: %w", err)
+	}
+	defer in.Close()
+	tmp := s.path + ".tmp"
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("replace store: create temp: %w", err)
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("replace store: copy: %w", err)
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("replace store: close temp: %w", err)
+	}
+	if err := os.Rename(tmp, s.path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("replace store: rename: %w", err)
+	}
+	reopened, err := open(s.path)
+	if err != nil {
+		return fmt.Errorf("replace store: reopen: %w", err)
+	}
+	s.db = reopened.db
+	return nil
+}
 
 // SchemaVersion is the current PRAGMA user_version for this schema.
 const SchemaVersion = 1

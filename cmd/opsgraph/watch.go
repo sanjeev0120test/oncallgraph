@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"time"
 
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -48,36 +50,32 @@ func newWatchCmd() *cobra.Command {
 					}
 					return fail(1, "watch timeout: %s", svcID)
 				}
-				ls, cfg, err := src.loadCtx(cmd.Context(), since)
+
+				healthy, nextID, nextHealth, line, cont, err := watchTick(cmd, &src, args[0], since)
 				if err != nil {
-					return failSource(err)
+					return err
 				}
-				win := since
-				if win == 0 {
-					win = cfg.Since()
+				if cont {
+					cmd.PrintErrln(line)
+				} else {
+					svcID = nextID
+					lastHealth = nextHealth
+					if line != last {
+						cmd.Printf("%s  %s\n", time.Now().UTC().Format(time.RFC3339), line)
+						last = line
+					}
+					if healthy {
+						return nil
+					}
 				}
-				res, err := askService(ls, args[0], win)
-				ls.cleanup()
-				if err != nil {
-					return failAsk(err)
-				}
-				svcID = res.Service.ID
-				lastHealth = res.Service.Health
-				line := res.Service.ID + " " + res.Service.Health
-				if line != last {
-					cmd.Printf("%s  %s\n", time.Now().UTC().Format(time.RFC3339), line)
-					last = line
-				}
-				if res.Service.Health == model.HealthHealthy {
-					return nil
-				}
-				if time.Now().After(deadline) {
-					return fail(1, "watch timeout: %s still %s", res.Service.ID, res.Service.Health)
-				}
+
 				remaining := time.Until(deadline)
 				sleep := interval
 				if remaining < sleep {
 					sleep = remaining
+				}
+				if sleep <= 0 {
+					continue
 				}
 				select {
 				case <-cmd.Context().Done():
@@ -92,4 +90,26 @@ func newWatchCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&interval, "interval", 2*time.Second, "poll interval")
 	cmd.Flags().DurationVar(&timeout, "timeout", 5*time.Minute, "give up after this duration")
 	return cmd
+}
+
+// watchTick loads once. cont=true means retry after sleep (transient error).
+func watchTick(cmd *cobra.Command, src *sourceFlags, query string, since time.Duration) (healthy bool, svcID, health, line string, cont bool, err error) {
+	ls, cfg, err := src.loadCtx(cmd.Context(), since)
+	if err != nil {
+		return false, "", "", "warning: watch load: " + err.Error(), true, nil
+	}
+	win := since
+	if win == 0 {
+		win = cfg.Since()
+	}
+	res, err := askService(ls, query, win)
+	ls.cleanup()
+	if err != nil {
+		if errors.Is(err, ask.ErrServiceNotFound) {
+			return false, "", "", "", false, failAsk(err)
+		}
+		return false, "", "", "warning: watch ask: " + err.Error(), true, nil
+	}
+	line = res.Service.ID + " " + res.Service.Health
+	return res.Service.Health == model.HealthHealthy, res.Service.ID, res.Service.Health, line, false, nil
 }

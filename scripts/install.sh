@@ -145,20 +145,41 @@ else
     echo "could not resolve release tag for ${REPO}" >&2
     exit 1
   fi
-  if [[ "$os" == windows ]]; then
-    asset="opsgraph_${tag}_${os}_${arch}.zip"
-  else
-    asset="opsgraph_${tag}_${os}_${arch}.tar.gz"
+  # Release tags are vX.Y.Z; accept bare X.Y.Z by retrying with a v prefix.
+  try_tags=("$tag")
+  if [[ "$tag" != v* ]]; then
+    try_tags+=("v${tag}")
   fi
-  url="https://github.com/${REPO}/releases/download/${tag}/${asset}"
-  echo "downloading ${url}"
-  curl -fsSL -o "$tmp/${asset}" "$url"
+  downloaded=""
+  for try in "${try_tags[@]}"; do
+    if [[ "$os" == windows ]]; then
+      asset="opsgraph_${try}_${os}_${arch}.zip"
+    else
+      asset="opsgraph_${try}_${os}_${arch}.tar.gz"
+    fi
+    url="https://github.com/${REPO}/releases/download/${try}/${asset}"
+    echo "downloading ${url}"
+    if curl -fsSL -o "$tmp/${asset}" "$url"; then
+      tag="$try"
+      downloaded=1
+      break
+    fi
+  done
+  if [[ -z "$downloaded" ]]; then
+    echo "failed to download release asset for ${VERSION}" >&2
+    exit 1
+  fi
   if ! curl -fsSL -o "$tmp/SHA256SUMS" "https://github.com/${REPO}/releases/download/${tag}/SHA256SUMS"; then
     if [[ "$INSECURE" != "1" ]]; then
       echo "failed to download SHA256SUMS (set OPSGRAPH_INSECURE=1 to skip)" >&2
       exit 1
     fi
     : > "$tmp/SHA256SUMS"
+  fi
+  if [[ "$os" == windows ]]; then
+    asset="opsgraph_${tag}_${os}_${arch}.zip"
+  else
+    asset="opsgraph_${tag}_${os}_${arch}.tar.gz"
   fi
   install_from_archive "$tag" "$tmp/${asset}" "$tmp/SHA256SUMS"
 fi

@@ -54,7 +54,7 @@ func precedingChange(changes []model.Change, alertAt time.Time) (model.Change, b
 	found := false
 	bestRank := 99
 	for _, c := range changes {
-		if c.At.After(alertAt) || alertAt.Sub(c.At) > correlateWindow {
+		if c.At.IsZero() || c.At.After(alertAt) || alertAt.Sub(c.At) > correlateWindow {
 			continue
 		}
 		rank := changeRank(c.Type)

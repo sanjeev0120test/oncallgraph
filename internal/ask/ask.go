@@ -156,7 +156,7 @@ func resolveServices(s *store.Store, ids []string) ([]model.Service, error) {
 func buildTimeline(res model.AskResult, now time.Time) []model.TimelineEvent {
 	events := make([]model.TimelineEvent, 0, len(res.Changes)+len(res.Alerts)+2)
 	for _, c := range res.Changes {
-		if c.At.IsZero() {
+		if c.At.IsZero() || c.At.After(now) {
 			continue
 		}
 		events = append(events, model.TimelineEvent{
@@ -164,7 +164,7 @@ func buildTimeline(res model.AskResult, now time.Time) []model.TimelineEvent {
 		})
 	}
 	for _, a := range res.Alerts {
-		if a.At.IsZero() {
+		if a.At.IsZero() || a.At.After(now) {
 			continue
 		}
 		events = append(events, model.TimelineEvent{

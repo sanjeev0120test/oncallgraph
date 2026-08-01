@@ -117,8 +117,15 @@ try {
     throw "could not replace $dest (is opsgraph running?). Staged as $staged — stop the process and rename it to opsgraph.exe"
   }
   Write-Host "installed $dest"
-  $pathParts = $env:PATH -split ';' | Where-Object { $_ }
-  if ($pathParts -notcontains $InstallDir) {
+  $normInstall = [System.IO.Path]::GetFullPath($InstallDir).TrimEnd('\')
+  $onPath = $false
+  foreach ($p in ($env:PATH -split ';')) {
+    if (-not $p) { continue }
+    try {
+      if ([System.IO.Path]::GetFullPath($p).TrimEnd('\') -ieq $normInstall) { $onPath = $true; break }
+    } catch { }
+  }
+  if (-not $onPath) {
     Write-Warning "add $InstallDir to PATH to run opsgraph from any shell"
     Write-Host "  `$env:PATH = `"$InstallDir;`$env:PATH`""
   }
