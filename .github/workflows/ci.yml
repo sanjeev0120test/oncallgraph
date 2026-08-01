@@ -310,16 +310,8 @@ jobs:
           INSTALL_REL="$(mktemp -d)"
           OPSGRAPH_RELEASE_DIR="$PWD/dist-release" OPSGRAPH_VERSION="$REL_VERSION" OPSGRAPH_INSTALL_DIR="$INSTALL_REL" ./scripts/install.sh
           "$INSTALL_REL/opsgraph" version >/dev/null
-      - name: Upload cross-compile artifacts
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v7
-        with:
-          name: opsgraph-cross-${{ github.sha }}
-          path: |
-            dist/*
-            dist-release/*
-          if-no-files-found: error
-          retention-days: 2
+          # No artifact upload here: avoids cache-poisoning risk with actions/cache,
+          # and GitHub Releases (release.yml) are the real binary distribution channel.
 
   vuln:
     name: govulncheck
