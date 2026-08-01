@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -28,10 +27,7 @@ func newWhyCmd() *cobra.Command {
 			}
 			res, err := askService(ls, args[0], since)
 			if err != nil {
-				if errors.Is(err, ask.ErrServiceNotFound) {
-					return fail(1, "%v", err)
-				}
-				return fail(2, "%v", err)
+				return failAsk(err)
 			}
 			cmd.Println(whyLine(res))
 			return nil

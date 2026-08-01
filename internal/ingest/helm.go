@@ -54,10 +54,11 @@ func emitHelmDeploy(s *store.Store, r helmRelease) error {
 	if name == "" {
 		name = r.ServiceID
 	}
-	evID := "ev-helm-" + name
+	// Include service_id so two services cannot collide on the same release name.
+	evID := "ev-helm-" + r.ServiceID + "-" + name
 	summary := fmt.Sprintf("helm release %s chart=%s rev=%s", name, r.Chart, rev)
 	if err := s.UpsertChange(model.Change{
-		ID: "helm-" + name, ServiceID: r.ServiceID, At: at, Type: "deploy",
+		ID: "helm-" + r.ServiceID + "-" + name, ServiceID: r.ServiceID, At: at, Type: "deploy",
 		Summary: summary, Revision: rev, Source: "helm", EvidenceID: evID,
 	}); err != nil {
 		return err

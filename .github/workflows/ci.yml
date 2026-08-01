@@ -63,6 +63,10 @@ jobs:
           test -s scripts/pack-release.sh
           head -n 1 scripts/install.sh | grep -qE '^#!/'
           head -n 1 scripts/pack-release.sh | grep -qE '^#!/'
+          # Live-connector smoke fixture must resolve its k8s snapshot.
+          test -f fixtures/ci_live_k8s/.opsgraph.yaml
+          test -d fixtures/incident_checkout/k8s
+          test -f fixtures/incident_checkout/k8s/deployments.yaml
 
   staticcheck:
     name: staticcheck

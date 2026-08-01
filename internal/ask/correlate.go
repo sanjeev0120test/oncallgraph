@@ -22,7 +22,7 @@ func correlate(res model.AskResult) []model.Correlation {
 	}
 	var out []model.Correlation
 	for _, a := range res.Alerts {
-		if !model.AlertActive(a.Status) {
+		if !model.AlertActive(a.Status) || a.At.IsZero() {
 			continue
 		}
 		ch, ok := precedingChange(res.Changes, a.At)

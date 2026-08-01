@@ -36,7 +36,7 @@ func TestIngestPrometheus(t *testing.T) {
 	}
 	t.Cleanup(cleanup)
 
-	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client()); err != nil {
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
 		t.Fatal(err)
 	}
 	alerts, err := s.ListAlerts("checkout", time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC))
@@ -66,7 +66,7 @@ func TestIngestPrometheusServiceNameLabel(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(cleanup)
-	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client()); err != nil {
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
 		t.Fatal(err)
 	}
 	alerts, err := s.ListAlerts("checkout", time.Time{})
@@ -101,10 +101,10 @@ func TestIngestPrometheusResolvesZombieAlerts(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(cleanup)
-	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client()); err != nil {
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client()); err != nil {
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
 		t.Fatal(err)
 	}
 	alerts, err := s.ListAlerts("checkout", time.Time{})
@@ -149,10 +149,10 @@ func TestIngestPrometheusUnlabeledDropStillResolves(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(cleanup)
-	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client()); err != nil {
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client()); err != nil {
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
 		t.Fatal(err)
 	}
 	alerts, err := s.ListAlerts("checkout", time.Time{})

@@ -28,8 +28,9 @@ permissions:
   contents: read
 
 concurrency:
+  # Never cancel an in-flight release publish — a second tag push must wait.
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   GOTOOLCHAIN: local

@@ -1,11 +1,9 @@
 package main
 
 import (
-	"errors"
 	"sort"
 	"time"
 
-	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/score"
 	"github.com/spf13/cobra"
@@ -33,10 +31,7 @@ func newScoreCmd() *cobra.Command {
 			}
 			res, err := askService(ls, args[0], since)
 			if err != nil {
-				if errors.Is(err, ask.ErrServiceNotFound) {
-					return fail(1, "%v", err)
-				}
-				return fail(2, "%v", err)
+				return failAsk(err)
 			}
 			sc := score.Compute(res)
 			if format == "json" {

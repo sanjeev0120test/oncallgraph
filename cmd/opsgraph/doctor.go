@@ -72,6 +72,25 @@ func newDoctorCmd() *cobra.Command {
 						check("git_repo", false, gitPath+" missing")
 					}
 				}
+				if !cfg.Connectors.Kubernetes.Enabled {
+					warnf("k8s_snapshot", "connector disabled")
+				} else if cfg.Connectors.Kubernetes.Snapshot == "" {
+					check("k8s_snapshot", false, "enabled but snapshot path is empty")
+				} else {
+					cfgDir := "."
+					if eff := resolveConfigPath(configPath); eff != "" {
+						cfgDir = dirOf(eff)
+					}
+					snap := cfg.Connectors.Kubernetes.Snapshot
+					if !filepath.IsAbs(snap) {
+						snap = filepath.Join(cfgDir, snap)
+					}
+					if pathExists(snap) {
+						check("k8s_snapshot", true, snap)
+					} else {
+						check("k8s_snapshot", false, snap+" missing")
+					}
+				}
 				if probeOllama(context.Background(), cfg.AI.OllamaURL) {
 					check("ollama", true, cfg.AI.OllamaURL)
 				} else {

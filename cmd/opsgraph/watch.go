@@ -1,10 +1,8 @@
 package main
 
 import (
-	"errors"
 	"time"
 
-	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -36,6 +34,12 @@ func newWatchCmd() *cobra.Command {
 			deadline := time.Now().Add(timeout)
 			var last string
 			for {
+				if err := cmd.Context().Err(); err != nil {
+					return fail(1, "cancelled")
+				}
+				if time.Now().After(deadline) {
+					return fail(1, "watch timeout before poll completed")
+				}
 				ls, cfg, err := src.load(since)
 				if err != nil {
 					return failSource(err)
@@ -47,10 +51,7 @@ func newWatchCmd() *cobra.Command {
 				res, err := askService(ls, args[0], win)
 				ls.cleanup()
 				if err != nil {
-					if errors.Is(err, ask.ErrServiceNotFound) {
-						return fail(1, "%v", err)
-					}
-					return fail(2, "%v", err)
+					return failAsk(err)
 				}
 				line := res.Service.ID + " " + res.Service.Health
 				if line != last {
@@ -63,10 +64,15 @@ func newWatchCmd() *cobra.Command {
 				if time.Now().After(deadline) {
 					return fail(1, "watch timeout: %s still %s", res.Service.ID, res.Service.Health)
 				}
+				remaining := time.Until(deadline)
+				sleep := interval
+				if remaining < sleep {
+					sleep = remaining
+				}
 				select {
 				case <-cmd.Context().Done():
 					return fail(1, "cancelled")
-				case <-time.After(interval):
+				case <-time.After(sleep):
 				}
 			}
 		},

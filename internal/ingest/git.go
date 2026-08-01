@@ -58,7 +58,7 @@ func IngestGit(s *store.Store, repoPath string, services []ServicePaths, since, 
 }
 
 func recordCommit(s *store.Store, c *object.Commit, serviceID string) error {
-	short := c.Hash.String()[:12]
+	short := shortHash(c.Hash.String())
 	evID := "ev-git-" + short + "-" + serviceID
 	summary := firstLine(c.Message)
 	at := c.Author.When.UTC()
@@ -108,4 +108,11 @@ func firstLine(msg string) string {
 		return strings.TrimSpace(msg[:i])
 	}
 	return strings.TrimSpace(msg)
+}
+
+func shortHash(h string) string {
+	if len(h) > 12 {
+		return h[:12]
+	}
+	return h
 }

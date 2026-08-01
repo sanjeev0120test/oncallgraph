@@ -18,9 +18,13 @@ import (
 // Alerts previously seen from this source but absent in the scrape are marked
 // resolved so the store does not keep zombie firings. Disabled unless
 // explicitly enabled; tested with httptest (no live Prometheus).
-func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, client *http.Client) error {
+// now is used when an alert lacks StartsAt/activeAt (zero means wall clock).
+func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, client *http.Client, now time.Time) error {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
 	}
 	url := strings.TrimRight(baseURL, "/") + "/api/v1/alerts"
 	body, err := getJSON(ctx, client, url)
@@ -34,7 +38,7 @@ func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, clien
 	seen := map[string]bool{}
 	dropped := 0
 	for _, a := range resp.Data.Alerts {
-		id, ok, err := upsertRemoteAlert(s, a.labels(), a.annotations(), a.State, a.ActiveAt, "prometheus")
+		id, ok, err := upsertRemoteAlert(s, a.labels(), a.annotations(), a.State, a.ActiveAt, "prometheus", now)
 		if err != nil {
 			return err
 		}
@@ -91,7 +95,7 @@ func getJSON(ctx context.Context, client *http.Client, url string) ([]byte, erro
 	return body, nil
 }
 
-func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, state string, at time.Time, source string) (id string, ok bool, err error) {
+func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, state string, at time.Time, source string, fallbackNow time.Time) (id string, ok bool, err error) {
 	name := labels["alertname"]
 	if name == "" {
 		return "", false, nil
@@ -104,16 +108,20 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 	switch strings.ToLower(state) {
 	case "firing", "active":
 		status = "firing"
-	case "resolved":
+	case "resolved", "inactive":
+		// Prometheus uses "inactive" for cleared alerts.
 		status = "resolved"
 	case "suppressed":
 		// Silenced in Alertmanager ≠ cleared; keep paging signal visible.
 		status = "firing"
-	case "pending":
+	case "pending", "unprocessed":
 		status = "pending"
 	}
 	if at.IsZero() {
-		at = time.Now().UTC()
+		at = fallbackNow
+		if at.IsZero() {
+			at = time.Now().UTC()
+		}
 	}
 	id = source + "-" + slug(name) + "-" + slug(svcID)
 	evID := "ev-" + id

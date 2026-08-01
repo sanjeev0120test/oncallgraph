@@ -1,10 +1,8 @@
 package main
 
 import (
-	"errors"
 	"time"
 
-	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/score"
@@ -33,17 +31,11 @@ func newCompareCmd() *cobra.Command {
 			}
 			a, err := askService(ls, args[0], since)
 			if err != nil {
-				if errors.Is(err, ask.ErrServiceNotFound) {
-					return fail(1, "%v", err)
-				}
-				return fail(2, "%v", err)
+				return failAsk(err)
 			}
 			b, err := askService(ls, args[1], since)
 			if err != nil {
-				if errors.Is(err, ask.ErrServiceNotFound) {
-					return fail(1, "%v", err)
-				}
-				return fail(2, "%v", err)
+				return failAsk(err)
 			}
 			sa, sb := score.Compute(a), score.Compute(b)
 			type side struct {

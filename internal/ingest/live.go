@@ -18,6 +18,7 @@ import (
 
 // openK8sSnapshotFS accepts either a directory (deployments.yaml inside) or a
 // path to the deployments YAML file (siblings: events.yaml, releases.yaml).
+// File names returned for fs.FS always use forward slashes (required by io/fs).
 func openK8sSnapshotFS(snap string) (fsys fs.FS, depFile, evFile, relFile string, err error) {
 	info, err := os.Stat(snap)
 	if err != nil {
@@ -27,7 +28,7 @@ func openK8sSnapshotFS(snap string) (fsys fs.FS, depFile, evFile, relFile string
 		return os.DirFS(snap), "deployments.yaml", "events.yaml", "releases.yaml", nil
 	}
 	dir := filepath.Dir(snap)
-	return os.DirFS(dir), filepath.Base(snap), "events.yaml", "releases.yaml", nil
+	return os.DirFS(dir), filepath.ToSlash(filepath.Base(snap)), "events.yaml", "releases.yaml", nil
 }
 
 // LiveIngest seeds the store from config and runs the enabled live connectors
@@ -77,7 +78,7 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			fmt.Fprintln(os.Stderr, "warning: prometheus connector enabled but url is empty; skipping")
 		} else {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil)
+			err := IngestPrometheus(ctx, s, cfg.Connectors.Prometheus.URL, nil, now)
 			cancel()
 			if err != nil {
 				return fmt.Errorf("prometheus connector: %w", err)
@@ -89,7 +90,7 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			fmt.Fprintln(os.Stderr, "warning: alertmanager connector enabled but url is empty; skipping")
 		} else {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil)
+			err := IngestAlertmanager(ctx, s, cfg.Connectors.Alertmanager.URL, nil, now)
 			cancel()
 			if err != nil {
 				return fmt.Errorf("alertmanager connector: %w", err)

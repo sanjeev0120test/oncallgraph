@@ -69,7 +69,10 @@ func newStatusCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-			ver, _ := ls.store.UserVersion()
+			ver, err := ls.store.UserVersion()
+			if err != nil {
+				return fail(2, "schema version: %v", err)
+			}
 			cmd.Printf("\nINGESTED (schema v%d)\n", ver)
 			for _, k := range sortedKeys(counts) {
 				cmd.Printf("  %-13s %d\n", k+":", counts[k])

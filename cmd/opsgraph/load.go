@@ -7,6 +7,7 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/config"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
 // sourceFlags are the common --fixture/--config/--data-dir trio.
@@ -44,4 +45,15 @@ func askService(ls *loadedStore, query string, since time.Duration) (model.AskRe
 		since = time.Hour
 	}
 	return ask.Ask(ls.store, query, ask.Options{Since: since, Now: ls.now, WithRunbook: true})
+}
+
+// failAsk maps ask errors to CLI exit codes (1 = not found / ambiguous, 2 = other).
+func failAsk(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ask.ErrServiceNotFound) || errors.Is(err, store.ErrAmbiguous) {
+		return fail(1, "%v", err)
+	}
+	return fail(2, "%v", err)
 }

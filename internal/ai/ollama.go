@@ -39,10 +39,19 @@ func ollamaSummary(ctx context.Context, cfg *config.Config, res model.AskResult)
 		return "", false
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, cfg.AITimeout())
+	budget := cfg.AITimeout()
+	ctx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 
-	ragContext := retrieveContext(ctx, cfg, res)
+	// Cap RAG so embedding cannot starve generation under a shared deadline.
+	ragTimeout := budget / 3
+	if ragTimeout < 2*time.Second {
+		ragTimeout = budget / 2
+	}
+	ragCtx, ragCancel := context.WithTimeout(ctx, ragTimeout)
+	ragContext := retrieveContext(ragCtx, cfg, res)
+	ragCancel()
+
 	prompt := buildPrompt(res, ragContext)
 
 	llm, err := ollama.New(

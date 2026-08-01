@@ -78,7 +78,7 @@ opsgraph test ./fixtures/incident_checkout --update
 ```
 
 ### `opsgraph status` / `opsgraph doctor` / `opsgraph version`
-Store counts, environment checks, and build metadata.
+Store counts, environment checks, and build metadata. `status` uses the same source selection as `ask`. `doctor` verifies git repo and (when enabled) the kubernetes snapshot path.
 
 ## Fleet / incident helpers
 

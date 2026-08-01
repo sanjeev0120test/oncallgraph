@@ -1,14 +1,12 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
 
-	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/report"
 	"github.com/spf13/cobra"
@@ -44,10 +42,7 @@ func newExportCmd() *cobra.Command {
 			}
 			res, err := askService(ls, args[0], since)
 			if err != nil {
-				if errors.Is(err, ask.ErrServiceNotFound) {
-					return fail(1, "%v", err)
-				}
-				return fail(2, "%v", err)
+				return failAsk(err)
 			}
 			if dir := filepath.Dir(outPath); dir != "." && dir != "" {
 				if err := os.MkdirAll(dir, 0o755); err != nil {

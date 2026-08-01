@@ -15,9 +15,12 @@ import (
 // IngestAlertmanager fetches /api/v2/alerts and upserts alerts.
 // Alerts previously seen from this source but absent in the scrape are marked
 // resolved. Disabled unless explicitly enabled; tested with httptest.
-func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, client *http.Client) error {
+func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, client *http.Client, now time.Time) error {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
 	}
 	url := strings.TrimRight(baseURL, "/") + "/api/v2/alerts"
 	body, err := getJSON(ctx, client, url)
@@ -35,7 +38,7 @@ func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, cli
 		if state == "" {
 			state = "active"
 		}
-		id, ok, err := upsertRemoteAlert(s, a.Labels, a.Annotations, state, a.StartsAt, "alertmanager")
+		id, ok, err := upsertRemoteAlert(s, a.Labels, a.Annotations, state, a.StartsAt, "alertmanager", now)
 		if err != nil {
 			return err
 		}

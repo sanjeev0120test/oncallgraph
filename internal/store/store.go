@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite" // pure-Go driver, no CGO
@@ -139,6 +140,11 @@ CREATE TABLE IF NOT EXISTS evidence (
 	raw_ref TEXT,
 	service_id TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_changes_service_at ON changes(service_id, at);
+CREATE INDEX IF NOT EXISTS idx_alerts_service_status_at ON alerts(service_id, status, at);
+CREATE INDEX IF NOT EXISTS idx_evidence_service ON evidence(service_id);
+CREATE INDEX IF NOT EXISTS idx_deps_from ON dependencies(from_service_id);
+CREATE INDEX IF NOT EXISTS idx_deps_to ON dependencies(to_service_id);
 `
 	if _, err := s.db.Exec(schema); err != nil {
 		return fmt.Errorf("init schema: %w", err)
@@ -205,14 +211,28 @@ func fmtTime(t time.Time) string {
 }
 
 func parseTime(s string) time.Time {
+	t, _ := parseTimeOK(s)
+	return t
+}
+
+// parseTimeOK accepts RFC3339 and RFC3339Nano (and a few common variants
+// written by connectors). Corrupt values yield ok=false and a zero time.
+func parseTimeOK(s string) (time.Time, bool) {
+	s = strings.TrimSpace(s)
 	if s == "" {
-		return time.Time{}
+		return time.Time{}, false
 	}
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return time.Time{}
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02 15:04:05Z07:00",
+	} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.UTC(), true
+		}
 	}
-	return t.UTC()
+	return time.Time{}, false
 }
 
 func toJSON(v any) string {

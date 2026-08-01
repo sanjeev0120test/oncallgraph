@@ -31,7 +31,7 @@ func TestIngestAlertmanager(t *testing.T) {
 	}
 	t.Cleanup(cleanup)
 
-	if err := ingest.IngestAlertmanager(context.Background(), s, srv.URL, srv.Client()); err != nil {
+	if err := ingest.IngestAlertmanager(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
 		t.Fatal(err)
 	}
 	alerts, err := s.ListAlerts("auth", time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC))
