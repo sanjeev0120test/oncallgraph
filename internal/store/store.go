@@ -325,12 +325,12 @@ func parseTimeOK(s string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-func toJSON(v any) string {
+func toJSON(v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return string(b)
+	return string(b), nil
 }
 
 func decodeJSON(s string, v any) error {

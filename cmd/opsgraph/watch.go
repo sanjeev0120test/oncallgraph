@@ -77,7 +77,11 @@ func newWatchCmd() *cobra.Command {
 					sleep = remaining
 				}
 				if sleep <= 0 {
-					continue
+					// Do not busy-spin; surface timeout with last observed health.
+					if lastHealth != "" {
+						return fail(1, "watch timeout: %s still %s", svcID, lastHealth)
+					}
+					return fail(1, "watch timeout: %s", svcID)
 				}
 				select {
 				case <-cmd.Context().Done():

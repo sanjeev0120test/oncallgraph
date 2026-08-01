@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
@@ -78,6 +79,8 @@ func newCompareCmd() *cobra.Command {
 			cmd.Printf("%-12s %-12s %-12s\n", "level", out.A.Level, out.B.Level)
 			cmd.Printf("%-12s %-12d %-12d\n", "changes", out.A.Changes, out.B.Changes)
 			cmd.Printf("%-12s %-12d %-12d\n", "alerts", out.A.Alerts, out.B.Alerts)
+			cmd.Printf("%-12s %-12s %-12s\n", "upstream", strings.Join(out.A.Upstream, ","), strings.Join(out.B.Upstream, ","))
+			cmd.Printf("%-12s %-12s %-12s\n", "downstream", strings.Join(out.A.Downstream, ","), strings.Join(out.B.Downstream, ","))
 			return nil
 		},
 	}

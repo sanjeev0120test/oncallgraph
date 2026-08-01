@@ -83,25 +83,8 @@ func changedFiles(c *object.Commit) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("commit tree %s: %w", c.Hash, err)
 	}
-	var changes object.Changes
-	if c.NumParents() == 0 {
-		changes, err = object.DiffTree(nil, tree)
-	} else {
-		parent, perr := c.Parent(0)
-		if perr != nil {
-			return nil, fmt.Errorf("commit parent %s: %w", c.Hash, perr)
-		}
-		ptree, perr := parent.Tree()
-		if perr != nil {
-			return nil, fmt.Errorf("parent tree %s: %w", parent.Hash, perr)
-		}
-		changes, err = object.DiffTree(ptree, tree)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("commit diff %s: %w", c.Hash, err)
-	}
 	seen := map[string]bool{}
-	out := make([]string, 0, len(changes))
+	out := make([]string, 0)
 	add := func(name string) {
 		p := path.Clean(strings.ReplaceAll(name, "\\", "/"))
 		if p == "." || p == "" || seen[p] {
@@ -110,9 +93,35 @@ func changedFiles(c *object.Commit) ([]string, error) {
 		seen[p] = true
 		out = append(out, p)
 	}
-	for _, ch := range changes {
-		add(ch.From.Name)
-		add(ch.To.Name)
+	collect := func(changes object.Changes) {
+		for _, ch := range changes {
+			add(ch.From.Name)
+			add(ch.To.Name)
+		}
+	}
+	if c.NumParents() == 0 {
+		changes, err := object.DiffTree(nil, tree)
+		if err != nil {
+			return nil, fmt.Errorf("commit diff %s: %w", c.Hash, err)
+		}
+		collect(changes)
+	} else {
+		// Union diffs against every parent so merge commits attribute both sides.
+		for i := 0; i < c.NumParents(); i++ {
+			parent, perr := c.Parent(i)
+			if perr != nil {
+				return nil, fmt.Errorf("commit parent %d %s: %w", i, c.Hash, perr)
+			}
+			ptree, perr := parent.Tree()
+			if perr != nil {
+				return nil, fmt.Errorf("parent tree %s: %w", parent.Hash, perr)
+			}
+			changes, derr := object.DiffTree(ptree, tree)
+			if derr != nil {
+				return nil, fmt.Errorf("commit diff %s parent %d: %w", c.Hash, i, derr)
+			}
+			collect(changes)
+		}
 	}
 	sort.Strings(out)
 	return out, nil

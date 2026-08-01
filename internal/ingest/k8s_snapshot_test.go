@@ -30,7 +30,7 @@ func TestOpenK8sSnapshotFSDirAndFile(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := ingestK8sFiles(s, fsys, depFile, "events.yaml", time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)); err != nil {
+		if err := ingestK8sFiles(s, fsys, depFile, "events.yaml", time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC), k8sAllow{}); err != nil {
 			cleanup()
 			t.Fatalf("ingest via %q: %v", snap, err)
 		}

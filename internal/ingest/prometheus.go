@@ -120,12 +120,33 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 		return "", false, nil
 	}
 	rawSvc := resolveServiceLabel(labels)
+	bestEffortApp := false
 	if rawSvc == "" {
-		return "", false, nil
+		// Only accept generic app labels when they resolve to a known service
+		// (avoids inventing stubs for scrape-target names).
+		for _, cand := range []string{
+			labels["app"], labels["app_kubernetes_io_name"], labels["label_app_kubernetes_io_name"],
+		} {
+			cand = strings.TrimSpace(cand)
+			if cand == "" {
+				continue
+			}
+			if svc, err := s.GetServiceByNameOrAlias(cand); err == nil {
+				rawSvc = svc.ID
+				bestEffortApp = true
+				fmt.Fprintf(os.Stderr, "warning: %s alert %q mapped via app label %q -> %s\n", source, name, cand, rawSvc)
+				break
+			}
+		}
+		if rawSvc == "" {
+			return "", false, nil
+		}
 	}
 	// Map label aliases (checkout-api) onto canonical service ids when known.
 	svcID := rawSvc
-	if svc, err := s.GetServiceByNameOrAlias(rawSvc); err == nil {
+	if bestEffortApp {
+		// Already resolved above.
+	} else if svc, err := s.GetServiceByNameOrAlias(rawSvc); err == nil {
 		svcID = svc.ID
 	} else if errors.Is(err, store.ErrAmbiguous) {
 		fmt.Fprintf(os.Stderr, "warning: %s alert %q service label %q is ambiguous; skipping\n", source, name, rawSvc)

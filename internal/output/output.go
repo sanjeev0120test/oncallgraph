@@ -86,6 +86,27 @@ func Table(w io.Writer, res model.AskResult) error {
 		}
 	}
 
+	if len(res.Timeline) > 0 {
+		p("TIMELINE\n")
+		limit := len(res.Timeline)
+		if limit > 8 {
+			limit = 8
+		}
+		for _, e := range res.Timeline[:limit] {
+			p("          %s  %-8s %s", e.At.Format(time.RFC3339), e.Kind, e.Summary)
+			if e.EvidenceID != "" {
+				p(" [%s]", e.EvidenceID)
+			}
+			p("\n")
+		}
+	}
+	if len(res.Evidence) > 0 {
+		p("EVIDENCE\n")
+		for _, e := range res.Evidence {
+			p("          %s  %s\n", e.ID, e.Summary)
+		}
+	}
+
 	p("NEXT\n")
 	for i, r := range res.Recommendations {
 		p("          %d. %s\n", i+1, r)

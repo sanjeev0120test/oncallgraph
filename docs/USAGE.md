@@ -106,7 +106,7 @@ Fleet alert list. `--firing` keeps active (`firing`/`pending`) alerts; `--servic
 
 ## Validation
 
-- Heavy validation runs in GitHub Actions (3-OS matrix, race on ubuntu, cross-compile 6 targets, install smoke).
+- Heavy validation runs in GitHub Actions (3-OS matrix, race on ubuntu+macos, cross-compile 6 targets, install smoke).
 - Locally: `pwsh scripts/verify.ps1` (Windows) or `bash scripts/verify.sh` / `make quick` (Unix).
 
 ## Optional live connectors

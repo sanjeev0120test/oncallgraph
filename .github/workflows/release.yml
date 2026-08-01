@@ -84,10 +84,12 @@ jobs:
             echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } >> "$GITHUB_OUTPUT"
       - name: Run unit + fixture gates before packaging
+        env:
+          CGO_ENABLED: "1"
         run: |
           set -euo pipefail
-          # Match CI determinism contract (ask twice must be byte-identical).
-          go test ./...
+          # Match CI race + determinism contracts before publishing binaries.
+          go test -race ./...
           go run ./cmd/opsgraph test ./fixtures/incident_checkout
           go run ./cmd/opsgraph demo --format json >/dev/null
           A="$(mktemp)"; B="$(mktemp)"

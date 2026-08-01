@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -51,8 +52,8 @@ func newWhoCmd() *cobra.Command {
 				w.OwnerName = res.Owner.Name
 				w.OwnerEmail = res.Owner.Email
 			}
-			if len(res.Changes) > 0 {
-				c := res.Changes[0]
+			// Align with R1 / explain / fingerprint: 30m suspect window, not full lookback.
+			if c, ok := ask.RecentSuspectChange(res); ok {
 				w.LastChange = c.Summary
 				w.LastAuthor = c.Author
 				w.LastType = c.Type
@@ -74,6 +75,8 @@ func newWhoCmd() *cobra.Command {
 			}
 			if w.LastChange != "" {
 				cmd.Printf("CHANGED  %s by %s (%s %s) [%s]\n", w.LastChange, w.LastAuthor, w.LastType, w.LastRev, w.EvidenceID)
+			} else if len(res.Changes) > 0 {
+				cmd.Println("CHANGED  (none in 30m suspect window; older lookback changes exist)")
 			} else {
 				cmd.Println("CHANGED  (none in window)")
 			}

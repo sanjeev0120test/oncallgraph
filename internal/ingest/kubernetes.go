@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -58,9 +59,16 @@ func deploymentHealth(desired, ready int) string {
 	}
 }
 
+// k8sAllow lists optional config filters (services.*.k8s.deployments/namespaces).
+// Empty means allow all snapshot rows for that dimension.
+type k8sAllow struct {
+	Deployments map[string]bool // name -> allowed
+	Namespaces  map[string]bool
+}
+
 // ingestK8sSnapshot reads a fixture-pack snapshot under k8s/.
 func ingestK8sSnapshot(s *store.Store, fsys fs.FS, now time.Time) error {
-	if err := ingestK8sFiles(s, fsys, "k8s/deployments.yaml", "k8s/events.yaml", now); err != nil {
+	if err := ingestK8sFiles(s, fsys, "k8s/deployments.yaml", "k8s/events.yaml", now, k8sAllow{}); err != nil {
 		return err
 	}
 	return ingestHelmReleases(s, fsys, "k8s/releases.yaml", now)
@@ -68,22 +76,45 @@ func ingestK8sSnapshot(s *store.Store, fsys fs.FS, now time.Time) error {
 
 // ingestK8sFiles reads the given deployment/event files (if present), updates
 // service health, emits rollout changes, and records event evidence.
-func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time.Time) error {
+func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time.Time, allow k8sAllow) error {
 	var deps k8sDeployments
 	if _, err := readYAML(fsys, depFile, &deps); err != nil {
 		return err
 	}
 	skippedDep := 0
+	bySvc := map[string][]k8sDeployment{}
 	for _, d := range deps.Deployments {
 		if d.ServiceID == "" {
 			skippedDep++
 			continue
 		}
-		if err := applyDeploymentHealth(s, d); err != nil {
+		if !k8sAllowed(d, allow) {
+			continue
+		}
+		bySvc[d.ServiceID] = append(bySvc[d.ServiceID], d)
+	}
+	svcIDs := make([]string, 0, len(bySvc))
+	for id := range bySvc {
+		svcIDs = append(svcIDs, id)
+	}
+	sort.Strings(svcIDs)
+	for _, id := range svcIDs {
+		list := bySvc[id]
+		// Roll up worst replica health so a healthy deploy cannot hide an unhealthy one.
+		worst := list[0]
+		for _, d := range list[1:] {
+			if healthRank(deploymentHealth(d.Desired, d.Ready)) >
+				healthRank(deploymentHealth(worst.Desired, worst.Ready)) {
+				worst = d
+			}
+		}
+		if err := applyDeploymentHealth(s, worst); err != nil {
 			return err
 		}
-		if err := emitRollout(s, d, now); err != nil {
-			return err
+		for _, d := range list {
+			if err := emitRollout(s, d, now); err != nil {
+				return err
+			}
 		}
 	}
 	if skippedDep > 0 {
@@ -135,6 +166,22 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time
 	return nil
 }
 
+func k8sAllowed(d k8sDeployment, allow k8sAllow) bool {
+	if len(allow.Deployments) > 0 && !allow.Deployments[d.Name] {
+		return false
+	}
+	if len(allow.Namespaces) > 0 {
+		ns := d.Namespace
+		if ns == "" {
+			ns = "default"
+		}
+		if !allow.Namespaces[ns] {
+			return false
+		}
+	}
+	return true
+}
+
 func applyDeploymentHealth(s *store.Store, d k8sDeployment) error {
 	health := deploymentHealth(d.Desired, d.Ready)
 	svc, err := s.GetService(d.ServiceID)
@@ -151,9 +198,8 @@ func applyDeploymentHealth(s *store.Store, d k8sDeployment) error {
 }
 
 // mergeHealth merges replica-derived health with prior state.
-// When prior health came from kubernetes (sources contains "kubernetes"),
-// the latest replica scrape wins so recovery is visible. Otherwise replica
-// health cannot upgrade a worse app-level state (pods Ready ≠ app healthy).
+// When prior health came from kubernetes, the latest scrape rollup wins so recovery
+// is visible. Otherwise replica health cannot upgrade a worse app-level state.
 func mergeHealth(current, incoming string, sources []string) string {
 	if current == "" || current == model.HealthUnknown {
 		return incoming

@@ -48,18 +48,32 @@ func newTestCmd() *cobra.Command {
 			var failures int
 			checked := 0
 			for _, svc := range services {
-				if _, err := ls.store.GetRunbook(svc.ID); err != nil {
-					continue // only services with a runbook define goldens
+				_, rbErr := ls.store.GetRunbook(svc.ID)
+				hasRB := rbErr == nil
+				askName := "ask_" + svc.ID + ".json"
+				askPath := filepath.Join(expectedDir, askName)
+				_, askExists := os.Stat(askPath)
+				// Compare any existing ask golden; on --update only services with runbooks
+				// (primary contract) plus any service that already had an ask golden.
+				if !hasRB && !update && askExists != nil {
+					continue
+				}
+				if !hasRB && update && askExists != nil {
+					continue
 				}
 
 				res, err := ask.Ask(ls.store, svc.ID, ask.Options{Since: time.Hour, Now: ls.now, WithRunbook: true})
 				if err != nil {
 					return fail(2, "ask %s: %v", svc.ID, err)
 				}
-				if err := goldenIO(cmd, expectedDir, "ask_"+svc.ID+".json", res, update, &failures); err != nil {
+				if err := goldenIO(cmd, expectedDir, askName, res, update, &failures); err != nil {
 					return err
 				}
+				checked++
 
+				if !hasRB {
+					continue
+				}
 				vr, err := verifier.VerifyService(svc.ID)
 				if err != nil {
 					return fail(2, "verify %s: %v", svc.ID, err)
@@ -67,11 +81,10 @@ func newTestCmd() *cobra.Command {
 				if err := goldenIO(cmd, expectedDir, "verify_"+svc.ID+".json", vr, update, &failures); err != nil {
 					return err
 				}
-				checked++
 			}
 
 			if checked == 0 {
-				return fail(2, "no services with runbooks found in %q", dir)
+				return fail(2, "no services with runbooks or ask goldens found in %q", dir)
 			}
 			if update {
 				cmd.Printf("updated goldens for %d service(s)\n", checked)

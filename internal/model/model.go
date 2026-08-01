@@ -146,7 +146,7 @@ type AskResult struct {
 type VerifyResult struct {
 	ServiceID string             `json:"service_id"`
 	Path      string             `json:"path"`
-	Status    string             `json:"status"` // pass|fail|stale|missing
+	Status    string             `json:"status"` // pass|fail|stale|missing|manual
 	Steps     []StepVerifyResult `json:"steps"`
 }
 

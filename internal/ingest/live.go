@@ -76,7 +76,8 @@ func LiveIngest(ctx context.Context, s *store.Store, cfg *config.Config, configD
 			if err != nil {
 				return fmt.Errorf("kubernetes snapshot: %w", err)
 			}
-			if err := ingestK8sFiles(s, fsys, depFile, evFile, now); err != nil {
+			allow := k8sAllowFromConfig(cfg)
+			if err := ingestK8sFiles(s, fsys, depFile, evFile, now, allow); err != nil {
 				return fmt.Errorf("kubernetes snapshot: %w", err)
 			}
 			if err := ingestHelmReleases(s, fsys, relFile, now); err != nil {
@@ -213,9 +214,37 @@ func seedRunbook(s *store.Store, rbPath, configDir string) error {
 	return s.UpsertRunbook(rb)
 }
 
+func k8sAllowFromConfig(cfg *config.Config) k8sAllow {
+	a := k8sAllow{Deployments: map[string]bool{}, Namespaces: map[string]bool{}}
+	if cfg == nil {
+		return a
+	}
+	for _, sc := range cfg.Services {
+		for _, d := range sc.K8s.Deployments {
+			d = strings.TrimSpace(d)
+			if d != "" {
+				a.Deployments[d] = true
+			}
+		}
+		for _, ns := range sc.K8s.Namespaces {
+			ns = strings.TrimSpace(ns)
+			if ns != "" {
+				a.Namespaces[ns] = true
+			}
+		}
+	}
+	return a
+}
+
 func servicePaths(cfg *config.Config) []ServicePaths {
+	ids := make([]string, 0, len(cfg.Services))
+	for id := range cfg.Services {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
 	var out []ServicePaths
-	for id, sc := range cfg.Services {
+	for _, id := range ids {
+		sc := cfg.Services[id]
 		if len(sc.GitPaths) == 0 {
 			continue
 		}

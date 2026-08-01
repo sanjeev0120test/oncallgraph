@@ -108,13 +108,14 @@ func handoffNote(res model.AskResult) string {
 	if len(res.Recommendations) == 0 {
 		b.WriteString("1. Re-run `opsgraph ask` and verify current health.\n")
 	} else {
-		n := 0
-		for _, r := range res.Recommendations {
-			if n >= 5 {
-				break
-			}
-			n++
-			fmt.Fprintf(&b, "%d. %s\n", n, r)
+		// Prefer first recommendations + always keep the trailing handoff (R6).
+		recs := res.Recommendations
+		if len(recs) > 6 {
+			tail := recs[len(recs)-1]
+			recs = append(append([]string{}, recs[:5]...), tail)
+		}
+		for i, r := range recs {
+			fmt.Fprintf(&b, "%d. %s\n", i+1, r)
 		}
 	}
 	if len(res.Evidence) > 0 {

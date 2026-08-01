@@ -39,9 +39,18 @@ func buildPrompt(res model.AskResult, ragContext []string) string {
 			fmt.Fprintf(&b, "- %s %q (%s) evidence=%s\n", c.Type, c.Summary, rev, c.EvidenceID)
 		}
 	}
-	if len(res.Alerts) > 0 {
-		b.WriteString("Alerts:\n")
+	activeN := 0
+	for _, a := range res.Alerts {
+		if model.AlertActive(a.Status) {
+			activeN++
+		}
+	}
+	if activeN > 0 {
+		b.WriteString("Active alerts (paging):\n")
 		for _, a := range res.Alerts {
+			if !model.AlertActive(a.Status) {
+				continue
+			}
 			fmt.Fprintf(&b, "- %s (%s, %s) evidence=%s\n", a.Name, a.Severity, a.Status, a.EvidenceID)
 		}
 	}
@@ -68,8 +77,8 @@ func buildPrompt(res model.AskResult, ragContext []string) string {
 	return out
 }
 
-// truncatePrompt drops whole lines from the middle so we never cut mid-token
-// and always keep the instruction footer.
+// truncatePrompt keeps instruction + evidence/alert citation lines first, then
+// fills remaining budget from other lines. Never cuts mid-line; always keeps footer.
 func truncatePrompt(s, footer string, max int) string {
 	if max < len(footer)+32 {
 		return footer
@@ -80,15 +89,40 @@ func truncatePrompt(s, footer string, max int) string {
 		return body + footer
 	}
 	lines := strings.Split(body, "\n")
+	priority := make([]string, 0, len(lines))
+	rest := make([]string, 0, len(lines))
+	for i, line := range lines {
+		keep := i < 3 ||
+			strings.HasPrefix(line, "Evidence IDs") ||
+			strings.HasPrefix(line, "Active alerts") ||
+			strings.HasPrefix(line, "- ev-") ||
+			(strings.HasPrefix(line, "- ") && strings.Contains(line, "evidence="))
+		if keep {
+			priority = append(priority, line)
+		} else {
+			rest = append(rest, line)
+		}
+	}
 	var kept []string
 	n := 0
-	for _, line := range lines {
+	addLine := func(line string) bool {
 		add := len(line) + 1
 		if n+add > budget {
-			break
+			return false
 		}
 		kept = append(kept, line)
 		n += add
+		return true
+	}
+	for _, line := range priority {
+		if !addLine(line) {
+			return strings.Join(kept, "\n") + footer
+		}
+	}
+	for _, line := range rest {
+		if !addLine(line) {
+			break
+		}
 	}
 	return strings.Join(kept, "\n") + footer
 }

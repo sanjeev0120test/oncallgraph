@@ -24,13 +24,25 @@ func (s *Store) UpsertService(v model.Service) error {
 	if strings.TrimSpace(v.ID) == "" {
 		return fmt.Errorf("upsert service: empty id")
 	}
-	_, err := s.db.Exec(`
+	aliases, err := toJSON(v.Aliases)
+	if err != nil {
+		return wrap("upsert service aliases", err)
+	}
+	labels, err := toJSON(v.Labels)
+	if err != nil {
+		return wrap("upsert service labels", err)
+	}
+	sources, err := toJSON(v.Sources)
+	if err != nil {
+		return wrap("upsert service sources", err)
+	}
+	_, err = s.db.Exec(`
 INSERT INTO services (id,name,aliases,owner_id,health,labels,sources)
 VALUES (?,?,?,?,?,?,?)
 ON CONFLICT(id) DO UPDATE SET
 	name=excluded.name, aliases=excluded.aliases, owner_id=excluded.owner_id,
 	health=excluded.health, labels=excluded.labels, sources=excluded.sources`,
-		v.ID, v.Name, toJSON(v.Aliases), v.OwnerID, v.Health, toJSON(v.Labels), toJSON(v.Sources))
+		v.ID, v.Name, aliases, v.OwnerID, v.Health, labels, sources)
 	return wrap("upsert service", err)
 }
 
@@ -99,11 +111,15 @@ func (s *Store) UpsertRunbook(v model.Runbook) error {
 	if strings.TrimSpace(v.ServiceID) == "" {
 		return fmt.Errorf("upsert runbook: empty service id")
 	}
-	_, err := s.db.Exec(`
+	steps, err := toJSON(v.Steps)
+	if err != nil {
+		return wrap("upsert runbook steps", err)
+	}
+	_, err = s.db.Exec(`
 INSERT INTO runbooks (service_id,id,path,owner_id,steps) VALUES (?,?,?,?,?)
 ON CONFLICT(service_id) DO UPDATE SET
 	id=excluded.id, path=excluded.path, owner_id=excluded.owner_id, steps=excluded.steps`,
-		v.ServiceID, v.ID, v.Path, v.OwnerID, toJSON(v.Steps))
+		v.ServiceID, v.ID, v.Path, v.OwnerID, steps)
 	return wrap("upsert runbook", err)
 }
 
@@ -286,14 +302,28 @@ func alertSortLess(a, b model.Alert) bool {
 	if la != lb {
 		return la
 	}
-	aa, ab := model.AlertActive(a.Status), model.AlertActive(b.Status)
-	if aa != ab {
-		return aa
+	// firing before pending before suppressed (matches FindFiringAlert CASE order).
+	ra, rb := alertStatusRank(a.Status), alertStatusRank(b.Status)
+	if ra != rb {
+		return ra < rb
 	}
 	if !a.At.Equal(b.At) {
 		return a.At.After(b.At)
 	}
 	return a.ID < b.ID
+}
+
+func alertStatusRank(status string) int {
+	switch status {
+	case "firing":
+		return 0
+	case "pending":
+		return 1
+	case "suppressed":
+		return 2
+	default:
+		return 3
+	}
 }
 
 // ListDependencies returns all edges touching the service (either direction).
