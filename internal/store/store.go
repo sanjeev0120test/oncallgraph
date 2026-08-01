@@ -225,11 +225,6 @@ func fmtTime(t time.Time) string {
 	return t.UTC().Truncate(time.Second).Format(time.RFC3339)
 }
 
-func parseTime(s string) time.Time {
-	t, _ := parseTimeOK(s)
-	return t
-}
-
 func requireTime(at, kind, id string) (time.Time, error) {
 	t, ok := parseTimeOK(at)
 	if !ok {
