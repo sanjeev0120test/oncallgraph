@@ -35,3 +35,38 @@ func TestComputeHealthyLow(t *testing.T) {
 		t.Fatalf("got %+v", sc)
 	}
 }
+
+func TestComputeDownstreamImpact(t *testing.T) {
+	// Healthy neighbors alone must not inflate severity.
+	healthy := score.Compute(model.AskResult{
+		Service: model.Service{ID: "a", Health: model.HealthDegraded},
+		Downstream: []model.Service{
+			{ID: "b", Health: model.HealthHealthy},
+			{ID: "c", Health: model.HealthHealthy},
+		},
+	})
+	if healthy.Breakdown["downstream_impact"] != 0 {
+		t.Fatalf("2 healthy downstream should not score: %+v", healthy.Breakdown)
+	}
+	wide := score.Compute(model.AskResult{
+		Service: model.Service{ID: "a", Health: model.HealthHealthy},
+		Downstream: []model.Service{
+			{ID: "b", Health: model.HealthHealthy},
+			{ID: "c", Health: model.HealthHealthy},
+			{ID: "d", Health: model.HealthHealthy},
+		},
+	})
+	if wide.Breakdown["downstream_impact"] != 3 {
+		t.Fatalf("wide blast want 3, got %+v", wide.Breakdown)
+	}
+	bad := score.Compute(model.AskResult{
+		Service: model.Service{ID: "a", Health: model.HealthHealthy},
+		Downstream: []model.Service{
+			{ID: "b", Health: model.HealthUnhealthy},
+			{ID: "c", Health: model.HealthHealthy},
+		},
+	})
+	if bad.Breakdown["downstream_impact"] != 5 {
+		t.Fatalf("one unhealthy downstream want 5, got %+v", bad.Breakdown)
+	}
+}

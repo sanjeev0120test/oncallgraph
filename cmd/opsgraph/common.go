@@ -23,6 +23,9 @@ var ErrEmptyStore = errors.New("empty store")
 // ErrNoDataSource means no fixture, config, or persisted store is available.
 var ErrNoDataSource = errors.New("no data source")
 
+// ErrInvalidSince means --since was negative or otherwise unusable.
+var ErrInvalidSince = errors.New("invalid --since")
+
 // loadedStore holds an opened store plus the effective "now" and a cleanup func.
 type loadedStore struct {
 	store   *store.Store
@@ -362,7 +365,7 @@ func validFormat(f string) error {
 // invert the cutoff and silently drop all history).
 func validSince(d time.Duration) error {
 	if d < 0 {
-		return fmt.Errorf("invalid --since %s (must be >= 0)", d)
+		return fmt.Errorf("%w %s (must be >= 0)", ErrInvalidSince, d)
 	}
 	return nil
 }

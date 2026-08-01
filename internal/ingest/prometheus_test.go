@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ingest"
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
 
@@ -114,6 +115,39 @@ func TestIngestPrometheusDistinctInstances(t *testing.T) {
 	}
 	if alerts[0].ID == alerts[1].ID {
 		t.Fatalf("instance labels must produce distinct ids: %q", alerts[0].ID)
+	}
+}
+
+func TestIngestPrometheusJobLabelKnownService(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{
+		  "status":"success",
+		  "data":{"alerts":[{
+		    "labels":{"alertname":"JobMapped","severity":"warning","job":"checkout"},
+		    "annotations":{"summary":"via job"},
+		    "state":"firing",
+		    "activeAt":"2026-07-31T11:45:00Z"
+		  }]}
+		}`))
+	}))
+	t.Cleanup(srv.Close)
+	s, cleanup, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	if err := s.UpsertService(model.Service{ID: "checkout", Name: "checkout", Health: "unknown"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ingest.IngestPrometheus(context.Background(), s, srv.URL, srv.Client(), time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := s.ListAlerts("checkout", time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) != 1 || alerts[0].Name != "JobMapped" {
+		t.Fatalf("job label should map to known service: %+v", alerts)
 	}
 }
 

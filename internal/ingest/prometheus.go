@@ -126,6 +126,7 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 		// (avoids inventing stubs for scrape-target names).
 		for _, cand := range []string{
 			labels["app"], labels["app_kubernetes_io_name"], labels["label_app_kubernetes_io_name"],
+			labels["job"], labels["label_job"],
 		} {
 			cand = strings.TrimSpace(cand)
 			if cand == "" {
@@ -227,6 +228,7 @@ func labelFingerprint(labels map[string]string) string {
 		case "alertname",
 			"service", "service_name", "exported_service", "label_service",
 			"app", "app_kubernetes_io_name", "label_app_kubernetes_io_name",
+			"job", "label_job",
 			"severity":
 			// Already in the id prefix (name/service) or intentionally mutable.
 			continue

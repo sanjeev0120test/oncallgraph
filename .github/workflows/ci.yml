@@ -444,10 +444,17 @@ jobs:
     uses: ./.github/workflows/actionlint.yml
     permissions:
       contents: read
+  dependency-review:
+    name: dependency-review
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/dependency-review.yml
+    permissions:
+      contents: read
+      pull-requests: write
 
   ci-ok:
     name: all checks passed
-    needs: [lint, staticcheck, test, cross, vuln, repro, gitleaks, zizmor, actionlint]
+    needs: [lint, staticcheck, test, cross, vuln, repro, gitleaks, zizmor, actionlint, dependency-review]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     if: always()
@@ -464,6 +471,7 @@ jobs:
           echo "gitleaks=${{ needs.gitleaks.result }}"
           echo "zizmor=${{ needs.zizmor.result }}"
           echo "actionlint=${{ needs.actionlint.result }}"
+          echo "dependency-review=${{ needs.dependency-review.result }}"
           test "${{ needs.lint.result }}" = "success"
           test "${{ needs.staticcheck.result }}" = "success"
           test "${{ needs.test.result }}" = "success"
@@ -473,4 +481,6 @@ jobs:
           test "${{ needs.gitleaks.result }}" = "success"
           test "${{ needs.zizmor.result }}" = "success"
           test "${{ needs.actionlint.result }}" = "success"
+          # PR-only job: skipped on push/schedule must still count as pass.
+          test "${{ needs.dependency-review.result }}" = "success" || test "${{ needs.dependency-review.result }}" = "skipped"
           echo "all required CI jobs passed"

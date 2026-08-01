@@ -312,6 +312,26 @@ func collectEvidence(s *store.Store, res model.AskResult) ([]model.Evidence, err
 	if ev == nil {
 		ev = []model.Evidence{}
 	}
+	got := map[string]bool{}
+	for _, e := range ev {
+		got[e.ID] = true
+	}
+	for _, id := range ids {
+		if got[id] {
+			continue
+		}
+		// Keep cited IDs visible even when the row was deleted/corrupt.
+		ev = append(ev, model.Evidence{
+			ID: id, Kind: "missing", Summary: "(missing evidence)", Source: "store",
+			At: res.GeneratedAt, ServiceID: res.Service.ID,
+		})
+	}
+	sort.SliceStable(ev, func(i, j int) bool {
+		if !ev[i].At.Equal(ev[j].At) {
+			return ev[i].At.Before(ev[j].At)
+		}
+		return ev[i].ID < ev[j].ID
+	})
 	return ev, nil
 }
 

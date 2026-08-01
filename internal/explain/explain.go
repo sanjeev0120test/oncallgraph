@@ -68,9 +68,15 @@ func Narrative(res model.AskResult) string {
 	}
 
 	if len(res.Downstream) > 0 {
-		ids := make([]string, 0, len(res.Downstream))
+		var bad, ids []string
 		for _, d := range res.Downstream {
 			ids = append(ids, d.ID)
+			if d.Health == model.HealthUnhealthy || d.Health == model.HealthDegraded {
+				bad = append(bad, fmt.Sprintf("%s (%s)", d.ID, d.Health))
+			}
+		}
+		if len(bad) > 0 {
+			fmt.Fprintf(&b, "Unhealthy downstream: %s.\n", strings.Join(bad, ", "))
 		}
 		fmt.Fprintf(&b, "Blast radius downstream: %s.\n", strings.Join(ids, ", "))
 	}
@@ -88,10 +94,12 @@ func Narrative(res model.AskResult) string {
 
 	if len(res.Recommendations) > 0 {
 		b.WriteString("\nNext steps:\n")
-		for i, r := range res.Recommendations {
-			if i >= 3 {
-				break
-			}
+		recs := res.Recommendations
+		if len(recs) > 5 {
+			// Keep head + trailing handoff (R6).
+			recs = append(append([]string{}, recs[:4]...), recs[len(recs)-1])
+		}
+		for i, r := range recs {
 			fmt.Fprintf(&b, "  %d. %s\n", i+1, r)
 		}
 	}

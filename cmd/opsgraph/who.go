@@ -36,15 +36,16 @@ func newWhoCmd() *cobra.Command {
 				return failAsk(err)
 			}
 			type who struct {
-				Service    string `json:"service"`
-				OwnerID    string `json:"owner_id,omitempty"`
-				OwnerName  string `json:"owner_name,omitempty"`
-				OwnerEmail string `json:"owner_email,omitempty"`
-				LastChange string `json:"last_change,omitempty"`
-				LastAuthor string `json:"last_author,omitempty"`
-				LastType   string `json:"last_type,omitempty"`
-				LastRev    string `json:"last_revision,omitempty"`
-				EvidenceID string `json:"evidence_id,omitempty"`
+				Service           string `json:"service"`
+				OwnerID           string `json:"owner_id,omitempty"`
+				OwnerName         string `json:"owner_name,omitempty"`
+				OwnerEmail        string `json:"owner_email,omitempty"`
+				LastChange        string `json:"last_change,omitempty"`
+				LastAuthor        string `json:"last_author,omitempty"`
+				LastType          string `json:"last_type,omitempty"`
+				LastRev           string `json:"last_revision,omitempty"`
+				EvidenceID        string `json:"evidence_id,omitempty"`
+				OlderLookbackOnly bool   `json:"older_lookback_only,omitempty"`
 			}
 			w := who{Service: res.Service.ID}
 			if res.Owner != nil {
@@ -59,6 +60,8 @@ func newWhoCmd() *cobra.Command {
 				w.LastType = c.Type
 				w.LastRev = c.Revision
 				w.EvidenceID = c.EvidenceID
+			} else if len(res.Changes) > 0 {
+				w.OlderLookbackOnly = true
 			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), w)

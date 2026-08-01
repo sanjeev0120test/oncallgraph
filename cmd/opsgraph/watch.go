@@ -127,16 +127,14 @@ func watchFatalLoad(err error) bool {
 	if err == nil {
 		return false
 	}
-	if errors.Is(err, ErrEmptyStore) || errors.Is(err, ErrNoDataSource) {
+	if errors.Is(err, ErrEmptyStore) || errors.Is(err, ErrNoDataSource) || errors.Is(err, ErrInvalidSince) {
 		return true
 	}
 	msg := err.Error()
 	switch {
-	case strings.Contains(msg, "invalid --since"):
-		return true
 	case strings.Contains(msg, "parse") && strings.Contains(msg, "yaml"):
 		return true
-	case strings.Contains(msg, "read config"), strings.Contains(msg, "parse config"), strings.Contains(msg, "config "):
+	case strings.Contains(msg, "read config"), strings.Contains(msg, "parse config"):
 		return true
 	default:
 		return false

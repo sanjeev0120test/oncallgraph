@@ -59,11 +59,17 @@ func deploymentHealth(desired, ready int) string {
 	}
 }
 
-// k8sAllow lists optional config filters (services.*.k8s.deployments/namespaces).
-// Empty means allow all snapshot rows for that dimension.
+// k8sAllow holds per-service optional filters from services.*.k8s.*.
+// Services absent from ByService allow all of their snapshot rows.
 type k8sAllow struct {
-	Deployments map[string]bool // name -> allowed
+	ByService map[string]svcK8sAllow
+}
+
+type svcK8sAllow struct {
+	Deployments map[string]bool
 	Namespaces  map[string]bool
+	hasDeps     bool
+	hasNS       bool
 }
 
 // ingestK8sSnapshot reads a fixture-pack snapshot under k8s/.
@@ -131,6 +137,9 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time
 			skippedNoSvc++
 			continue
 		}
+		if !k8sEventAllowed(e, allow) {
+			continue
+		}
 		if e.At.IsZero() {
 			skippedNoAt++
 			continue
@@ -167,15 +176,36 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string, now time
 }
 
 func k8sAllowed(d k8sDeployment, allow k8sAllow) bool {
-	if len(allow.Deployments) > 0 && !allow.Deployments[d.Name] {
+	sa, ok := allow.ByService[d.ServiceID]
+	if !ok {
+		return true
+	}
+	if sa.hasDeps && !sa.Deployments[d.Name] {
 		return false
 	}
-	if len(allow.Namespaces) > 0 {
+	if sa.hasNS {
 		ns := d.Namespace
 		if ns == "" {
 			ns = "default"
 		}
-		if !allow.Namespaces[ns] {
+		if !sa.Namespaces[ns] {
+			return false
+		}
+	}
+	return true
+}
+
+func k8sEventAllowed(e k8sEvent, allow k8sAllow) bool {
+	sa, ok := allow.ByService[e.ServiceID]
+	if !ok {
+		return true
+	}
+	if sa.hasNS {
+		ns := e.Namespace
+		if ns == "" {
+			ns = "default"
+		}
+		if !sa.Namespaces[ns] {
 			return false
 		}
 	}

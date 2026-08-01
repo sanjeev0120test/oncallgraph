@@ -186,7 +186,8 @@ func seedFromConfig(s *store.Store, cfg *config.Config, configDir string) error 
 			}
 		}
 	}
-	return nil
+	// Marks this store as carrying a complete config topology for MergeFrom prune.
+	return s.SetMeta("topology:seeded", "ok")
 }
 
 func seedRunbook(s *store.Store, rbPath, configDir string) error {
@@ -215,22 +216,28 @@ func seedRunbook(s *store.Store, rbPath, configDir string) error {
 }
 
 func k8sAllowFromConfig(cfg *config.Config) k8sAllow {
-	a := k8sAllow{Deployments: map[string]bool{}, Namespaces: map[string]bool{}}
+	a := k8sAllow{ByService: map[string]svcK8sAllow{}}
 	if cfg == nil {
 		return a
 	}
-	for _, sc := range cfg.Services {
+	for id, sc := range cfg.Services {
+		sa := svcK8sAllow{Deployments: map[string]bool{}, Namespaces: map[string]bool{}}
 		for _, d := range sc.K8s.Deployments {
 			d = strings.TrimSpace(d)
 			if d != "" {
-				a.Deployments[d] = true
+				sa.Deployments[d] = true
+				sa.hasDeps = true
 			}
 		}
 		for _, ns := range sc.K8s.Namespaces {
 			ns = strings.TrimSpace(ns)
 			if ns != "" {
-				a.Namespaces[ns] = true
+				sa.Namespaces[ns] = true
+				sa.hasNS = true
 			}
+		}
+		if sa.hasDeps || sa.hasNS {
+			a.ByService[id] = sa
 		}
 	}
 	return a

@@ -36,8 +36,19 @@ func (s *Store) MergeFrom(src *Store) error {
 	if err != nil {
 		return err
 	}
+	keepDeps := map[string]bool{}
 	for _, d := range deps {
 		if err := s.UpsertDependency(d); err != nil {
+			return err
+		}
+		keepDeps[depKey(d.FromServiceID, d.ToServiceID, d.Type)] = true
+	}
+	// Only prune when src carried a full topology seed (live ingest). Partial
+	// merges (alerts-only tests) must not wipe destination edges.
+	if v, ok, err := src.GetMeta("topology:seeded"); err != nil {
+		return err
+	} else if ok && v == "ok" {
+		if _, err := s.DeleteDependenciesNotIn(keepDeps); err != nil {
 			return err
 		}
 	}

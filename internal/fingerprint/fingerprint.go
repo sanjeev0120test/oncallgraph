@@ -43,6 +43,11 @@ func Of(res model.AskResult) Result {
 			parts = append(parts, "up="+u.ID+":"+u.Health)
 		}
 	}
+	for _, d := range res.Downstream {
+		if d.Health == model.HealthUnhealthy || d.Health == model.HealthDegraded {
+			parts = append(parts, "down="+d.ID+":"+d.Health)
+		}
+	}
 	if res.RunbookResult != nil {
 		parts = append(parts, "runbook="+res.RunbookResult.Status)
 	}

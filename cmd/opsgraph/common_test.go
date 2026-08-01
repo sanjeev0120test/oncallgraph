@@ -74,6 +74,9 @@ func TestWatchFatalLoad(t *testing.T) {
 	if !watchFatalLoad(fmt.Errorf("%w: pass --fixture", ErrNoDataSource)) {
 		t.Fatal("no data source must be fatal")
 	}
+	if !watchFatalLoad(fmt.Errorf("%w -1h (must be >= 0)", ErrInvalidSince)) {
+		t.Fatal("invalid since must be fatal")
+	}
 	if !watchFatalLoad(fmt.Errorf("read config %q: no such file", "x.yaml")) {
 		t.Fatal("config read errors must be fatal")
 	}

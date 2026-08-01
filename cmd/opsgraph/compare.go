@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sort"
 	"strings"
 	"time"
 
@@ -95,6 +96,7 @@ func svcIDs(svcs []model.Service) []string {
 	for _, s := range svcs {
 		out = append(out, s.ID)
 	}
+	sort.Strings(out)
 	return out
 }
 

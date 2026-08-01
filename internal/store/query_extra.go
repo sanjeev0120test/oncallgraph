@@ -67,6 +67,41 @@ ORDER BY from_service_id, to_service_id, type`)
 	return out, rows.Err()
 }
 
+// depKey is the unique edge identity matching the dependencies PK.
+func depKey(from, to, typ string) string {
+	return from + "\x00" + to + "\x00" + typ
+}
+
+// DeleteDependenciesNotIn removes edges whose (from,to,type) is absent from keep.
+// Used after a full topology seed/merge so removed config edges do not linger.
+func (s *Store) DeleteDependenciesNotIn(keep map[string]bool) (int, error) {
+	if keep == nil {
+		keep = map[string]bool{}
+	}
+	all, err := s.ListAllDependencies()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, d := range all {
+		k := depKey(d.FromServiceID, d.ToServiceID, d.Type)
+		if keep[k] {
+			continue
+		}
+		res, err := s.db.Exec(
+			`DELETE FROM dependencies WHERE from_service_id=? AND to_service_id=? AND type=?`,
+			d.FromServiceID, d.ToServiceID, d.Type,
+		)
+		if err != nil {
+			return n, wrap("delete dependency", err)
+		}
+		if aff, _ := res.RowsAffected(); aff > 0 {
+			n++
+		}
+	}
+	return n, nil
+}
+
 // ListServicesByOwner returns services owned by ownerID.
 func (s *Store) ListServicesByOwner(ownerID string) ([]model.Service, error) {
 	all, err := s.ListServices()

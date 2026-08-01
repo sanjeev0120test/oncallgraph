@@ -77,9 +77,19 @@ func Compute(res model.AskResult) Result {
 		b["unhealthy_upstream"] = min(20, unhealthyUp*10)
 		highlights = append(highlights, "unhealthy upstream dependency")
 	}
-	if n := len(res.Downstream); n > 0 {
-		b["downstream_impact"] = min(15, n*5)
-		highlights = append(highlights, "downstream blast radius")
+	badDown := 0
+	for _, d := range res.Downstream {
+		if d.Health == model.HealthUnhealthy || d.Health == model.HealthDegraded {
+			badDown++
+		}
+	}
+	if badDown > 0 {
+		b["downstream_impact"] = min(15, badDown*5)
+		highlights = append(highlights, "unhealthy downstream dependency")
+	} else if n := len(res.Downstream); n >= 3 {
+		// Wide blast still matters even when neighbors look healthy.
+		b["downstream_impact"] = min(10, n)
+		highlights = append(highlights, "wide downstream blast radius")
 	}
 
 	if res.RunbookResult != nil {

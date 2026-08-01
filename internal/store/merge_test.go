@@ -104,6 +104,56 @@ func TestMergeFromQuietConnectorDoesNotWipeFirings(t *testing.T) {
 	}
 }
 
+func TestMergeFromPrunesRemovedTopology(t *testing.T) {
+	dst, cleanupDst, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanupDst)
+	src, cleanupSrc, err := store.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanupSrc)
+	for _, id := range []string{"checkout", "auth", "payments"} {
+		if err := dst.UpsertService(model.Service{ID: id, Name: id, Health: model.HealthUnknown}); err != nil {
+			t.Fatal(err)
+		}
+		if err := src.UpsertService(model.Service{ID: id, Name: id, Health: model.HealthUnknown}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := dst.UpsertDependency(model.Dependency{
+		FromServiceID: "checkout", ToServiceID: "auth", Type: "depends_on", Source: "config",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := dst.UpsertDependency(model.Dependency{
+		FromServiceID: "checkout", ToServiceID: "payments", Type: "depends_on", Source: "config",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Current config only keeps checkout→auth.
+	if err := src.UpsertDependency(model.Dependency{
+		FromServiceID: "checkout", ToServiceID: "auth", Type: "depends_on", Source: "config",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.SetMeta("topology:seeded", "ok"); err != nil {
+		t.Fatal(err)
+	}
+	if err := dst.MergeFrom(src); err != nil {
+		t.Fatal(err)
+	}
+	deps, err := dst.ListAllDependencies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(deps) != 1 || deps[0].ToServiceID != "auth" {
+		t.Fatalf("expected only checkout→auth after prune, got %+v", deps)
+	}
+}
+
 func TestMergeFromPreservesDestinationHealth(t *testing.T) {
 	dst, cleanupDst, err := store.OpenTemp()
 	if err != nil {
