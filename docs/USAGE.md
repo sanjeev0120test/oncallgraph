@@ -7,7 +7,7 @@ go build -o bin/opsgraph ./cmd/opsgraph   # or: make build
 ```
 
 Most inspection commands accept `--format table|json` (default `table`).
-Exceptions: `graph` (`ascii|table|mermaid`), `export` (`json|markdown`), `watch`/`why`/`doctor` (text).
+Exceptions: `graph` (`ascii|table|mermaid`), `export` (`json|markdown`), `watch`/`why`/`handoff`/`doctor` (text).
 
 ## Core commands
 
@@ -27,6 +27,9 @@ Evidence-backed context for a service.
 # From a fixture pack (deterministic, offline):
 opsgraph ask checkout --fixture fixtures/incident_checkout
 
+# From a persistent store (after ingest):
+opsgraph ask checkout --data-dir .opsgraph/data
+
 # From live sources described in .opsgraph.yaml (local git + k8s snapshot):
 opsgraph ask checkout --since 90m
 opsgraph ask checkout --format json --ai
@@ -34,7 +37,19 @@ opsgraph ask checkout --format json --ai
 
 Flags: `--fixture`, `--config`, `--data-dir`, `--since`, `--runbook` (default true), `--ai`, `--format`.
 
+Notes:
+- Alerts respect `--since`.
+- Changes use at least a 60m lookback (covers the 30m prime-suspect window and change→alert correlation) even when `--since` is narrower, so root-cause hints stay reliable.
+
 Exit codes: `0` success, `1` service not found / empty store, `2` usage/config error.
+
+### `opsgraph ingest`
+Load a fixture pack (or live config sources) into a persistent data dir.
+
+```bash
+opsgraph ingest --fixture fixtures/incident_checkout --data-dir .opsgraph/data
+opsgraph ask checkout --data-dir .opsgraph/data
+```
 
 ### `opsgraph verify-runbook <service>`
 Checks whether a runbook is still valid against current state.
@@ -44,6 +59,13 @@ opsgraph verify-runbook checkout --fixture fixtures/incident_checkout
 ```
 
 Exit codes: `0` pass, `1` stale/fail/missing, `2` usage/error.
+
+### `opsgraph handoff <service>`
+Short evidence-backed handoff note (health, score, fingerprint, linked alerts, next steps).
+
+```bash
+opsgraph handoff checkout --fixture fixtures/incident_checkout
+```
 
 ### `opsgraph test <fixture-dir>`
 Compares `ask`/`verify` output against the pack's `expected/*.json` goldens.
@@ -66,7 +88,7 @@ Store counts, environment checks, and build metadata.
 | `changes`, `alerts`, `timeline`, `evidence` | Signal browsers |
 | `explain`, `why`, `score`, `fingerprint` | Hypotheses / severity |
 | `path`, `graph`, `compare`, `who`, `resolve` | Topology / ownership |
-| `report`, `export` | Markdown/JSON handoff |
+| `report`, `export`, `handoff` | Markdown/JSON/text handoff |
 | `watch` | Poll until healthy (live/persistent sources) |
 | `validate-fixture`, `completion` | Pack checks / shell completion |
 
@@ -88,22 +110,21 @@ Optional cluster demo: `bash hack/kind-demo.sh`.
 ## Install
 
 Precompiled binaries are published only in **GitHub Releases** (never committed
-to the git source tree). Pushing a `v*` tag (e.g. `v0.1.2`) automatically runs
-the release workflow: build 6 targets, package archives, write `SHA256SUMS`
-(including installers + LICENSE), attest provenance, and publish the Release.
-CI also fails if binaries/archives are accidentally tracked in git.
+to the git source tree). Pushing a `v*` tag automatically runs the release
+workflow: build 6 targets, package archives, write `SHA256SUMS`, attest
+provenance, and publish the Release.
 
 Prefer the **attested release copies** of the installers (same tag as the binary):
 
 ```bash
-# Linux/macOS — pin VERSION to a release tag (example: v0.1.1)
-VERSION=v0.1.1
+# Linux/macOS — pin VERSION to a release tag
+VERSION=v0.1.8
 curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/install.sh" -o install.sh
 chmod +x install.sh
 OPSGRAPH_VERSION="$VERSION" ./install.sh
 
 # Windows PowerShell
-$Version = "v0.1.1"
+$Version = "v0.1.8"
 Invoke-WebRequest "https://github.com/sanjeev0120test/opsgraph/releases/download/$Version/install.ps1" -OutFile install.ps1
 $env:OPSGRAPH_VERSION = $Version
 ./install.ps1

@@ -26,7 +26,19 @@ var ErrServiceNotFound = errors.New("service not found")
 // given the same store contents and Now, the output is byte-stable.
 func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 	now := opts.Now.UTC()
-	window := now.Add(-opts.Since)
+	since := opts.Since
+	if since <= 0 {
+		since = time.Hour
+	}
+	window := now.Add(-since)
+	// Change lookback is at least correlateWindow (60m), which also covers
+	// SuspectChangeWindow (30m), so R1 / explain / why / score / fingerprint /
+	// change→alert links stay accurate even when --since is narrower.
+	changeLookback := since
+	if changeLookback < correlateWindow {
+		changeLookback = correlateWindow
+	}
+	changeWindow := now.Add(-changeLookback)
 
 	svc, err := s.GetServiceByNameOrAlias(query)
 	if err != nil {
@@ -38,7 +50,7 @@ func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 
 	res := model.AskResult{
 		Service:         *svc,
-		Window:          humanDuration(opts.Since),
+		Window:          humanDuration(since),
 		GeneratedAt:     now,
 		Changes:         []model.Change{},
 		Alerts:          []model.Alert{},
@@ -57,7 +69,7 @@ func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 		}
 	}
 
-	if res.Changes, err = s.ListChanges(svc.ID, window); err != nil {
+	if res.Changes, err = s.ListChanges(svc.ID, changeWindow); err != nil {
 		return model.AskResult{}, err
 	}
 	if res.Changes == nil {
