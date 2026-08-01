@@ -17,7 +17,9 @@ func newWhyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "why <service>",
 		Short: "One-line root-cause hypothesis for a paged service",
-		Args:  cobra.ExactArgs(1),
+		Example: `  opsgraph why checkout --fixture fixtures/incident_checkout
+  opsgraph why checkout --format json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err
@@ -63,6 +65,8 @@ func whyLine(res model.AskResult) string {
 		}
 	} else if len(res.Correlations) > 0 {
 		line += "; no 30m suspect; older linked change"
+	} else if len(res.Changes) > 0 {
+		line += "; no 30m suspect; older lookback changes"
 	}
 	if len(res.Correlations) > 0 {
 		line += "; " + res.Correlations[0].Summary
@@ -73,12 +77,28 @@ func whyLine(res model.AskResult) string {
 			break
 		}
 	}
+	alertNoted := false
 	for _, a := range res.Alerts {
 		if model.AlertActive(a.Status) {
 			line += "; alert " + a.Name + " " + a.Status
 			if a.Severity != "" {
 				line += " (" + a.Severity + ")"
 			}
+			alertNoted = true
+			break
+		}
+	}
+	if !alertNoted {
+		for _, a := range res.Alerts {
+			if a.Status == "suppressed" {
+				line += "; alert " + a.Name + " suppressed"
+				break
+			}
+		}
+	}
+	for _, d := range res.Downstream {
+		if d.Health == model.HealthUnhealthy || d.Health == model.HealthDegraded {
+			line += fmt.Sprintf("; downstream %s is %s", d.ID, d.Health)
 			break
 		}
 	}

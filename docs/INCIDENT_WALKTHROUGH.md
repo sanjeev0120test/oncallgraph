@@ -25,6 +25,9 @@ is `stale` (step 2 expects healthy checkout).
 opsgraph demo --format json | jq '.evidence'
 opsgraph blast checkout --fixture fixtures/incident_checkout
 opsgraph impact auth --fixture fixtures/incident_checkout
-opsgraph why checkout --fixture fixtures/incident_checkout
+opsgraph why checkout --fixture fixtures/incident_checkout --format json
+opsgraph explain checkout --fixture fixtures/incident_checkout
+opsgraph handoff checkout --fixture fixtures/incident_checkout
+opsgraph status --fixture fixtures/incident_checkout   # shows ACTIVE SOURCE
 opsgraph demo --ai
 ```

@@ -39,14 +39,18 @@ func newServicesCmd() *cobra.Command {
 				Name    string   `json:"name"`
 				Health  string   `json:"health"`
 				OwnerID string   `json:"owner_id,omitempty"`
-				Aliases []string `json:"aliases,omitempty"`
+				Aliases []string `json:"aliases"`
 			}
 			out := make([]row, 0, len(svcs))
 			for _, s := range svcs {
 				if health != "" && s.Health != health {
 					continue
 				}
-				out = append(out, row{ID: s.ID, Name: s.Name, Health: s.Health, OwnerID: s.OwnerID, Aliases: s.Aliases})
+				aliases := s.Aliases
+				if aliases == nil {
+					aliases = []string{}
+				}
+				out = append(out, row{ID: s.ID, Name: s.Name, Health: s.Health, OwnerID: s.OwnerID, Aliases: aliases})
 			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), out)

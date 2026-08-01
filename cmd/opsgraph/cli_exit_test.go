@@ -149,9 +149,36 @@ func TestCLIRejectConflictingSourceFlags(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("status fixture+data-dir exit = %d, want 2", code)
 	}
+	_, _, code = runRoot(t, "verify-runbook", "checkout", "--fixture", fx, "--data-dir", dir)
+	if code != 2 {
+		t.Fatalf("verify-runbook fixture+data-dir exit = %d, want 2", code)
+	}
 	_, _, code = runRoot(t, "ingest", "--fixture", fx, "--merge", "--data-dir", dir)
 	if code != 2 {
 		t.Fatalf("ingest fixture+merge exit = %d, want 2", code)
+	}
+}
+
+func TestCLIIngestReportsMode(t *testing.T) {
+	fx := fixtureDir(t)
+	dir := t.TempDir()
+	out, _, code := runRoot(t, "ingest", "--fixture", fx, "--data-dir", dir)
+	if code != 0 {
+		t.Fatalf("ingest exit = %d", code)
+	}
+	if !strings.Contains(out, "mode fixture") {
+		t.Fatalf("ingest should report mode fixture:\n%s", out)
+	}
+}
+
+func TestCLITimelineLimit(t *testing.T) {
+	fx := fixtureDir(t)
+	out, _, code := runRoot(t, "timeline", "checkout", "--fixture", fx, "--limit", "1")
+	if code != 0 {
+		t.Fatalf("timeline exit = %d", code)
+	}
+	if !strings.Contains(out, "… +") {
+		t.Fatalf("timeline --limit should note truncated events:\n%s", out)
 	}
 }
 

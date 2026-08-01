@@ -11,6 +11,7 @@ func newTimelineCmd() *cobra.Command {
 	var src sourceFlags
 	var since time.Duration
 	var format string
+	var limit int
 	cmd := &cobra.Command{
 		Use:   "timeline <service>",
 		Short: "Show only the incident timeline for a service",
@@ -21,6 +22,9 @@ func newTimelineCmd() *cobra.Command {
 			}
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
+			}
+			if limit < 0 {
+				return fail(2, "invalid --limit %d (must be >= 0)", limit)
 			}
 			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
@@ -34,19 +38,26 @@ func newTimelineCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
+			events := res.Timeline
+			if limit > 0 && len(events) > limit {
+				events = events[:limit]
+			}
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), res.Timeline)
+				return output.JSON(cmd.OutOrStdout(), events)
 			}
 			if len(res.Timeline) == 0 {
 				cmd.Println("(no events)")
 				return nil
 			}
-			for _, t := range res.Timeline {
+			for _, t := range events {
 				ev := t.EvidenceID
 				if ev == "" {
 					ev = "-"
 				}
 				cmd.Printf("%s  %-10s  %-40s  [%s]\n", t.At.Format(time.RFC3339), t.Kind, trunc(t.Summary, 40), ev)
+			}
+			if limit > 0 && len(res.Timeline) > limit {
+				cmd.Printf("… +%d more (raise --limit)\n", len(res.Timeline)-limit)
 			}
 			return nil
 		},
@@ -54,6 +65,7 @@ func newTimelineCmd() *cobra.Command {
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	cmd.Flags().IntVar(&limit, "limit", 0, "max events to show (0 = all)")
 	return cmd
 }
 

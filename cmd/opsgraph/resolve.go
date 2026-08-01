@@ -30,14 +30,18 @@ func newResolveCmd() *cobra.Command {
 			if err != nil {
 				return failLookup(args[0], err)
 			}
+			aliases := svc.Aliases
+			if aliases == nil {
+				aliases = []string{}
+			}
 			out := struct {
 				Query   string   `json:"query"`
 				ID      string   `json:"id"`
 				Name    string   `json:"name"`
-				Aliases []string `json:"aliases,omitempty"`
+				Aliases []string `json:"aliases"`
 				Health  string   `json:"health"`
 				OwnerID string   `json:"owner_id,omitempty"`
-			}{Query: args[0], ID: svc.ID, Name: svc.Name, Aliases: svc.Aliases, Health: svc.Health, OwnerID: svc.OwnerID}
+			}{Query: args[0], ID: svc.ID, Name: svc.Name, Aliases: aliases, Health: svc.Health, OwnerID: svc.OwnerID}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), out)
 			}

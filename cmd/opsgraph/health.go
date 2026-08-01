@@ -59,6 +59,10 @@ func newHealthCmd() *cobra.Command {
 				return output.JSON(cmd.OutOrStdout(), out)
 			}
 			cmd.Printf("FLEET HEALTH  (%d services)\n", out.Total)
+			if out.Total == 0 {
+				cmd.Println("(no services)")
+				return nil
+			}
 			for _, k := range []string{model.HealthUnhealthy, model.HealthDegraded, model.HealthUnknown, model.HealthHealthy} {
 				ids := by[k]
 				if len(ids) == 0 {

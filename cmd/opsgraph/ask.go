@@ -25,7 +25,10 @@ func newAskCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ask <service>",
 		Short: "Show evidence-backed incident context for a service",
-		Args:  cobra.ExactArgs(1),
+		Example: `  opsgraph ask checkout --fixture fixtures/incident_checkout
+  opsgraph ask checkout --format json --ai
+  opsgraph ask checkout --data-dir .opsgraph/data`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

@@ -127,7 +127,14 @@ func newIngestCmd() *cobra.Command {
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-			cmd.Printf("ingested into %s (schema v%d)\n", s.Path(), store.SchemaVersion)
+			mode := "replace"
+			switch {
+			case fixture != "":
+				mode = "fixture"
+			case merge:
+				mode = "merge"
+			}
+			cmd.Printf("ingested into %s (schema v%d, mode %s)\n", s.Path(), store.SchemaVersion, mode)
 			keys := make([]string, 0, len(counts))
 			for k := range counts {
 				keys = append(keys, k)

@@ -101,7 +101,7 @@ Fleet alert list. `--firing` keeps active (`firing`/`pending`) alerts; `--servic
 | `services`, `owners`, `health`, `top` | Inventory and ranking |
 | `blast` | 1-hop upstream/downstream |
 | `impact` | Recursive downstream impact |
-| `changes`, `alerts`, `timeline`, `evidence` | Signal browsers |
+| `changes`, `alerts`, `timeline` (`--limit`), `evidence` | Signal browsers |
 | `explain`, `why`, `score`, `fingerprint` | Hypotheses / severity |
 | `path`, `graph`, `compare`, `who`, `resolve` | Topology / ownership |
 | `report`, `export`, `handoff` | Markdown/JSON/text handoff |
