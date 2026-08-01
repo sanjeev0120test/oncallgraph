@@ -50,7 +50,8 @@ func newVerifyRunbookCmd() *cobra.Command {
 			}
 
 			switch res.Status {
-			case model.StatusPass:
+			case model.StatusPass, model.StatusManual:
+				// Manual-only runbooks are valid; nothing automated failed.
 				return nil
 			case model.StatusStale, model.StatusFail, model.StatusMissing:
 				return &exitError{code: 1, err: errStatus(res.Status)}

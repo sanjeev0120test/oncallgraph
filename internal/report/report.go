@@ -80,7 +80,11 @@ func Markdown(res model.AskResult) string {
 			fmt.Fprintf(&b, "- `%s` (%s) %s\n", e.ID, e.Kind, e.Summary)
 		}
 	}
-	return b.String()
+	out := b.String()
+	if !strings.HasSuffix(out, "\n") {
+		out += "\n"
+	}
+	return out
 }
 
 func joinSvc(svcs []model.Service) string {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -16,6 +17,13 @@ func newServicesCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
+			}
+			if health != "" {
+				switch health {
+				case model.HealthHealthy, model.HealthDegraded, model.HealthUnhealthy, model.HealthUnknown:
+				default:
+					return fail(2, "invalid --health %q (want healthy|degraded|unhealthy|unknown)", health)
+				}
 			}
 			ls, _, err := src.load(0)
 			if err != nil {

@@ -47,7 +47,7 @@ type Change struct {
 type Dependency struct {
 	FromServiceID string `json:"from_service_id"`
 	ToServiceID   string `json:"to_service_id"`
-	Type          string `json:"type"` // http|grpc|queue|db|unknown
+	Type          string `json:"type"` // http|grpc|queue|db|depends_on|unknown
 	Source        string `json:"source"`
 }
 

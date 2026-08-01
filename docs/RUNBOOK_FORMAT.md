@@ -35,12 +35,13 @@ binds to the nearest preceding numbered step.
 | Check | Pass when |
 |-------|-----------|
 | `deploy_age_lt:Xm` / `deploy_age_gt:Xm` | Newest **deploy/rollout** age vs window (commits ignored) |
-| `k8s_deployment_exists:name` | Rollout evidence `ev-k8s-rollout-<name>` present, or service has kubernetes source |
+| `k8s_deployment_exists:name` | Rollout evidence `ev-k8s-rollout-<name>` present |
 | `service_healthy:name` / `service_unhealthy:name` | Health matches |
 | `alert_firing:name` | Alert status is `firing` or `pending` (active) |
 | `manual` | Always manual (never fails the step) |
 
 ### Roll-up
 
-- Step: failing deploy/health/k8s/alert checks → `stale`; other failing non-manual → `fail`; parse error → `error`; `manual` → `manual`.
-- Runbook: any `fail`/`error` → `fail`; else any `stale` → `stale`; else `pass`; missing runbook → `missing`.
+- Step: failing deploy/health/k8s/alert checks → `stale`; unknown/invalid checks → `error`; `manual` → `manual`.
+- Runbook: any `fail`/`error` → `fail`; else any `stale` → `stale`; else any automated `pass` → `pass`; else only manuals (or empty) → `manual`; missing runbook → `missing`.
+- CLI: `verify-runbook` exits `0` for `pass` and `manual`, `1` for `stale`/`fail`/`missing`.

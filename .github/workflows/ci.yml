@@ -206,6 +206,14 @@ jobs:
           "$BIN_ABS" doctor --config fixtures/ci_live_k8s/.opsgraph.yaml >/dev/null
           "$BIN_ABS" validate-fixture ./fixtures/incident_checkout >/dev/null
           "$BIN_ABS" alerts --fixture ./fixtures/incident_checkout --service checkout --firing >/dev/null
+          "$BIN_ABS" compare checkout auth --fixture ./fixtures/incident_checkout --format json >/dev/null
+          "$BIN_ABS" services --fixture ./fixtures/incident_checkout --health degraded --format json >/dev/null
+          "$BIN_ABS" graph --fixture ./fixtures/incident_checkout --format mermaid | grep -q flowchart
+          set +e
+          "$BIN_ABS" services --fixture ./fixtures/incident_checkout --health nope >/dev/null
+          bad_health=$?
+          set -e
+          test "$bad_health" -eq 2
       - name: go install smoke
         if: matrix.os == 'ubuntu-latest'
         shell: bash

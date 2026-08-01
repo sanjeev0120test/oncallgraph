@@ -31,7 +31,7 @@ func newDemoCmd() *cobra.Command {
 
 			res, err := ask.Ask(ls.store, "checkout", ask.Options{Since: time.Hour, Now: ls.now, WithRunbook: true})
 			if err != nil {
-				return fail(2, "%v", err)
+				return failAsk(err)
 			}
 			if useAI {
 				cfg := config.Default()

@@ -60,6 +60,9 @@ func whyLine(res model.AskResult) string {
 	for _, a := range res.Alerts {
 		if model.AlertActive(a.Status) {
 			line += "; alert " + a.Name + " " + a.Status
+			if a.Severity != "" {
+				line += " (" + a.Severity + ")"
+			}
 			break
 		}
 	}

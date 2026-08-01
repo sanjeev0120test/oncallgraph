@@ -58,8 +58,17 @@ func newExportCmd() *cobra.Command {
 				if err := output.JSON(f, res); err != nil {
 					return fail(2, "%v", err)
 				}
-			} else if _, err := f.WriteString(report.Markdown(res)); err != nil {
-				return fail(2, "%v", err)
+			} else {
+				md := report.Markdown(res)
+				if !strings.HasSuffix(md, "\n") {
+					md += "\n"
+				}
+				if _, err := f.WriteString(md); err != nil {
+					return fail(2, "%v", err)
+				}
+			}
+			if err := f.Sync(); err != nil {
+				return fail(2, "sync %s: %v", outPath, err)
 			}
 			cmd.Printf("wrote %s\n", outPath)
 			return nil

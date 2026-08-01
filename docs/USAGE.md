@@ -60,7 +60,7 @@ Checks whether a runbook is still valid against current state.
 opsgraph verify-runbook checkout --fixture fixtures/incident_checkout
 ```
 
-Exit codes: `0` pass, `1` stale/fail/missing, `2` usage/error.
+Exit codes: `0` pass or manual-only, `1` stale/fail/missing, `2` usage/error.
 
 ### `opsgraph handoff <service>`
 Short evidence-backed handoff note (health, score, fingerprint, linked alerts, next steps).

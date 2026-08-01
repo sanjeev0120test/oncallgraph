@@ -51,13 +51,20 @@ func (v *Verifier) Verify(rb model.Runbook) (model.VerifyResult, error) {
 }
 
 func rollup(steps []model.StepVerifyResult) string {
-	hasFail, hasStale := false, false
+	if len(steps) == 0 {
+		return model.StatusManual
+	}
+	hasFail, hasStale, hasPass, hasManual := false, false, false, false
 	for _, s := range steps {
 		switch s.Status {
 		case model.StatusFail, model.StatusError:
 			hasFail = true
 		case model.StatusStale:
 			hasStale = true
+		case model.StatusPass:
+			hasPass = true
+		case model.StatusManual:
+			hasManual = true
 		}
 	}
 	switch {
@@ -65,6 +72,10 @@ func rollup(steps []model.StepVerifyResult) string {
 		return model.StatusFail
 	case hasStale:
 		return model.StatusStale
+	case hasPass:
+		return model.StatusPass
+	case hasManual:
+		return model.StatusManual
 	default:
 		return model.StatusPass
 	}
