@@ -51,8 +51,12 @@ jobs:
             echo "$tracked" >&2
             exit 1
           fi
-          if ls opsgraph_*.tar.gz opsgraph_*.zip 2>/dev/null | grep -q .; then
+          shopt -s nullglob
+          root_archives=(opsgraph_*.tar.gz opsgraph_*.zip)
+          shopt -u nullglob
+          if ((${#root_archives[@]} > 0)); then
             echo "release archives present in workspace root; do not commit them" >&2
+            printf '%s\n' "${root_archives[@]}" >&2
             exit 1
           fi
           # License + installer presence (was a separate license workflow).
@@ -344,7 +348,10 @@ jobs:
           for pid in "${pids[@]}"; do
             wait "$pid" || exit 1
           done
-          test "$(ls dist/opsgraph-* | wc -l)" -eq 6
+          shopt -s nullglob
+          built=(dist/opsgraph-*)
+          shopt -u nullglob
+          test "${#built[@]}" -eq 6
           for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             GOOS="${pair%/*}"
             GOARCH="${pair#*/}"

@@ -76,11 +76,13 @@ jobs:
             PRERELEASE=true
             MAKE_LATEST=false
           fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
-          echo "make_latest=${MAKE_LATEST}" >> "$GITHUB_OUTPUT"
-          echo "commit=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${VERSION}"
+            echo "prerelease=${PRERELEASE}"
+            echo "make_latest=${MAKE_LATEST}"
+            echo "commit=${GITHUB_SHA}"
+            echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
       - name: Run unit + fixture gates before packaging
         run: |
           set -euo pipefail
@@ -109,7 +111,7 @@ jobs:
           for pid in "${pids[@]}"; do
             wait "$pid" || exit 1
           done
-          for f in binaries/opsgraph_${VERSION}_*; do
+          for f in "binaries/opsgraph_${VERSION}_"*; do
             test -s "$f"
           done
       - name: Package release archives (shared script)

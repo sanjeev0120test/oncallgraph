@@ -18,10 +18,6 @@ type sourceFlags struct {
 	dataDir    string
 }
 
-func (f *sourceFlags) load(since time.Duration) (*loadedStore, *config.Config, error) {
-	return f.loadCtx(context.Background(), since)
-}
-
 func (f *sourceFlags) loadCtx(ctx context.Context, since time.Duration) (*loadedStore, *config.Config, error) {
 	if err := validSince(since); err != nil {
 		return nil, nil, err
