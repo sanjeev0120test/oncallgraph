@@ -197,15 +197,6 @@ func (v *Verifier) checkAlertFiring(name string, sr model.StepVerifyResult) (mod
 	return sr, nil
 }
 
-func hasSource(sources []string, s string) bool {
-	for _, x := range sources {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
-
 func cmpWord(kind string) string {
 	if kind == "deploy_age_gt" {
 		return ">"

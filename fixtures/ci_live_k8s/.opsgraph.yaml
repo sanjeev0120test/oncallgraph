@@ -18,4 +18,4 @@ connectors:
     enabled: false
   kubernetes:
     enabled: true
-    snapshot: ../incident_checkout/k8s/deployments.yaml
+    snapshot: ../incident_checkout/k8s

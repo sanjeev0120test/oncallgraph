@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,20 @@ import (
 	"github.com/sanjeev0120test/opsgraph/internal/runbook"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 )
+
+// openK8sSnapshotFS accepts either a directory (deployments.yaml inside) or a
+// path to the deployments YAML file (siblings: events.yaml, releases.yaml).
+func openK8sSnapshotFS(snap string) (fsys fs.FS, depFile, evFile, relFile string, err error) {
+	info, err := os.Stat(snap)
+	if err != nil {
+		return nil, "", "", "", err
+	}
+	if info.IsDir() {
+		return os.DirFS(snap), "deployments.yaml", "events.yaml", "releases.yaml", nil
+	}
+	dir := filepath.Dir(snap)
+	return os.DirFS(dir), filepath.Base(snap), "events.yaml", "releases.yaml", nil
+}
 
 // LiveIngest seeds the store from config and runs the enabled live connectors
 // (local git, kubernetes snapshot, optional prometheus/alertmanager). configDir
@@ -45,11 +60,14 @@ func LiveIngest(s *store.Store, cfg *config.Config, configDir string, since, now
 			if !filepath.IsAbs(snap) {
 				snap = filepath.Join(configDir, snap)
 			}
-			fsys := os.DirFS(snap)
-			if err := ingestK8sFiles(s, fsys, "deployments.yaml", "events.yaml"); err != nil {
+			fsys, depFile, evFile, relFile, err := openK8sSnapshotFS(snap)
+			if err != nil {
 				return fmt.Errorf("kubernetes snapshot: %w", err)
 			}
-			if err := ingestHelmReleases(s, fsys, "releases.yaml"); err != nil {
+			if err := ingestK8sFiles(s, fsys, depFile, evFile); err != nil {
+				return fmt.Errorf("kubernetes snapshot: %w", err)
+			}
+			if err := ingestHelmReleases(s, fsys, relFile); err != nil {
 				return fmt.Errorf("helm snapshot: %w", err)
 			}
 		}
