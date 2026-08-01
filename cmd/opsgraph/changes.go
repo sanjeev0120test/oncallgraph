@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/spf13/cobra"
@@ -33,7 +34,8 @@ func newChangesCmd() *cobra.Command {
 			if since == 0 {
 				since = cfg.Since()
 			}
-			cutoff := ls.now.Add(-since)
+			// Same floor as ask so the change browser cannot hide a prime suspect.
+			cutoff := ls.now.Add(-ask.ChangeLookback(since))
 
 			var list []model.Change
 			if service != "" {

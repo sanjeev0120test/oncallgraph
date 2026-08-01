@@ -49,6 +49,8 @@ func whyLine(res model.AskResult) string {
 		if c.EvidenceID != "" {
 			line += " [" + c.EvidenceID + "]"
 		}
+	} else if len(res.Correlations) > 0 {
+		line += "; no 30m suspect; older linked change"
 	}
 	if len(res.Correlations) > 0 {
 		line += "; " + res.Correlations[0].Summary

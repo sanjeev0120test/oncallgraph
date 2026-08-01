@@ -10,12 +10,25 @@ import (
 )
 
 // SuspectChangeWindow is the fixed lookback for R1 / explain / why / score /
-// fingerprint. Independent of --since so a wide query window does not falsely
-// elevate an old change.
+// fingerprint. Independent of a *wider* --since so an old change is not
+// falsely elevated; ChangeLookback still floors narrow --since.
 const SuspectChangeWindow = 30 * time.Minute
 
 // Kept for call sites inside this package.
 const r1ChangeWindow = SuspectChangeWindow
+
+// ChangeLookback returns the effective change query window: at least
+// correlateWindow (60m) so R1 and change→alert links stay accurate when
+// callers pass a narrower --since.
+func ChangeLookback(since time.Duration) time.Duration {
+	if since <= 0 {
+		since = time.Hour
+	}
+	if since < correlateWindow {
+		return correlateWindow
+	}
+	return since
+}
 
 const r6Handoff = "Write a short handoff note with evidence IDs before closing the incident."
 

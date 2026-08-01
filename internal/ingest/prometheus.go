@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -14,7 +15,9 @@ import (
 )
 
 // IngestPrometheus fetches /api/v1/alerts and upserts firing/pending alerts.
-// Disabled unless explicitly enabled; tested with httptest (no live Prometheus).
+// Alerts previously seen from this source but absent in the scrape are marked
+// resolved so the store does not keep zombie firings. Disabled unless
+// explicitly enabled; tested with httptest (no live Prometheus).
 func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, client *http.Client) error {
 	if client == nil {
 		client = http.DefaultClient
@@ -28,10 +31,24 @@ func IngestPrometheus(ctx context.Context, s *store.Store, baseURL string, clien
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return fmt.Errorf("prometheus decode: %w", err)
 	}
+	seen := map[string]bool{}
+	dropped := 0
 	for _, a := range resp.Data.Alerts {
-		if err := upsertRemoteAlert(s, a.labels(), a.annotations(), a.State, a.ActiveAt, "prometheus"); err != nil {
+		id, ok, err := upsertRemoteAlert(s, a.labels(), a.annotations(), a.State, a.ActiveAt, "prometheus")
+		if err != nil {
 			return err
 		}
+		if ok {
+			seen[id] = true
+		} else {
+			dropped++
+		}
+	}
+	if dropped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: dropped %d prometheus alert(s) without a resolvable service label\n", dropped)
+	}
+	if _, err := s.ResolveActiveAlertsNotIn("prometheus", seen); err != nil {
+		return err
 	}
 	return nil
 }
@@ -72,14 +89,14 @@ func getJSON(ctx context.Context, client *http.Client, url string) ([]byte, erro
 	return body, nil
 }
 
-func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, state string, at time.Time, source string) error {
+func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, state string, at time.Time, source string) (id string, ok bool, err error) {
 	name := labels["alertname"]
 	if name == "" {
-		return nil
+		return "", false, nil
 	}
-	svcID := firstNonEmpty(labels["service"], labels["app"], labels["job"])
+	svcID := resolveServiceLabel(labels)
 	if svcID == "" {
-		return nil
+		return "", false, nil
 	}
 	status := "firing"
 	switch strings.ToLower(state) {
@@ -93,18 +110,34 @@ func upsertRemoteAlert(s *store.Store, labels, annotations map[string]string, st
 	if at.IsZero() {
 		at = time.Now().UTC()
 	}
-	id := source + "-" + slug(name) + "-" + slug(svcID)
+	id = source + "-" + slug(name) + "-" + slug(svcID)
 	evID := "ev-" + id
 	summary := firstNonEmpty(annotations["summary"], annotations["description"], name)
 	if err := s.UpsertAlert(model.Alert{
 		ID: id, ServiceID: svcID, At: at.UTC(), Severity: firstNonEmpty(labels["severity"], "warning"),
 		Name: name, Status: status, Summary: summary, Source: source, EvidenceID: evID,
 	}); err != nil {
-		return err
+		return "", false, err
 	}
-	return s.UpsertEvidence(model.Evidence{
+	if err := s.UpsertEvidence(model.Evidence{
 		ID: evID, Source: source, At: at.UTC(), Kind: "alert", Summary: summary, RawRef: name, ServiceID: svcID,
-	})
+	}); err != nil {
+		return "", false, err
+	}
+	return id, true, nil
+}
+
+func resolveServiceLabel(labels map[string]string) string {
+	return firstNonEmpty(
+		labels["service"],
+		labels["service_name"],
+		labels["exported_service"],
+		labels["label_service"],
+		labels["app"],
+		labels["app_kubernetes_io_name"],
+		labels["label_app_kubernetes_io_name"],
+		labels["job"],
+	)
 }
 
 func firstNonEmpty(vals ...string) string {

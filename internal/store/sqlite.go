@@ -361,6 +361,44 @@ ORDER BY at DESC, id LIMIT 1`, serviceID)
 	return &v, true, nil
 }
 
+// ResolveActiveAlertsNotIn marks firing/pending alerts from source as resolved
+// when their id is not in keep. Used after Prometheus/Alertmanager scrapes so
+// absent series do not remain zombies. keep may be empty (resolve all active
+// for that source). Returns the number of rows updated.
+func (s *Store) ResolveActiveAlertsNotIn(source string, keep map[string]bool) (int, error) {
+	rows, err := s.db.Query(`
+SELECT id FROM alerts
+WHERE source=? AND status IN ('firing','pending')`, source)
+	if err != nil {
+		return 0, wrap("list active alerts for resolve", err)
+	}
+	defer rows.Close()
+	var stale []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return 0, wrap("scan active alert id", err)
+		}
+		if keep != nil && keep[id] {
+			continue
+		}
+		stale = append(stale, id)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, wrap("iterate active alerts", err)
+	}
+	n := 0
+	for _, id := range stale {
+		res, err := s.db.Exec(`UPDATE alerts SET status='resolved' WHERE id=?`, id)
+		if err != nil {
+			return n, wrap("resolve alert "+id, err)
+		}
+		aff, _ := res.RowsAffected()
+		n += int(aff)
+	}
+	return n, nil
+}
+
 // FindFiringAlert returns the newest active (firing/pending) alert matching an
 // alert name or a service id.
 func (s *Store) FindFiringAlert(nameOrService string) (*model.Alert, bool, error) {

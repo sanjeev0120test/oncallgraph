@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -88,9 +89,18 @@ func seedFromConfig(s *store.Store, cfg *config.Config, configDir string) error 
 		}
 	}
 	for id, sc := range cfg.Services {
+		health := model.HealthUnknown
+		sources := []string{"config"}
+		if existing, err := s.GetService(id); err == nil {
+			// Preserve connector-derived health; config seed must not wipe it.
+			health = existing.Health
+			sources = addSource(existing.Sources, "config")
+		} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return err
+		}
 		if err := s.UpsertService(model.Service{
 			ID: id, Name: id, Aliases: sc.Aliases, OwnerID: sc.Owner,
-			Health: model.HealthUnknown, Sources: []string{"config"},
+			Health: health, Sources: sources,
 		}); err != nil {
 			return err
 		}

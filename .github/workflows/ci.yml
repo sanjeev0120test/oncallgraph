@@ -129,9 +129,10 @@ jobs:
           "$BIN" validate-fixture ./fixtures/incident_checkout
           "$BIN" demo --format json >/dev/null
           # Determinism gate (was separate fixtures workflow).
-          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > /tmp/opsgraph-a.json
-          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > /tmp/opsgraph-b.json
-          cmp -s /tmp/opsgraph-a.json /tmp/opsgraph-b.json
+          tmpdir="$(mktemp -d 2>/dev/null || mktemp -d -t opsgraph)"
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > "$tmpdir/a.json"
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > "$tmpdir/b.json"
+          cmp -s "$tmpdir/a.json" "$tmpdir/b.json"
       - name: Compact CLI smoke (macos/windows)
         if: ${{ matrix.smoke == 'compact' }}
         shell: bash

@@ -30,6 +30,9 @@ func newWatchCmd() *cobra.Command {
 			if src.fixture != "" {
 				cmd.PrintErrln("note: --fixture is a static snapshot; watch only succeeds if the fixture service is already healthy")
 			}
+			if src.dataDir != "" {
+				cmd.PrintErrln("note: --data-dir re-reads the store each tick; re-run `opsgraph ingest` (or use live config) for fresh health")
+			}
 			deadline := time.Now().Add(timeout)
 			var last string
 			for {

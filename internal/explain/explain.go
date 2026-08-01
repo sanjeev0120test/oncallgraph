@@ -34,6 +34,8 @@ func Narrative(res model.AskResult) string {
 			fmt.Fprintf(&b, " [%s]", c.EvidenceID)
 		}
 		b.WriteString(".\n")
+	} else if len(res.Correlations) > 0 {
+		b.WriteString("No change in the 30m suspect window; older linked change exists.\n")
 	} else {
 		b.WriteString("No recent changes were found in the lookback window.\n")
 	}

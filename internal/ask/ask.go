@@ -31,14 +31,7 @@ func Ask(s *store.Store, query string, opts Options) (model.AskResult, error) {
 		since = time.Hour
 	}
 	window := now.Add(-since)
-	// Change lookback is at least correlateWindow (60m), which also covers
-	// SuspectChangeWindow (30m), so R1 / explain / why / score / fingerprint /
-	// change→alert links stay accurate even when --since is narrower.
-	changeLookback := since
-	if changeLookback < correlateWindow {
-		changeLookback = correlateWindow
-	}
-	changeWindow := now.Add(-changeLookback)
+	changeWindow := now.Add(-ChangeLookback(since))
 
 	svc, err := s.GetServiceByNameOrAlias(query)
 	if err != nil {

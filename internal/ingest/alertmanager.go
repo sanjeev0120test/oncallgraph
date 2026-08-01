@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -12,7 +13,8 @@ import (
 )
 
 // IngestAlertmanager fetches /api/v2/alerts and upserts alerts.
-// Disabled unless explicitly enabled; tested with httptest (no live Alertmanager).
+// Alerts previously seen from this source but absent in the scrape are marked
+// resolved. Disabled unless explicitly enabled; tested with httptest.
 func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, client *http.Client) error {
 	if client == nil {
 		client = http.DefaultClient
@@ -26,14 +28,28 @@ func IngestAlertmanager(ctx context.Context, s *store.Store, baseURL string, cli
 	if err := json.Unmarshal(body, &alerts); err != nil {
 		return fmt.Errorf("alertmanager decode: %w", err)
 	}
+	seen := map[string]bool{}
+	dropped := 0
 	for _, a := range alerts {
 		state := a.Status.State
 		if state == "" {
 			state = "active"
 		}
-		if err := upsertRemoteAlert(s, a.Labels, a.Annotations, state, a.StartsAt, "alertmanager"); err != nil {
+		id, ok, err := upsertRemoteAlert(s, a.Labels, a.Annotations, state, a.StartsAt, "alertmanager")
+		if err != nil {
 			return err
 		}
+		if ok {
+			seen[id] = true
+		} else {
+			dropped++
+		}
+	}
+	if dropped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: dropped %d alertmanager alert(s) without a resolvable service label\n", dropped)
+	}
+	if _, err := s.ResolveActiveAlertsNotIn("alertmanager", seen); err != nil {
+		return err
 	}
 	return nil
 }

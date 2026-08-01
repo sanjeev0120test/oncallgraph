@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
@@ -84,16 +85,26 @@ func ingestK8sFiles(s *store.Store, fsys fs.FS, depFile, evFile string) error {
 	if _, err := readYAML(fsys, evFile, &evs); err != nil {
 		return err
 	}
+	skipped := 0
 	for _, e := range evs.Events {
-		if e.EvidenceID == "" {
+		if e.ServiceID == "" {
+			skipped++
 			continue
 		}
+		evID := e.EvidenceID
+		if evID == "" {
+			// Synthesize a stable id so partial snapshots still contribute timeline evidence.
+			evID = "ev-k8s-" + slug(e.ServiceID) + "-" + e.At.UTC().Format("20060102T150405") + "-" + slug(e.Reason)
+		}
 		if err := s.UpsertEvidence(model.Evidence{
-			ID: e.EvidenceID, Source: "kubernetes", At: e.At, Kind: "k8s-event",
+			ID: evID, Source: "kubernetes", At: e.At, Kind: "k8s-event",
 			Summary: eventSummary(e), RawRef: e.Reason, ServiceID: e.ServiceID,
 		}); err != nil {
 			return err
 		}
+	}
+	if skipped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: skipped %d k8s events (missing service_id)\n", skipped)
 	}
 	return nil
 }
@@ -108,9 +119,35 @@ func applyDeploymentHealth(s *store.Store, d k8sDeployment) error {
 			return err
 		}
 	}
-	svc.Health = health
+	// Replica readiness must not paper over a worse app-level health already known.
+	svc.Health = mergeHealth(svc.Health, health)
 	svc.Sources = addSource(svc.Sources, "kubernetes")
 	return s.UpsertService(*svc)
+}
+
+// mergeHealth keeps the worse of current and incoming. Replica-healthy never
+// upgrades degraded/unhealthy (app can still be broken with pods Ready).
+func mergeHealth(current, incoming string) string {
+	if current == "" || current == model.HealthUnknown {
+		return incoming
+	}
+	if healthRank(incoming) > healthRank(current) {
+		return incoming
+	}
+	return current
+}
+
+func healthRank(h string) int {
+	switch h {
+	case model.HealthUnhealthy:
+		return 3
+	case model.HealthDegraded:
+		return 2
+	case model.HealthHealthy:
+		return 1
+	default:
+		return 0
+	}
 }
 
 func emitRollout(s *store.Store, d k8sDeployment) error {
