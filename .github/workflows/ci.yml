@@ -765,12 +765,14 @@ jobs:
           set -euo pipefail
           # Pinned via go.mod tool directive (module graph + go.sum).
           go tool govulncheck ./...
-          # Binary mode catches vulns in what actually ships (stripped release shape).
+          # Binary mode on the stripped release shape; allowlist is explicit review only.
+          test -s scripts/govulncheck-allowlist.txt
+          go build -o /dev/null scripts/check_govuln_binary.go
           vuln_bin="${RUNNER_TEMP}/opsgraph-vuln"
           GOFLAGS="-mod=readonly -buildvcs=false" \
             go build -trimpath -ldflags="-s -w -buildid=" -o "$vuln_bin" ./cmd/opsgraph
-          go tool govulncheck -mode=binary "$vuln_bin"
-          echo "| govulncheck source+binary | ok |" >> "$GITHUB_STEP_SUMMARY"
+          go run ./scripts/check_govuln_binary.go "$vuln_bin"
+          echo "| govulncheck source+binary (allowlisted) | ok |" >> "$GITHUB_STEP_SUMMARY"
 
   arm64-smoke:
     name: linux/arm64 smoke

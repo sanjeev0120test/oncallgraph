@@ -1,0 +1,6 @@
+# Accepted govulncheck -mode=binary findings (review before extending).
+# Format: GO-YYYY-NNNN  # reason
+#
+# Transitive via go-git signed-object support. Source-mode govulncheck reports
+# 0 reachable call sites in opsgraph. Advisory Fixed: N/A (openpgp unmaintained).
+GO-2026-5932
