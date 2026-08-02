@@ -18,6 +18,27 @@ func newTestStore(t *testing.T) *Store {
 	return s
 }
 
+func TestLatestChange(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	if err := s.UpsertService(model.Service{ID: "a", Name: "a", Health: model.HealthHealthy}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := s.LatestChange("a"); err != nil || ok {
+		t.Fatalf("empty LatestChange: ok=%v err=%v", ok, err)
+	}
+	if err := s.UpsertChange(model.Change{ID: "c1", ServiceID: "a", At: now.Add(-30 * time.Minute), Type: "commit", Summary: "older"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertChange(model.Change{ID: "c2", ServiceID: "a", At: now.Add(-10 * time.Minute), Type: "deploy", Summary: "newer"}); err != nil {
+		t.Fatal(err)
+	}
+	ch, ok, err := s.LatestChange("a")
+	if err != nil || !ok || ch == nil || ch.ID != "c2" {
+		t.Fatalf("LatestChange: %+v ok=%v err=%v", ch, ok, err)
+	}
+}
+
 func TestListAllChangesAndAlerts(t *testing.T) {
 	s := newTestStore(t)
 	now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)

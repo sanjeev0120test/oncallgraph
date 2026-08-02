@@ -265,7 +265,14 @@ func TestCLITimelineLimit(t *testing.T) {
 
 func TestCLIHealthStrictAndWatchOnce(t *testing.T) {
 	fx := fixtureDir(t)
-	_, _, code := runRoot(t, "health", "--fixture", fx, "--strict")
+	out, _, code := runRoot(t, "health", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("health json exit = %d", code)
+	}
+	if !strings.Contains(out, `"ok": false`) || !strings.Contains(out, `"counts"`) {
+		t.Fatalf("health json missing ok/counts on hot fixture: %s", out)
+	}
+	_, _, code = runRoot(t, "health", "--fixture", fx, "--strict")
 	if code != 1 {
 		t.Fatalf("health --strict on hot fixture exit = %d, want 1", code)
 	}

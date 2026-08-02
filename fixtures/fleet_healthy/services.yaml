@@ -1,0 +1,12 @@
+services:
+  - id: api
+    name: api
+    aliases: [api-gateway]
+    owner_id: platform
+    health: healthy
+    sources: [fixture]
+  - id: db
+    name: db
+    owner_id: platform
+    health: healthy
+    sources: [fixture]

@@ -34,6 +34,17 @@ func sampleResult() model.AskResult {
 	}
 }
 
+func TestStubEmbedder(t *testing.T) {
+	var e Embedder = StubEmbedder{}
+	vecs, err := e.EmbedDocuments(context.Background(), []string{"a", "b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vecs) != 2 || len(vecs[0]) != 1 || vecs[0][0] != 0 {
+		t.Fatalf("StubEmbedder vectors: %+v", vecs)
+	}
+}
+
 func TestLocalSummaryIsUseful(t *testing.T) {
 	s := LocalSummary(sampleResult())
 	for _, want := range []string{"checkout", "degraded", "deploy v1.4.2", "auth", "Payments Team"} {

@@ -27,8 +27,8 @@ env:
 jobs:
   lint:
     name: lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -62,8 +62,9 @@ jobs:
             exit 1
           fi
           echo "| go mod tidy | ok |" >> "$GITHUB_STEP_SUMMARY"
-          go build ./...
-          echo "| go build | ok |" >> "$GITHUB_STEP_SUMMARY"
+          # Offline-first proof: rebuild with module proxy disabled after download.
+          GOPROXY=off go build ./...
+          echo "| go build (GOPROXY=off) | ok |" >> "$GITHUB_STEP_SUMMARY"
           # Precompiled binaries/archives belong in GitHub Releases only.
           tracked="$(git ls-files -z | tr '\0' '\n' | grep -E '(^|/)(bin|dist)/|(^|/)opsgraph(\.exe)?$|(^|/)opsgraph_.+\.(tar\.gz|zip)$|(^|/)SHA256SUMS$|(^|/)DEPENDENCIES\.txt$' || true)"
           if [ -n "$tracked" ]; then
@@ -105,32 +106,42 @@ jobs:
           test -f fixtures/ci_live_k8s/.opsgraph.yaml
           test -d fixtures/incident_checkout/k8s
           test -f fixtures/incident_checkout/k8s/deployments.yaml
+          test -f fixtures/fleet_healthy/meta.yaml
+          test -f fixtures/fleet_healthy/services.yaml
           echo "| fixture hygiene | ok |" >> "$GITHUB_STEP_SUMMARY"
 
   staticcheck:
     name: staticcheck
-    runs-on: ubuntu-latest
-    timeout-minutes: 4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
-      - name: Run staticcheck (go tool, sum-pinned)
+      - name: Run staticcheck + deadcode (go tool, sum-pinned)
         run: |
           set -euo pipefail
           # Pinned via go.mod tool directive (module graph + go.sum).
           go tool staticcheck ./...
+          # deadcode exits 0 even when it prints findings on some runners; treat output as failure.
+          dead="$(go tool deadcode -test ./...)"
+          if [ -n "$dead" ]; then
+            echo "$dead"
+            echo "::error::deadcode found unreachable functions"
+            exit 1
+          fi
+          echo "| staticcheck + deadcode | ok |" >> "$GITHUB_STEP_SUMMARY"
 
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 8
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             race: true
             smoke: full
           - os: macos-latest
@@ -155,37 +166,49 @@ jobs:
           test -s "$out"
       - name: Unit tests (shuffle)
         if: ${{ !matrix.race }}
-        run: go test -shuffle=on ./...
+        run: go test -count=1 -timeout=5m -shuffle=on ./...
       - name: Unit tests (race + shuffle + cover)
-        if: ${{ matrix.race && matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' }}
         env:
           CGO_ENABLED: "1"
+          COVER_FLOOR: "55"
         run: |
           set -euo pipefail
-          go test -race -shuffle=on -coverprofile=cover.out -covermode=atomic ./...
-          go tool cover -func=cover.out | tail -n 1 | tee cover-summary.txt
+          go test -count=1 -timeout=5m -race -shuffle=on -coverprofile=cover.out -covermode=atomic ./...
+          go tool cover -func=cover.out | tee cover-func.txt | tail -n 1 | tee cover-summary.txt
+          pct="$(awk '/^total:/{gsub(/%/,"",$NF); print $NF}' cover-summary.txt)"
+          awk -v p="$pct" -v min="$COVER_FLOOR" 'BEGIN {
+            if (p == "" || (p+0) < (min+0)) {
+              printf "coverage floor failed: got %s%%, want >= %s%%\n", p, min > "/dev/stderr"
+              exit 1
+            }
+            printf "coverage floor ok: %s%% >= %s%%\n", p, min
+          }'
           {
             echo "## coverage"
             echo ""
             echo '```'
             cat cover-summary.txt
             echo '```'
+            echo ""
+            echo "Floor: >= ${COVER_FLOOR}% (failing gate)."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverprofile
-        if: ${{ matrix.race && matrix.os == 'ubuntu-latest' && always() }}
+        if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' && always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverprofile-${{ github.run_id }}
           path: |
             cover.out
             cover-summary.txt
+            cover-func.txt
           if-no-files-found: ignore
           retention-days: 7
       - name: Unit tests (race + shuffle)
-        if: ${{ matrix.race && matrix.os != 'ubuntu-latest' }}
+        if: ${{ matrix.race && matrix.os != 'ubuntu-24.04' }}
         env:
           CGO_ENABLED: "1"
-        run: go test -race -shuffle=on ./...
+        run: go test -count=1 -timeout=5m -race -shuffle=on ./...
       - name: Fixture / golden + demo
         shell: bash
         run: |
@@ -194,6 +217,7 @@ jobs:
           if [ -f ./bin/opsgraph.exe ]; then BIN=./bin/opsgraph.exe; fi
           "$BIN" test ./fixtures/incident_checkout
           "$BIN" validate-fixture ./fixtures/incident_checkout
+          "$BIN" validate-fixture ./fixtures/fleet_healthy
           "$BIN" demo --format json >/dev/null
           # Determinism gate (was separate fixtures workflow).
           tmpdir="$(mktemp -d 2>/dev/null || mktemp -d -t opsgraph)"
@@ -312,6 +336,7 @@ jobs:
           "$BIN" version --format json | "${JA[@]}" has:version has:commit has:goos has:goarch
           "$BIN" graph --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:nodes has:edges
           "$BIN" validate-fixture ./fixtures/incident_checkout --format json | "${JA[@]}" true:ok
+          "$BIN" validate-fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" true:ok
           "$BIN" changes --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:changes has:truncated
           "$BIN" top --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:services has:total
           "$BIN" services --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:services has:total
@@ -328,6 +353,22 @@ jobs:
           "$BIN" alerts --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:alerts has:truncated
           "$BIN" handoff checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:note has:score has:fingerprint
           "$BIN" blast checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:upstream_count has:downstream_count
+          # Machine contracts previously only covered in Go tests.
+          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:service has:timeline has:recommendations has:generated_at eq:window=60m
+          "$BIN" verify-runbook auth --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:service_id has:status has:steps eq:service_id=auth
+          "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:fingerprint has:service has:inputs startswith:fingerprint=inc_ eq:service=checkout
+          "$BIN" report checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:markdown has:service has:health eq:service=checkout
+          "$BIN" explain checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:narrative has:service has:health eq:service=checkout
+          "$BIN" timeline checkout --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:events has:total has:truncated true:truncated eq:service=checkout
+          "$BIN" resolve checkout-api --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" eq:id=checkout eq:query=checkout-api has:aliases
+          "$BIN" who checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" eq:service=checkout has:owner_id has:last_author
+          "$BIN" impact auth --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" eq:root=auth has:affected has:tree has:max_depth
+          "$BIN" demo --format json | "${JA[@]}" has:service has:timeline has:recommendations
+          "$BIN" health --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" false:ok has:counts has:by_state gte:total=1
+          "$BIN" health --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" true:ok eqnum:total=2
+          "$BIN" health --fixture ./fixtures/fleet_healthy --strict >/dev/null
+          "$BIN" ask api --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" has:service has:recommendations
+          "$BIN" verify-runbook api --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eq:status=pass eq:service_id=api
           set +e
           "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
           strict_health=$?
@@ -408,7 +449,7 @@ jobs:
             echo "| result | ${JOB_STATUS} |"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: go install smoke
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         shell: bash
         run: |
           set -euo pipefail
@@ -511,7 +552,7 @@ jobs:
 
   cross:
     name: cross + release-pack
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -519,6 +560,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
       - name: Cross-compile 6 targets (parallel) + pack
+        env:
+          # Stripped linux binaries today ~14MB; fail if a dep bloats past 22MB.
+          SIZE_BUDGET_BYTES: "23068672"
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -549,6 +593,14 @@ jobs:
             echo "$meta" | grep -F "GOOS=${GOOS}" >/dev/null
             echo "$meta" | grep -F "GOARCH=${GOARCH}" >/dev/null
           done
+          for f in dist/opsgraph-linux-amd64 dist/opsgraph-linux-arm64; do
+            bytes="$(wc -c < "$f")"
+            echo "size ${f}=${bytes}"
+            if [ "$bytes" -gt "$SIZE_BUDGET_BYTES" ]; then
+              echo "::error::binary size budget exceeded for ${f}: ${bytes} > ${SIZE_BUDGET_BYTES}"
+              exit 1
+            fi
+          done
           ./dist/opsgraph-linux-amd64 version | grep -F "$VERSION"
 
           chmod +x scripts/install.sh scripts/pack-release.sh
@@ -574,7 +626,7 @@ jobs:
 
   vuln:
     name: govulncheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -586,6 +638,41 @@ jobs:
           set -euo pipefail
           # Pinned via go.mod tool directive (module graph + go.sum).
           go tool govulncheck ./...
+
+  arm64-smoke:
+    name: linux/arm64 smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-go
+      - name: Native arm64 build + smoke
+        run: |
+          set -euo pipefail
+          test "$(go env GOARCH)" = "arm64"
+          go build -trimpath -ldflags="-s -w -buildid=" -o bin/opsgraph ./cmd/opsgraph
+          go test -count=1 -timeout=5m -shuffle=on ./...
+          ./bin/opsgraph test ./fixtures/incident_checkout
+          ./bin/opsgraph validate-fixture ./fixtures/fleet_healthy
+          JA=(go run ./scripts/jsonassert.go)
+          ./bin/opsgraph ask checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:service has:timeline
+          ./bin/opsgraph health --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" true:ok
+          ./bin/opsgraph health --fixture ./fixtures/fleet_healthy --strict >/dev/null
+          bytes="$(wc -c < bin/opsgraph)"
+          echo "native arm64 binary bytes=${bytes}"
+          test "$bytes" -gt 1000000
+          test "$bytes" -lt 23068672
+          {
+            echo "## linux/arm64 smoke"
+            echo ""
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| goarch | arm64 |"
+            echo "| binary_bytes | ${bytes} |"
+            echo "| result | ok |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   repro:
     name: repro-build
@@ -620,8 +707,8 @@ jobs:
 
   ci-ok:
     name: all checks passed
-    needs: [lint, staticcheck, test, cross, vuln, repro, gitleaks, zizmor, actionlint, dependency-review]
-    runs-on: ubuntu-latest
+    needs: [lint, staticcheck, test, cross, vuln, arm64-smoke, repro, gitleaks, zizmor, actionlint, dependency-review]
+    runs-on: ubuntu-24.04
     timeout-minutes: 1
     if: always()
     steps:
@@ -638,6 +725,7 @@ jobs:
             echo "| test (3-OS matrix) | ${{ needs.test.result }} |"
             echo "| cross + release-pack | ${{ needs.cross.result }} |"
             echo "| govulncheck | ${{ needs.vuln.result }} |"
+            echo "| linux/arm64 smoke | ${{ needs.arm64-smoke.result }} |"
             echo "| repro-build | ${{ needs.repro.result }} |"
             echo "| gitleaks | ${{ needs.gitleaks.result }} |"
             echo "| zizmor | ${{ needs.zizmor.result }} |"
@@ -651,6 +739,7 @@ jobs:
           echo "test=${{ needs.test.result }}"
           echo "cross=${{ needs.cross.result }}"
           echo "vuln=${{ needs.vuln.result }}"
+          echo "arm64-smoke=${{ needs.arm64-smoke.result }}"
           echo "repro=${{ needs.repro.result }}"
           echo "gitleaks=${{ needs.gitleaks.result }}"
           echo "zizmor=${{ needs.zizmor.result }}"
@@ -661,6 +750,7 @@ jobs:
           test "${{ needs.test.result }}" = "success"
           test "${{ needs.cross.result }}" = "success"
           test "${{ needs.vuln.result }}" = "success"
+          test "${{ needs.arm64-smoke.result }}" = "success"
           test "${{ needs.repro.result }}" = "success"
           test "${{ needs.gitleaks.result }}" = "success"
           test "${{ needs.zizmor.result }}" = "success"

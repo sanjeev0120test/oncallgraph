@@ -57,6 +57,7 @@ require (
 )
 
 tool (
+	golang.org/x/tools/cmd/deadcode
 	golang.org/x/vuln/cmd/govulncheck
 	honnef.co/go/tools/cmd/staticcheck
 )

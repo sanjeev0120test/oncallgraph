@@ -13,4 +13,9 @@ and `opsgraph ask --fixture <pack>`.
 - `meta.yaml` (`now:` fixture clock)
 - `expected/*.json` goldens for `opsgraph test`
 
+Packs in this repo:
+
+- `incident_checkout` — hot incident (degraded checkout, unhealthy auth); golden pack for `opsgraph test` / demo.
+- `fleet_healthy` — all-green fleet for `health --strict` and healthy-path contracts (no goldens).
+
 Validate a pack: `opsgraph validate-fixture ./fixtures/incident_checkout`.

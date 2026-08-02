@@ -51,11 +51,13 @@ func newHealthCmd() *cobra.Command {
 			for k := range by {
 				sort.Strings(by[k])
 			}
+			ok := counts[model.HealthDegraded] == 0 && counts[model.HealthUnhealthy] == 0
 			out := struct {
 				Total   int                 `json:"total"`
+				OK      bool                `json:"ok"`
 				Counts  map[string]int      `json:"counts"`
 				ByState map[string][]string `json:"by_state"`
-			}{Total: len(svcs), Counts: counts, ByState: by}
+			}{Total: len(svcs), OK: ok, Counts: counts, ByState: by}
 			if format == "json" {
 				if err := output.JSON(cmd.OutOrStdout(), out); err != nil {
 					return fail(2, "%v", err)

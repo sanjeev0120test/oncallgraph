@@ -1,0 +1,5 @@
+dependencies:
+  - from: api
+    to: db
+    type: db
+    source: fixture
