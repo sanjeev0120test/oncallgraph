@@ -159,19 +159,13 @@ func TestGitAttributesPinsLF(t *testing.T) {
 	}
 }
 
-// TestDirectDepsAllowlisted freezes the direct module graph. New direct requires
-// (cloud SDKs, MCP, telemetry) must be an explicit allowlist change.
+// TestDirectDepsAllowlisted freezes the direct require block in go.mod.
+// Parsed offline so GOPROXY=off / -mod=readonly race CI stays reliable.
 func TestDirectDepsAllowlisted(t *testing.T) {
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go toolchain not on PATH")
-	}
 	root := moduleRoot(t)
-	cmd := exec.Command("go", "list", "-m", "-f", "{{if not .Indirect}}{{.Path}}{{end}}", "all")
-	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	out, err := cmd.Output()
+	raw, err := os.ReadFile(filepath.Join(root, "go.mod"))
 	if err != nil {
-		t.Fatalf("go list -m: %v", err)
+		t.Fatal(err)
 	}
 	want := map[string]bool{
 		"github.com/go-git/go-git/v5":        true,
@@ -181,16 +175,37 @@ func TestDirectDepsAllowlisted(t *testing.T) {
 		"gopkg.in/yaml.v3":                   true,
 		"modernc.org/sqlite":                 true,
 	}
-	mainMod := "github.com/sanjeev0120test/opsgraph"
 	got := map[string]bool{}
-	for _, line := range strings.Split(string(out), "\n") {
-		pkg := strings.TrimSpace(line)
-		if pkg == "" || pkg == mainMod {
-			continue
-		}
-		got[pkg] = true
-		if !want[pkg] {
-			t.Fatalf("unexpected direct dependency %q (update allowlist only after architecture review)", pkg)
+	inRequire := false
+	for _, line := range strings.Split(string(raw), "\n") {
+		trim := strings.TrimSpace(line)
+		switch {
+		case trim == "require (":
+			inRequire = true
+		case inRequire && trim == ")":
+			inRequire = false
+		case inRequire:
+			if trim == "" || strings.HasPrefix(trim, "//") || strings.Contains(trim, "// indirect") {
+				continue
+			}
+			fields := strings.Fields(trim)
+			if len(fields) < 1 {
+				continue
+			}
+			pkg := fields[0]
+			got[pkg] = true
+			if !want[pkg] {
+				t.Fatalf("unexpected direct dependency %q (update allowlist only after architecture review)", pkg)
+			}
+		case strings.HasPrefix(trim, "require ") && !strings.HasPrefix(trim, "require ("):
+			fields := strings.Fields(trim)
+			if len(fields) >= 2 {
+				pkg := fields[1]
+				got[pkg] = true
+				if !want[pkg] {
+					t.Fatalf("unexpected direct dependency %q (update allowlist only after architecture review)", pkg)
+				}
+			}
 		}
 	}
 	for pkg := range want {

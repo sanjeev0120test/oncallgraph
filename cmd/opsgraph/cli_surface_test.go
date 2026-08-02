@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 func TestCLICommandSurfaceFrozen(t *testing.T) {
@@ -39,10 +38,9 @@ func TestCLICriticalFlagsFrozen(t *testing.T) {
 		if err != nil {
 			t.Fatalf("find %s: %v", name, err)
 		}
-		got := flagNames(cmd)
 		for _, f := range want {
-			if !containsString(got, f) {
-				t.Fatalf("%s missing required flag %q (have %v)", name, f, got)
+			if cmd.Flags().Lookup(f) == nil {
+				t.Fatalf("%s missing required flag %q", name, f)
 			}
 		}
 	}
@@ -54,31 +52,9 @@ func commandNames(root *cobra.Command) []string {
 		if c.Hidden || c.Name() == "help" {
 			continue
 		}
-		// Use first token of Use (e.g. "ask <service>" -> "ask").
 		name := strings.Fields(c.Use)[0]
 		out = append(out, name)
 	}
 	sort.Strings(out)
 	return out
-}
-
-func flagNames(cmd *cobra.Command) []string {
-	var out []string
-	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
-		out = append(out, f.Name)
-	})
-	cmd.InheritedFlags().VisitAll(func(f *pflag.Flag) {
-		out = append(out, f.Name)
-	})
-	sort.Strings(out)
-	return out
-}
-
-func containsString(list []string, want string) bool {
-	for _, s := range list {
-		if s == want {
-			return true
-		}
-	}
-	return false
 }
