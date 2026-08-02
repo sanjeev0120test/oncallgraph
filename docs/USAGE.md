@@ -9,8 +9,10 @@ go build -o bin/opsgraph ./cmd/opsgraph   # or: make build
 Most inspection commands accept `--format table|json` (default `table`).
 Exceptions: `graph` (`ascii|table|mermaid|json`), `export`/`report` (`json|markdown`), `watch` (`--once` supports `--format json`).
 `status` / `doctor` / `ingest` / `version` / `validate-fixture` / `test` / `why` / `handoff` / `explain` / `evidence` accept `--format json`.
-`health --strict` exits `1` when any service is degraded or unhealthy; JSON includes `"ok": true|false`.
+`health --strict` exits `1` when any service is degraded, unhealthy, or unknown (fail-closed); JSON includes `"ok": true|false`.
 Healthy-path CI pack: `fixtures/fleet_healthy` (all services healthy; use with `health --strict`).
+`status` JSON includes `"ok"` / `"has_data"`; `path` JSON includes `"ok"` / `"found"` (missing routes still exit `1` with a JSON envelope).
+List commands treat `--limit 0` as unlimited (`changes`/`top`/`alerts`/`timeline`/`evidence`).
 `export --meta` prints `{path,bytes,service,format}` for automation.
 
 Environment defaults (flags win when set):

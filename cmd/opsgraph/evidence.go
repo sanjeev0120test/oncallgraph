@@ -103,7 +103,7 @@ func newEvidenceCmd() *cobra.Command {
 				}
 			}
 			if truncated {
-				cmd.Printf("… +%d more (raise --limit)\n", total-limit)
+				cmd.Printf("... +%d more (raise --limit)\n", total-limit)
 			}
 			return nil
 		},

@@ -129,8 +129,16 @@ func TestCLIFixtureDataDirClockParity(t *testing.T) {
 func TestCLIRejectBadLimitAndWatchFlags(t *testing.T) {
 	fx := fixtureDir(t)
 	_, _, code := runRoot(t, "top", "--fixture", fx, "--limit", "0")
+	if code != 0 {
+		t.Fatalf("top --limit 0 exit = %d, want 0 (0 = unlimited)", code)
+	}
+	_, _, code = runRoot(t, "top", "--fixture", fx, "--limit", "-1")
 	if code != 2 {
-		t.Fatalf("top --limit 0 exit = %d, want 2", code)
+		t.Fatalf("top --limit -1 exit = %d, want 2", code)
+	}
+	_, _, code = runRoot(t, "changes", "--fixture", fx, "--limit", "-1")
+	if code != 2 {
+		t.Fatalf("changes --limit -1 exit = %d, want 2", code)
 	}
 	_, _, code = runRoot(t, "watch", "checkout", "--fixture", fx, "--timeout", "0")
 	if code != 2 {
@@ -251,7 +259,7 @@ func TestCLITimelineLimit(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("timeline exit = %d", code)
 	}
-	if !strings.Contains(out, "… +") {
+	if !strings.Contains(out, "... +") {
 		t.Fatalf("timeline --limit should note truncated events:\n%s", out)
 	}
 	out, _, code = runRoot(t, "timeline", "checkout", "--fixture", fx, "--limit", "1", "--format", "json")

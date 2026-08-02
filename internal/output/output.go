@@ -106,7 +106,7 @@ func Table(w io.Writer, res model.AskResult) error {
 			p("\n")
 		}
 		if truncated {
-			p("          … +%d more\n", len(res.Timeline)-limit)
+			p("          ... +%d more\n", len(res.Timeline)-limit)
 		}
 	}
 	if len(res.Evidence) > 0 {

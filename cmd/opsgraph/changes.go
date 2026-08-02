@@ -23,8 +23,8 @@ func newChangesCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			if limit < 1 {
-				return fail(2, "invalid --limit %d (must be >= 1)", limit)
+			if limit < 0 {
+				return fail(2, "invalid --limit %d (must be >= 0)", limit)
 			}
 			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
@@ -80,6 +80,7 @@ func newChangesCmd() *cobra.Command {
 					"total":     total,
 					"truncated": truncated,
 					"limit":     limit,
+					"service":   service,
 				})
 			}
 			if len(list) == 0 {
@@ -94,7 +95,7 @@ func newChangesCmd() *cobra.Command {
 				cmd.Printf("%s  %-10s %-14s %s [%s]\n", c.At.Format(time.RFC3339), c.Type, c.ServiceID, c.Summary, ev)
 			}
 			if truncated {
-				cmd.Printf("… +%d more (raise --limit)\n", total-limit)
+				cmd.Printf("... +%d more (raise --limit)\n", total-limit)
 			}
 			return nil
 		},
@@ -103,7 +104,7 @@ func newChangesCmd() *cobra.Command {
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	cmd.Flags().StringVar(&service, "service", "", "filter to one service name/alias")
 	_ = cmd.RegisterFlagCompletionFunc("service", completeServiceArg)
-	cmd.Flags().IntVar(&limit, "limit", 20, "max changes to show")
+	cmd.Flags().IntVar(&limit, "limit", 20, "max changes to show (0 = all)")
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window (default: config default_since or 60m)")
 	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatTableJSON)
 	return cmd

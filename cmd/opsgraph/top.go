@@ -22,8 +22,8 @@ func newTopCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			if limit < 1 {
-				return fail(2, "invalid --limit %d (must be >= 1)", limit)
+			if limit < 0 {
+				return fail(2, "invalid --limit %d (must be >= 0)", limit)
 			}
 			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
@@ -88,7 +88,7 @@ func newTopCmd() *cobra.Command {
 				cmd.Printf("%-4d %-16s %-12s %-6d %s\n", i+1, r.Service, r.Health, r.Score, r.Level)
 			}
 			if truncated {
-				cmd.Printf("… +%d more (raise --limit)\n", total-limit)
+				cmd.Printf("... +%d more (raise --limit)\n", total-limit)
 			}
 			if skipped > 0 {
 				cmd.PrintErrf("warning: %d service(s) skipped due to errors\n", skipped)
@@ -99,7 +99,7 @@ func newTopCmd() *cobra.Command {
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatTableJSON)
-	cmd.Flags().IntVar(&limit, "limit", 10, "max services to show")
+	cmd.Flags().IntVar(&limit, "limit", 10, "max services to show (0 = all)")
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	return cmd
 }

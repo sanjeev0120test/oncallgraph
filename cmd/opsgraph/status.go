@@ -79,6 +79,8 @@ func newStatusCmd() *cobra.Command {
 			}
 			boolPtr := func(b bool) *bool { return &b }
 			type statusOut struct {
+				OK           bool                       `json:"ok"`
+				HasData      bool                       `json:"has_data"`
 				DataDir      string                     `json:"data_dir"`
 				DB           string                     `json:"db"`
 				Connectors   map[string]connectorStatus `json:"connectors"`
@@ -90,6 +92,8 @@ func newStatusCmd() *cobra.Command {
 				Services     []map[string]string        `json:"services,omitempty"`
 			}
 			out := statusOut{
+				OK:      false,
+				HasData: false,
 				DataDir: dir,
 				DB:      dbPath,
 				Connectors: map[string]connectorStatus{
@@ -183,6 +187,8 @@ func newStatusCmd() *cobra.Command {
 			out.ActiveSource = active
 			out.Schema = ver
 			out.Counts = counts
+			out.HasData = true
+			out.OK = true
 			switch active {
 			case "live":
 				out.SourceNote = "ephemeral live scrape (may differ from on-disk db above)"

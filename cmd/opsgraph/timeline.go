@@ -67,7 +67,7 @@ func newTimelineCmd() *cobra.Command {
 				cmd.Printf("%s  %-10s  %-40s  [%s]\n", t.At.Format(time.RFC3339), t.Kind, trunc(t.Summary, 40), ev)
 			}
 			if limit > 0 && len(res.Timeline) > limit {
-				cmd.Printf("… +%d more (raise --limit)\n", len(res.Timeline)-limit)
+				cmd.Printf("... +%d more (raise --limit)\n", len(res.Timeline)-limit)
 			}
 			return nil
 		},

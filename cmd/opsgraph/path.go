@@ -46,10 +46,28 @@ func newPathCmd() *cobra.Command {
 			}
 			p, err := pathfind.Shortest(deps, from.ID, to.ID)
 			if err != nil {
+				if format == "json" {
+					_ = output.JSON(cmd.OutOrStdout(), map[string]any{
+						"from":  from.ID,
+						"to":    to.ID,
+						"found": false,
+						"ok":    false,
+						"nodes": []string{},
+						"hops":  0,
+						"error": err.Error(),
+					})
+				}
 				return fail(1, "%v", err)
 			}
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), p)
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
+					"from":  p.From,
+					"to":    p.To,
+					"found": true,
+					"ok":    true,
+					"nodes": p.Nodes,
+					"hops":  p.Hops,
+				})
 			}
 			cmd.Printf("PATH  %v\n", p.Nodes)
 			cmd.Printf("HOPS  %d\n", p.Hops)

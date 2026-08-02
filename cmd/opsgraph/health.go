@@ -51,7 +51,10 @@ func newHealthCmd() *cobra.Command {
 			for k := range by {
 				sort.Strings(by[k])
 			}
-			ok := counts[model.HealthDegraded] == 0 && counts[model.HealthUnhealthy] == 0
+			// Fail-closed: unknown health (e.g. synthesized deps) is not "ok".
+			ok := counts[model.HealthDegraded] == 0 &&
+				counts[model.HealthUnhealthy] == 0 &&
+				counts[model.HealthUnknown] == 0
 			out := struct {
 				Total   int                 `json:"total"`
 				OK      bool                `json:"ok"`
@@ -81,9 +84,9 @@ func newHealthCmd() *cobra.Command {
 					}
 				}
 			}
-			if strict && (counts[model.HealthDegraded] > 0 || counts[model.HealthUnhealthy] > 0) {
-				return fail(1, "fleet not healthy: %d degraded, %d unhealthy",
-					counts[model.HealthDegraded], counts[model.HealthUnhealthy])
+			if strict && !ok {
+				return fail(1, "fleet not healthy: %d degraded, %d unhealthy, %d unknown",
+					counts[model.HealthDegraded], counts[model.HealthUnhealthy], counts[model.HealthUnknown])
 			}
 			return nil
 		},
