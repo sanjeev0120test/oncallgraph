@@ -1,4 +1,4 @@
-// Package graphviz renders the service dependency graph (ASCII or Mermaid).
+// Package graphviz renders the service dependency graph (ASCII, Mermaid, or JSON).
 package graphviz
 
 import (
@@ -8,6 +8,54 @@ import (
 
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 )
+
+// Node is a service vertex in the JSON graph.
+type Node struct {
+	ID     string `json:"id"`
+	Health string `json:"health"`
+}
+
+// Edge is a dependency From → To (From depends on To).
+type Edge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	Type string `json:"type"`
+}
+
+// Graph is a machine-readable adjacency list.
+type Graph struct {
+	Nodes []Node `json:"nodes"`
+	Edges []Edge `json:"edges"`
+}
+
+// JSONGraph builds a deterministic nodes+edges payload.
+func JSONGraph(services []model.Service, deps []model.Dependency) Graph {
+	svcs := append([]model.Service(nil), services...)
+	sort.SliceStable(svcs, func(i, j int) bool { return svcs[i].ID < svcs[j].ID })
+	nodes := make([]Node, 0, len(svcs))
+	for _, s := range svcs {
+		h := s.Health
+		if h == "" {
+			h = "unknown"
+		}
+		nodes = append(nodes, Node{ID: s.ID, Health: h})
+	}
+	sorted := append([]model.Dependency(nil), deps...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].FromServiceID != sorted[j].FromServiceID {
+			return sorted[i].FromServiceID < sorted[j].FromServiceID
+		}
+		if sorted[i].ToServiceID != sorted[j].ToServiceID {
+			return sorted[i].ToServiceID < sorted[j].ToServiceID
+		}
+		return sorted[i].Type < sorted[j].Type
+	})
+	edges := make([]Edge, 0, len(sorted))
+	for _, d := range sorted {
+		edges = append(edges, Edge{From: d.FromServiceID, To: d.ToServiceID, Type: d.Type})
+	}
+	return Graph{Nodes: nodes, Edges: edges}
+}
 
 // ASCII returns a simple text dependency map. Edge direction: From → To means From depends on To.
 func ASCII(services []model.Service, deps []model.Dependency) string {

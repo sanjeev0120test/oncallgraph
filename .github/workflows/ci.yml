@@ -110,14 +110,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
-      - name: Install + run staticcheck
+      - name: Run staticcheck (go tool, sum-pinned)
         run: |
           set -euo pipefail
-          # Module cache from setup-go makes reinstall cheap; avoid actions/cache
-          # (zizmor cache-poisoning with workflow_dispatch / publish-capable workflows).
-          # Pin module version (release tags can move; v0.6.1 == 2025.1.1).
-          go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
-          "$(go env GOPATH)/bin/staticcheck" ./...
+          # Pinned via go.mod tool directive (module graph + go.sum).
+          go tool staticcheck ./...
 
   test:
     name: test (${{ matrix.os }})
@@ -153,15 +150,10 @@ jobs:
         if: ${{ !matrix.race }}
         run: go test ./...
       - name: Unit tests (race + shuffle)
-        if: ${{ matrix.race && matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.race }}
         env:
           CGO_ENABLED: "1"
         run: go test -race -shuffle=on ./...
-      - name: Unit tests (race)
-        if: ${{ matrix.race && matrix.os != 'ubuntu-latest' }}
-        env:
-          CGO_ENABLED: "1"
-        run: go test -race ./...
       - name: Fixture / golden + demo
         shell: bash
         run: |
@@ -278,12 +270,18 @@ jobs:
           "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" score checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
           AI_JSON="$("$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json)"
-          echo "$AI_JSON" | grep -F 'AI unavailable, deterministic result only' >/dev/null
+          echo "$AI_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d.get("ai_summary") or ""; assert s.startswith("AI unavailable, deterministic result only"), s[:120]'
           DATA="$(mktemp -d)"
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" status --data-dir "$DATA" --format json >/dev/null
           "$BIN" doctor --format json >/dev/null
+          "$BIN" version --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "version" in d and "commit" in d'
+          "$BIN" graph --fixture ./fixtures/incident_checkout --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "nodes" in d and "edges" in d'
+          # Env-only source contracts (no flags).
+          OPSGRAPH_FIXTURE=./fixtures/incident_checkout "$BIN" ask checkout --format json >/dev/null
+          OPSGRAPH_DATA_DIR="$DATA" "$BIN" status --format json >/dev/null
+          "$BIN" watch order --fixture ./fixtures/incident_checkout --interval 1ms --timeout 2s >/dev/null
           MERGE="$(mktemp -d)"
           "$BIN" ingest --config fixtures/ci_live_k8s/.opsgraph.yaml --data-dir "$MERGE" --replace >/dev/null
           "$BIN" ingest --config fixtures/ci_live_k8s/.opsgraph.yaml --data-dir "$MERGE" --merge >/dev/null
@@ -457,7 +455,12 @@ jobs:
           "$INSTALL_DIR/opsgraph" version >/dev/null
 
           REL_VERSION="v0.0.0-ci"
+          export SOURCE_DATE_EPOCH=1704067200
           ./scripts/pack-release.sh "$REL_VERSION" dist dist-release
+          # Same inputs must yield identical SHA256SUMS (reproducible archives).
+          ./scripts/pack-release.sh "$REL_VERSION" dist dist-release-b
+          cmp -s dist-release/SHA256SUMS dist-release-b/SHA256SUMS
+          python3 -c 'import json; json.load(open("dist-release/sbom.gomod.json")); assert isinstance(json.load(open("dist-release/sbom.gomod.json")), list)'
           tmp="$(mktemp -d)"
           tar -xzf "dist-release/opsgraph_${REL_VERSION}_linux_amd64.tar.gz" -C "$tmp"
           "$tmp/opsgraph_${REL_VERSION}_linux_amd64" ask checkout --fixture "$GITHUB_WORKSPACE/fixtures/incident_checkout" --format json >/dev/null
@@ -476,12 +479,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
-      - name: Run govulncheck
+      - name: Run govulncheck (go tool, sum-pinned)
         run: |
           set -euo pipefail
-          # Pin module version for supply-chain stability.
-          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-          "$(go env GOPATH)/bin/govulncheck" ./...
+          # Pinned via go.mod tool directive (module graph + go.sum).
+          go tool govulncheck ./...
 
   repro:
     name: repro-build

@@ -195,6 +195,36 @@ func TestCLIStatusDoctorIngestJSON(t *testing.T) {
 	if !strings.Contains(out, `"checks"`) || !strings.Contains(out, `"ok"`) {
 		t.Fatalf("doctor json missing fields: %s", out)
 	}
+	out, _, code = runRoot(t, "version", "--format", "json")
+	if code != 0 {
+		t.Fatalf("version json exit = %d", code)
+	}
+	if !strings.Contains(out, `"version"`) || !strings.Contains(out, `"commit"`) {
+		t.Fatalf("version json missing fields: %s", out)
+	}
+	out, _, code = runRoot(t, "graph", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("graph json exit = %d", code)
+	}
+	if !strings.Contains(out, `"nodes"`) || !strings.Contains(out, `"edges"`) {
+		t.Fatalf("graph json missing fields: %s", out)
+	}
+}
+
+func TestCLIEnvFixtureAndWatchHealthy(t *testing.T) {
+	fx := fixtureDir(t)
+	t.Setenv("OPSGRAPH_FIXTURE", fx)
+	out, _, code := runRoot(t, "ask", "checkout", "--format", "json")
+	if code != 0 {
+		t.Fatalf("ask via OPSGRAPH_FIXTURE exit = %d", code)
+	}
+	if !strings.Contains(out, "checkout") {
+		t.Fatalf("ask env fixture missing checkout: %s", out)
+	}
+	_, _, code = runRoot(t, "watch", "order", "--fixture", fx, "--interval", "1ms", "--timeout", "2s")
+	if code != 0 {
+		t.Fatalf("watch healthy order exit = %d, want 0", code)
+	}
 }
 
 func TestCLITimelineLimit(t *testing.T) {

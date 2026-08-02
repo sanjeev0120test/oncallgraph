@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sanjeev0120test/opsgraph/internal/graphviz"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -12,14 +13,14 @@ func newGraphCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
 		Use:   "graph",
-		Short: "Render the service dependency graph (ascii or mermaid)",
+		Short: "Render the service dependency graph (ascii, mermaid, or json)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			switch format {
-			case "ascii", "table", "mermaid":
+			case "ascii", "table", "mermaid", "json":
 				// table is an alias for ascii (shared --format vocabulary).
 			default:
-				return fail(2, "invalid --format %q (want ascii|table|mermaid)", format)
+				return fail(2, "invalid --format %q (want ascii|table|mermaid|json)", format)
 			}
 			ls, _, err := src.loadCtx(cmd.Context(), 0)
 			if err != nil {
@@ -35,6 +36,9 @@ func newGraphCmd() *cobra.Command {
 				return fail(2, "%v", err)
 			}
 			out := cmd.OutOrStdout()
+			if format == "json" {
+				return output.JSON(out, graphviz.JSONGraph(svcs, deps))
+			}
 			var body string
 			if format == "mermaid" {
 				body = graphviz.Mermaid(svcs, deps)
@@ -48,6 +52,6 @@ func newGraphCmd() *cobra.Command {
 		},
 	}
 	bindSourceFlags(cmd, &src)
-	cmd.Flags().StringVar(&format, "format", "ascii", "output format: ascii|table|mermaid")
+	cmd.Flags().StringVar(&format, "format", "ascii", "output format: ascii|table|mermaid|json")
 	return cmd
 }

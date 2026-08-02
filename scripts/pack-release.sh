@@ -56,6 +56,9 @@ for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 wind
   export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
   if [ "$GOOS" = windows ]; then
     cp "$src" "${OUT_DIR}/${base}.exe"
+    # Normalize mtime so zip payloads are SOURCE_DATE_EPOCH-stable.
+    touch -d "@${SOURCE_DATE_EPOCH}" "${OUT_DIR}/${base}.exe" 2>/dev/null || \
+      touch -t 197001010000.00 "${OUT_DIR}/${base}.exe" 2>/dev/null || true
     (cd "$OUT_DIR" && zip -q -X "${base}.zip" "${base}.exe")
     rm -f "${OUT_DIR}/${base}.exe"
   else
@@ -76,8 +79,25 @@ cp "${ROOT}/scripts/install.sh" "${OUT_DIR}/install.sh"
 cp "${ROOT}/scripts/install.ps1" "${OUT_DIR}/install.ps1"
 chmod +x "${OUT_DIR}/install.sh"
 (cd "$ROOT" && go list -m all) > "${OUT_DIR}/DEPENDENCIES.txt"
-# Lightweight module SBOM (module path@version lines) for release verify paths.
-(cd "$ROOT" && go list -m -json all) > "${OUT_DIR}/sbom.gomod.json"
+# Module SBOM as a single JSON array (go list -m -json emits pretty multi-object stream).
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 required to build sbom.gomod.json" >&2
+  exit 1
+fi
+(cd "$ROOT" && go list -m -json all) | python3 -c '
+import json, sys
+objs, buf = [], []
+for line in sys.stdin:
+    if line.strip() == "" and buf:
+        objs.append(json.loads("".join(buf)))
+        buf = []
+    else:
+        buf.append(line)
+if buf:
+    objs.append(json.loads("".join(buf)))
+json.dump(objs, sys.stdout, indent=2)
+print()
+' > "${OUT_DIR}/sbom.gomod.json"
 
 if command -v sha256sum >/dev/null 2>&1; then
   HASH_CMD=(sha256sum)
