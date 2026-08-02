@@ -36,13 +36,14 @@ func newResolveCmd() *cobra.Command {
 				aliases = []string{}
 			}
 			out := struct {
+				OK      bool     `json:"ok"`
 				Query   string   `json:"query"`
 				ID      string   `json:"id"`
 				Name    string   `json:"name"`
 				Aliases []string `json:"aliases"`
 				Health  string   `json:"health"`
 				OwnerID string   `json:"owner_id,omitempty"`
-			}{Query: args[0], ID: svc.ID, Name: svc.Name, Aliases: aliases, Health: svc.Health, OwnerID: svc.OwnerID}
+			}{OK: true, Query: args[0], ID: svc.ID, Name: svc.Name, Aliases: aliases, Health: svc.Health, OwnerID: svc.OwnerID}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), out)
 			}
