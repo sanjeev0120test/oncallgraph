@@ -224,7 +224,9 @@ jobs:
           CGO_ENABLED: "1"
         run: |
           set -euo pipefail
-          go test -count=1 -timeout=5m -race -shuffle=on -fullpath -coverprofile=cover.out -covermode=atomic ./...
+          # Prove the module cache alone is enough (offline-first) for the full test graph.
+          GOPROXY=off GOFLAGS="-mod=readonly" \
+            go test -count=1 -timeout=5m -race -shuffle=on -fullpath -coverprofile=cover.out -covermode=atomic ./...
           go tool cover -func=cover.out | tee cover-func.txt | go run ./scripts/coverfloor.go \
               total=64 \
               cmd/opsgraph=56 \
@@ -232,8 +234,10 @@ jobs:
               internal/ask=75 \
               internal/store=60
           tail -n 1 cover-func.txt | tee cover-summary.txt
-          # Short deterministic fuzz budget (no corpus commit required).
+          # Short deterministic fuzz budgets (no corpus commit required).
           go test -count=1 -timeout=2m -fuzz=FuzzOfStablePrefix -fuzztime=5s ./internal/fingerprint
+          go test -count=1 -timeout=2m -fuzz=FuzzParse -fuzztime=5s ./internal/runbook
+          go test -count=1 -timeout=2m -fuzz=FuzzServicesYAML -fuzztime=5s ./internal/ingest
           {
             echo "## coverage"
             echo ""
@@ -242,6 +246,7 @@ jobs:
             echo '```'
             echo ""
             echo "Floors: total>=64, cmd/opsgraph>=56, internal/ai>=45, internal/ask>=75, internal/store>=60"
+            echo "Fuzz: fingerprint + runbook Parse + services YAML (5s each)"
             echo "Note: internal/deps is test-only (no statements); pure-Go/mod hygiene covered by deps tests + lint."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverprofile
@@ -348,6 +353,18 @@ jobs:
           "$BIN" validate-fixture ./fixtures/fleet_healthy >/dev/null
           "$BIN" health --fixture ./fixtures/fleet_healthy --strict >/dev/null
           "$BIN" ask api --fixture ./fixtures/fleet_healthy --format json >/dev/null
+          # Cross-OS exit-code contracts (promoted from ubuntu-only full smoke).
+          set +e
+          "$BIN" verify-runbook checkout --fixture ./fixtures/incident_checkout >/dev/null
+          vrb=$?
+          "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
+          strict_inc=$?
+          "$BIN" watch checkout --fixture ./fixtures/incident_checkout --once >/dev/null
+          once_deg=$?
+          set -e
+          test "$vrb" -eq 1
+          test "$strict_inc" -eq 1
+          test "$once_deg" -eq 1
       - name: Full CLI smoke (ubuntu)
         if: ${{ matrix.smoke == 'full' }}
         shell: bash
@@ -462,6 +479,20 @@ jobs:
           OPSGRAPH_FIXTURE=./fixtures/incident_checkout "$BIN" ask checkout --format json >/dev/null
           OPSGRAPH_DATA_DIR="$DATA" "$BIN" status --format json >/dev/null
           OPSGRAPH_CONFIG=fixtures/ci_live_k8s/.opsgraph.yaml "$BIN" ask checkout --format json >/dev/null
+          # Offline-first runtime proof: forced proxy blackhole must not break fixture path.
+          (
+            export http_proxy=http://127.0.0.1:9
+            export https_proxy=http://127.0.0.1:9
+            export HTTP_PROXY=http://127.0.0.1:9
+            export HTTPS_PROXY=http://127.0.0.1:9
+            export ALL_PROXY=http://127.0.0.1:9
+            export NO_PROXY=
+            "$BIN" test ./fixtures/incident_checkout >/dev/null
+            "$BIN" validate-fixture ./fixtures/fleet_healthy >/dev/null
+            "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+            "$BIN" doctor >/dev/null
+            "$BIN" demo >/dev/null
+          )
           "$BIN" watch order --fixture ./fixtures/incident_checkout --interval 1ms --timeout 2s >/dev/null
           # Completion scripts must generate for all supported shells.
           for sh in bash zsh fish powershell; do
@@ -729,11 +760,17 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-go
-      - name: Run govulncheck (go tool, sum-pinned)
+      - name: Run govulncheck (source + binary, go tool)
         run: |
           set -euo pipefail
           # Pinned via go.mod tool directive (module graph + go.sum).
           go tool govulncheck ./...
+          # Binary mode catches vulns in what actually ships (stripped release shape).
+          vuln_bin="${RUNNER_TEMP}/opsgraph-vuln"
+          GOFLAGS="-mod=readonly -buildvcs=false" \
+            go build -trimpath -ldflags="-s -w -buildid=" -o "$vuln_bin" ./cmd/opsgraph
+          go tool govulncheck -mode=binary "$vuln_bin"
+          echo "| govulncheck source+binary | ok |" >> "$GITHUB_STEP_SUMMARY"
 
   arm64-smoke:
     name: linux/arm64 smoke

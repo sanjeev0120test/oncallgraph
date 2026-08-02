@@ -29,6 +29,10 @@ go run ./cmd/opsgraph test ./fixtures/incident_checkout --update
 - After `go mod tidy`, builds use a locked module graph (`-mod=readonly -buildvcs=false`)
 - Release ldflags keep an empty Go build ID (`-buildid=`)
 - Lint runs `go vet` and compile-only `-vet=all`
+- `AskResult` / `VerifyResult` JSON field sets are frozen in `internal/model`
+- Short fuzz budgets cover fingerprint, runbook parse, and services YAML
+- `govulncheck` runs in source **and** binary mode on the release-shaped binary
+- Full smoke proves fixture/demo/doctor work with HTTP(S) proxy blackholed
 
 ## Do not commit
 
