@@ -284,7 +284,7 @@ func TestCLIHealthStrictAndWatchOnce(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("watch --once degraded exit = %d, want 1", code)
 	}
-	out, _, code := runRoot(t, "validate-fixture", fx, "--format", "json")
+	out, _, code = runRoot(t, "validate-fixture", fx, "--format", "json")
 	if code != 0 {
 		t.Fatalf("validate-fixture json exit = %d", code)
 	}
