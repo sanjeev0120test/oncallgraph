@@ -397,6 +397,9 @@ jobs:
           "$BIN" services --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eqnum:total=2 has:services
           "$BIN" resolve api-gateway --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eq:id=api eq:query=api-gateway true:ok
           "$BIN" impact db --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eq:root=db has:affected gte:max_depth=1
+          "$BIN" owners --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eqnum:total=1 has:owners
+          "$BIN" graph --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" has:nodes has:edges
+          "$BIN" path api db --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" true:ok true:found eq:from=api eq:to=db eqnum:hops=1
           set +e
           "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
           strict_health=$?
