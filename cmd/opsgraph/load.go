@@ -24,14 +24,11 @@ func (f *sourceFlags) loadCtx(ctx context.Context, since time.Duration) (*loaded
 	if err := validSince(since); err != nil {
 		return nil, nil, err
 	}
-	fixture := strings.TrimSpace(f.fixture)
-	if fixture == "" {
-		fixture = strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE"))
-	}
-	cfgPath := configPathOrEnv(f.configPath)
-	if err := (&sourceFlags{fixture: fixture, dataDir: f.dataDir}).validateExclusive(); err != nil {
+	fixture, err := resolveFixtureExclusive(f.fixture, f.dataDir)
+	if err != nil {
 		return nil, nil, err
 	}
+	cfgPath := configPathOrEnv(f.configPath)
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return nil, nil, err
@@ -43,12 +40,27 @@ func (f *sourceFlags) loadCtx(ctx context.Context, since time.Duration) (*loaded
 	return ls, cfg, err
 }
 
+// resolveFixtureExclusive resolves --fixture / OPSGRAPH_FIXTURE and rejects
+// combinations with --data-dir / OPSGRAPH_DATA_DIR (flag or env).
+func resolveFixtureExclusive(fixtureFlag, dataDirFlag string) (string, error) {
+	fixture := strings.TrimSpace(fixtureFlag)
+	if fixture == "" {
+		fixture = strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE"))
+	}
+	dataDir := strings.TrimSpace(dataDirFlag)
+	if dataDir == "" {
+		dataDir = strings.TrimSpace(os.Getenv("OPSGRAPH_DATA_DIR"))
+	}
+	if fixture != "" && dataDir != "" {
+		return "", fail(2, "--fixture and --data-dir are mutually exclusive")
+	}
+	return fixture, nil
+}
+
 // validateExclusive rejects ambiguous source flag combinations.
 func (f *sourceFlags) validateExclusive() error {
-	if strings.TrimSpace(f.fixture) != "" && strings.TrimSpace(f.dataDir) != "" {
-		return fail(2, "--fixture and --data-dir are mutually exclusive")
-	}
-	return nil
+	_, err := resolveFixtureExclusive(f.fixture, f.dataDir)
+	return err
 }
 
 // failSource maps store/config load errors to CLI exit codes.

@@ -2,8 +2,6 @@ package main
 
 import (
 	"errors"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ai"
@@ -42,11 +40,10 @@ func newAskCmd() *cobra.Command {
 			if err := validSince(since); err != nil {
 				return fail(2, "%v", err)
 			}
-			if fixture == "" {
-				fixture = strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE"))
-			}
-			if fixture != "" && dataDir != "" {
-				return fail(2, "--fixture and --data-dir are mutually exclusive")
+			var err error
+			fixture, err = resolveFixtureExclusive(fixture, dataDir)
+			if err != nil {
+				return err
 			}
 			cfgPath := configPathOrEnv(configPath)
 			cfg, err := config.Load(cfgPath)

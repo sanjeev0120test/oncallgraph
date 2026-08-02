@@ -31,7 +31,7 @@ func TestCLICriticalFlagsFrozen(t *testing.T) {
 		"watch":  {"config", "data-dir", "fixture", "format", "interval", "once", "timeout"},
 		"export": {"config", "data-dir", "fixture", "format", "meta", "out"},
 		"health": {"config", "data-dir", "fixture", "format", "strict"},
-		"ingest": {"config", "data-dir", "fixture", "format", "replace"},
+		"ingest": {"config", "data-dir", "fixture", "format", "merge", "replace"},
 	}
 	for name, want := range cases {
 		cmd, _, err := root.Find([]string{name})

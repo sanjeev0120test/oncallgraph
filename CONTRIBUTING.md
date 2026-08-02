@@ -31,6 +31,7 @@ go run ./cmd/opsgraph test ./fixtures/incident_checkout --update
 - Lint runs `go vet` and compile-only `-vet=all`
 - `AskResult` / `VerifyResult` / nested machine JSON field sets are frozen in `internal/model`
 - CLI command surface + critical flags are frozen in `cmd/opsgraph`
+- Runbook check catalog, core exit-code matrix, demo↔fixture JSON parity, and `OPSGRAPH_*` env exclusivity are frozen
 - Direct deps are allowlisted; forbidden module prefixes (k8s/cloud/MCP) stay out of the link graph
 - SQLite `schemaDDL` SHA-256 is coupled to `SchemaVersion`
 - Short fuzz budgets cover fingerprint, runbook parse, and services YAML

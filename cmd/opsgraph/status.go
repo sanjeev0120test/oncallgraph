@@ -31,11 +31,10 @@ func newStatusCmd() *cobra.Command {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)
 			}
-			if fixture == "" {
-				fixture = strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE"))
-			}
-			if fixture != "" && dataDir != "" {
-				return fail(2, "--fixture and --data-dir are mutually exclusive")
+			var err error
+			fixture, err = resolveFixtureExclusive(fixture, dataDir)
+			if err != nil {
+				return err
 			}
 			cfgPath := configPathOrEnv(configPath)
 			cfg, err := config.Load(cfgPath)
