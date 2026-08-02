@@ -49,7 +49,12 @@ jobs:
           fi
           sum "| gofmt | ok |"
           go vet ./...
-          sum "| go vet | ok |"
+          # All vet analyzers (compile-only; no test execution).
+          go test -count=1 -timeout=3m -vet=all -run=^$ ./...
+          sum "| go vet (+ -vet=all) | ok |"
+          test -s .gitattributes
+          grep -Fq '* text=auto eol=lf' .gitattributes
+          sum "| .gitattributes LF pin | ok |"
           go mod download
           go mod verify
           go mod tidy
@@ -66,10 +71,18 @@ jobs:
             exit 1
           fi
           sum "| go.mod hygiene | ok |"
-          # Offline-first + locked module graph for the production package.
-          GOPROXY=off GOFLAGS="-mod=readonly" go build -trimpath -ldflags="-s -w -buildid=" ./cmd/opsgraph
-          GOPROXY=off go build ./...
-          sum "| go build (GOPROXY=off, -mod=readonly cmd) | ok |"
+          # Offline-first + locked module graph + no VCS stamp bleed for the production package.
+          lint_bin="${RUNNER_TEMP}/opsgraph-lint"
+          GOPROXY=off GOFLAGS="-mod=readonly -buildvcs=false" \
+            go build -trimpath -ldflags="-s -w -buildid=" -o "$lint_bin" ./cmd/opsgraph
+          GOPROXY=off GOFLAGS="-mod=readonly -buildvcs=false" go build ./...
+          # Reproducible release stamp: -buildid= must leave an empty build ID.
+          bid="$(go tool buildid "$lint_bin")"
+          if [ -n "$bid" ]; then
+            echo "::error::expected empty buildid from -ldflags=-buildid=, got: ${bid}"
+            exit 1
+          fi
+          sum "| go build (GOPROXY=off, -mod=readonly, empty buildid) | ok |"
           # Precompiled binaries/archives belong in GitHub Releases only.
           tracked="$(git ls-files -z | tr '\0' '\n' | grep -E '(^|/)(bin|dist)/|(^|/)opsgraph(\.exe)?$|(^|/)opsgraph_.+\.(tar\.gz|zip)$|(^|/)SHA256SUMS$|(^|/)DEPENDENCIES\.txt$' || true)"
           if [ -n "$tracked" ]; then
@@ -97,6 +110,7 @@ jobs:
           test -s scripts/coverfloor.go
           test -s scripts/jsonassert.go
           test -s scripts/check_lf.go
+          test -s scripts/check_fixtures.go
           head -n 1 scripts/install.sh | grep -qE '^#!/'
           head -n 1 scripts/pack-release.sh | grep -qE '^#!/'
           head -n 1 scripts/verify.sh | grep -qE '^#!/'
@@ -112,6 +126,7 @@ jobs:
           go build -o /dev/null scripts/jsonassert.go
           go build -o /dev/null scripts/coverfloor.go
           go build -o /dev/null scripts/check_lf.go
+          go build -o /dev/null scripts/check_fixtures.go
           printf '%s\n' '{"ok":true,"total":2,"name":"x"}' | go run ./scripts/jsonassert.go true:ok eqnum:total=2 eq:name=x gte:total=1
           # Determinism: golden + pack YAML/JSON must stay LF-only across OSes.
           go run ./scripts/check_lf.go \
@@ -119,7 +134,9 @@ jobs:
             fixtures/fleet_healthy/expected \
             fixtures/incident_checkout \
             fixtures/fleet_healthy
-          sum "| shellcheck (sha256-pinned) | ok |" "| jsonassert self-check | ok |" "| golden LF-only | ok |"
+          # Structural integrity: required pack files + valid golden JSON.
+          go run ./scripts/check_fixtures.go
+          sum "| shellcheck (sha256-pinned) | ok |" "| jsonassert self-check | ok |" "| golden LF-only | ok |" "| fixture packs | ok |"
           # Live-connector smoke fixture must resolve its k8s snapshot.
           test -f fixtures/ci_live_k8s/.opsgraph.yaml
           test -d fixtures/incident_checkout/k8s
@@ -637,7 +654,7 @@ jobs:
             GOARCH="${pair#*/}"
             out="dist/opsgraph-${GOOS}-${GOARCH}"
             if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
-            GOOS="$GOOS" GOARCH="$GOARCH" GOFLAGS="-mod=readonly" \
+            GOOS="$GOOS" GOARCH="$GOARCH" GOFLAGS="-mod=readonly -buildvcs=false" \
               go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/opsgraph &
             pids+=($!)
           done
@@ -672,6 +689,14 @@ jobs:
             cat /tmp/ldd.out
             exit 1
           fi
+          # Empty buildid on every cross target (reproducible release stamp).
+          for f in dist/opsgraph-*; do
+            bid="$(go tool buildid "$f")"
+            if [ -n "$bid" ]; then
+              echo "::error::non-empty buildid on ${f}: ${bid}"
+              exit 1
+            fi
+          done
           ./dist/opsgraph-linux-amd64 version | grep -F "$VERSION"
 
           chmod +x scripts/install.sh scripts/pack-release.sh

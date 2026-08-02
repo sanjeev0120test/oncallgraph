@@ -2,6 +2,7 @@
 package deps
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -71,6 +72,115 @@ func TestCmdOpsgraphIsPureGo(t *testing.T) {
 	}
 	if hit := strings.TrimSpace(string(out)); hit != "" {
 		t.Fatalf("default build links cgo packages (want pure-Go):\n%s", hit)
+	}
+}
+
+// TestNoFirstPartyUnsafe forbids importing "unsafe" in first-party packages.
+// Offline CLIs should stay reviewable without pointer games.
+func TestNoFirstPartyUnsafe(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go toolchain not on PATH")
+	}
+	root := moduleRoot(t)
+	cmd := exec.Command("go", "list", "-f", "{{.ImportPath}} {{join .Imports \" \"}} {{join .TestImports \" \"}}", "./...")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go list: %v", err)
+	}
+	mod := "github.com/sanjeev0120test/opsgraph"
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.HasPrefix(line, mod) {
+			continue
+		}
+		fields := strings.Fields(line)
+		pkg := fields[0]
+		for _, imp := range fields[1:] {
+			if imp == "unsafe" {
+				t.Fatalf("%s imports unsafe (forbidden in first-party code)", pkg)
+			}
+		}
+	}
+}
+
+// TestNoIoutilUsage bans the deprecated ioutil package from first-party sources.
+func TestNoIoutilUsage(t *testing.T) {
+	root := moduleRoot(t)
+	// Build the needle without embedding the banned import path literally.
+	needle := []byte("io/" + "ioutil")
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		name := d.Name()
+		if d.IsDir() {
+			if name == ".git" || name == "bin" || name == "dist" || name == "vendor" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(name, ".go") {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(raw, needle) {
+			rel, _ := filepath.Rel(root, path)
+			t.Errorf("%s: deprecated ioutil import is forbidden (use io and os)", rel)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestGitAttributesPinsLF keeps golden determinism portable across Windows checkouts.
+func TestGitAttributesPinsLF(t *testing.T) {
+	root := moduleRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, ".gitattributes"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	for _, needle := range []string{
+		"* text=auto eol=lf",
+		"*.go   text eol=lf",
+		"*.yaml text eol=lf",
+		"*.json text eol=lf",
+	} {
+		if !strings.Contains(text, needle) {
+			t.Fatalf(".gitattributes missing required LF pin %q", needle)
+		}
+	}
+}
+
+// TestReleaseBuildHasEmptyBuildID proves -ldflags=-buildid= yields a reproducible stamp.
+func TestReleaseBuildHasEmptyBuildID(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go toolchain not on PATH")
+	}
+	root := moduleRoot(t)
+	outBin := filepath.Join(t.TempDir(), "opsgraph-release")
+	build := exec.Command("go", "build", "-trimpath", "-buildvcs=false",
+		"-ldflags=-s -w -buildid=", "-o", outBin, "./cmd/opsgraph")
+	build.Dir = root
+	build.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("release-style build: %v\n%s", err, out)
+	}
+	idCmd := exec.Command("go", "tool", "buildid", outBin)
+	idCmd.Dir = root
+	idOut, err := idCmd.Output()
+	if err != nil {
+		t.Fatalf("go tool buildid: %v", err)
+	}
+	if id := strings.TrimSpace(string(idOut)); id != "" {
+		t.Fatalf("want empty buildid for release ldflags, got %q", id)
 	}
 }
 

@@ -24,8 +24,11 @@ go run ./cmd/opsgraph test ./fixtures/incident_checkout --update
 
 - No `replace` / `exclude` in `go.mod`
 - Default binary stays pure-Go (`CGO_ENABLED=0`, no `k8s.io/*` in the link graph)
-- Fixture goldens are LF-only (`.gitattributes` + `scripts/check_lf.go`)
-- After `go mod tidy`, builds use a locked module graph (`-mod=readonly`)
+- No first-party `unsafe` or deprecated `io/ioutil`
+- Fixture goldens are LF-only + structurally complete (`.gitattributes`, `scripts/check_lf.go`, `scripts/check_fixtures.go`)
+- After `go mod tidy`, builds use a locked module graph (`-mod=readonly -buildvcs=false`)
+- Release ldflags keep an empty Go build ID (`-buildid=`)
+- Lint runs `go vet` and compile-only `-vet=all`
 
 ## Do not commit
 
