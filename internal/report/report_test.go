@@ -19,8 +19,8 @@ func TestMarkdownReport(t *testing.T) {
 			Type: "deploy", Summary: "deploy v1", Author: "cd-bot", EvidenceID: "ev-c",
 			At: now.Add(-10 * time.Minute),
 		}},
-		Alerts: []model.Alert{{Name: "CheckoutErrorRateHigh", Severity: "critical", Status: "firing", EvidenceID: "ev-a"}},
-		Upstream: []model.Service{{ID: "auth", Health: model.HealthUnhealthy}},
+		Alerts:          []model.Alert{{Name: "CheckoutErrorRateHigh", Severity: "critical", Status: "firing", EvidenceID: "ev-a"}},
+		Upstream:        []model.Service{{ID: "auth", Health: model.HealthUnhealthy}},
 		Recommendations: []string{"Investigate recent deploy"},
 	})
 	for _, want := range []string{

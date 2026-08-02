@@ -14,7 +14,7 @@ func FuzzOfStablePrefix(f *testing.F) {
 	f.Fuzz(func(t *testing.T, svc, health, alert, sev, changeType, rev string) {
 		now := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
 		res := model.AskResult{
-			Service: model.Service{ID: svc, Health: health},
+			Service:     model.Service{ID: svc, Health: health},
 			GeneratedAt: now,
 		}
 		if alert != "" {

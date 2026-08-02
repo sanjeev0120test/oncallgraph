@@ -295,6 +295,9 @@ jobs:
           test "$bad_watch" -eq 2
           test "$conflict" -eq 2
           "$BIN" status --fixture ./fixtures/incident_checkout | grep -F "ACTIVE SOURCE  fixture" >/dev/null
+          "$BIN" validate-fixture ./fixtures/fleet_healthy >/dev/null
+          "$BIN" health --fixture ./fixtures/fleet_healthy --strict >/dev/null
+          "$BIN" ask api --fixture ./fixtures/fleet_healthy --format json >/dev/null
       - name: Full CLI smoke (ubuntu)
         if: ${{ matrix.smoke == 'full' }}
         shell: bash
