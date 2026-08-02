@@ -33,6 +33,12 @@ if [ -d ./fixtures/incident_checkout ]; then
   ./bin/opsgraph demo --format json >/dev/null
 fi
 
+if [ -d ./fixtures/fleet_healthy ]; then
+  echo "==> fleet_healthy"
+  ./bin/opsgraph validate-fixture ./fixtures/fleet_healthy
+  ./bin/opsgraph health --fixture ./fixtures/fleet_healthy --strict >/dev/null
+fi
+
 if [ -f ./fixtures/ci_live_k8s/.opsgraph.yaml ]; then
   echo "==> live k8s smoke"
   ./bin/opsgraph ask checkout --config ./fixtures/ci_live_k8s/.opsgraph.yaml --format json >/dev/null

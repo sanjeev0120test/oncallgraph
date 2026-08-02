@@ -46,6 +46,14 @@ if (Test-Path ./fixtures/incident_checkout) {
     if ($LASTEXITCODE -ne 0) { exit 1 }
 }
 
+if (Test-Path ./fixtures/fleet_healthy) {
+    Write-Host "==> fleet_healthy" -ForegroundColor Cyan
+    & ./bin/opsgraph.exe validate-fixture ./fixtures/fleet_healthy
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+    & ./bin/opsgraph.exe health --fixture ./fixtures/fleet_healthy --strict | Out-Null
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+}
+
 if (Test-Path ./fixtures/ci_live_k8s/.opsgraph.yaml) {
     Write-Host "==> live k8s smoke" -ForegroundColor Cyan
     & ./bin/opsgraph.exe ask checkout --config ./fixtures/ci_live_k8s/.opsgraph.yaml --format json | Out-Null

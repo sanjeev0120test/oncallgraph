@@ -272,6 +272,13 @@ func TestCLIHealthStrictAndWatchOnce(t *testing.T) {
 	if !strings.Contains(out, `"ok": false`) || !strings.Contains(out, `"counts"`) {
 		t.Fatalf("health json missing ok/counts on hot fixture: %s", out)
 	}
+	table, _, code = runRoot(t, "health", "--fixture", fx)
+	if code != 0 {
+		t.Fatalf("health table exit = %d", code)
+	}
+	if !strings.Contains(table, "not_ok") {
+		t.Fatalf("health table missing not_ok status:\n%s", table)
+	}
 	_, _, code = runRoot(t, "health", "--fixture", fx, "--strict")
 	if code != 1 {
 		t.Fatalf("health --strict on hot fixture exit = %d, want 1", code)

@@ -1,5 +1,7 @@
 # opsgraph
 
+[![CI](https://github.com/sanjeev0120test/opsgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/sanjeev0120test/opsgraph/actions/workflows/ci.yml)
+
 Free, offline-first incident context for engineers.
 
 Evidence-backed timeline, blast radius, runbooks, severity scoring, and optional local AI - no accounts, no cloud LLM, no paid services.

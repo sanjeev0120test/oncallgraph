@@ -63,7 +63,11 @@ func newHealthCmd() *cobra.Command {
 					return fail(2, "%v", err)
 				}
 			} else {
-				cmd.Printf("FLEET HEALTH  (%d services)\n", out.Total)
+				status := "ok"
+				if !ok {
+					status = "not_ok"
+				}
+				cmd.Printf("FLEET HEALTH  (%d services)  %s\n", out.Total, status)
 				if out.Total == 0 {
 					cmd.Println("(no services)")
 				} else {
