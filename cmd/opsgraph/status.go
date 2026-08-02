@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -289,6 +290,8 @@ func probeHTTP(ctx context.Context, baseURL, path string) bool {
 		return false
 	}
 	defer resp.Body.Close()
+	// Cap body so a misconfigured host cannot stall conn reuse / memory.
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 8<<10))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return false
 	}

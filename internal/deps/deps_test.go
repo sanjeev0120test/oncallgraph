@@ -159,6 +159,83 @@ func TestGitAttributesPinsLF(t *testing.T) {
 	}
 }
 
+// TestDirectDepsAllowlisted freezes the direct module graph. New direct requires
+// (cloud SDKs, MCP, telemetry) must be an explicit allowlist change.
+func TestDirectDepsAllowlisted(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go toolchain not on PATH")
+	}
+	root := moduleRoot(t)
+	cmd := exec.Command("go", "list", "-m", "-f", "{{if not .Indirect}}{{.Path}}{{end}}", "all")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go list -m: %v", err)
+	}
+	want := map[string]bool{
+		"github.com/go-git/go-git/v5":        true,
+		"github.com/philippgille/chromem-go": true,
+		"github.com/spf13/cobra":             true,
+		"github.com/tmc/langchaingo":         true,
+		"gopkg.in/yaml.v3":                   true,
+		"modernc.org/sqlite":                 true,
+	}
+	mainMod := "github.com/sanjeev0120test/opsgraph"
+	got := map[string]bool{}
+	for _, line := range strings.Split(string(out), "\n") {
+		pkg := strings.TrimSpace(line)
+		if pkg == "" || pkg == mainMod {
+			continue
+		}
+		got[pkg] = true
+		if !want[pkg] {
+			t.Fatalf("unexpected direct dependency %q (update allowlist only after architecture review)", pkg)
+		}
+	}
+	for pkg := range want {
+		if !got[pkg] {
+			t.Fatalf("missing expected direct dependency %q", pkg)
+		}
+	}
+}
+
+// TestForbiddenModulePrefixes keeps cloud/k8s/MCP stacks out of the link graph.
+func TestForbiddenModulePrefixes(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go toolchain not on PATH")
+	}
+	root := moduleRoot(t)
+	cmd := exec.Command("go", "list", "-deps", "./cmd/opsgraph")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go list -deps: %v", err)
+	}
+	deny := []string{
+		"k8s.io/",
+		"sigs.k8s.io/",
+		"cloud.google.com/",
+		"github.com/aws/aws-sdk-go",
+		"github.com/Azure/",
+		"github.com/openai/",
+		"github.com/anthropics/",
+		"github.com/modelcontextprotocol/",
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		pkg := strings.TrimSpace(line)
+		if pkg == "" {
+			continue
+		}
+		for _, prefix := range deny {
+			if strings.HasPrefix(pkg, prefix) {
+				t.Fatalf("default build links forbidden package %q (prefix %q)", pkg, prefix)
+			}
+		}
+	}
+}
+
 // TestReleaseBuildHasEmptyBuildID proves -ldflags=-buildid= yields a reproducible stamp.
 func TestReleaseBuildHasEmptyBuildID(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {

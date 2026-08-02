@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ func ollamaReachable(ctx context.Context, cfg *config.Config) bool {
 		return false
 	}
 	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 8<<10))
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 

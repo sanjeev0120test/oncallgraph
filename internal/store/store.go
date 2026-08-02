@@ -154,8 +154,9 @@ func (s *Store) ReplaceFromFile(srcDB string) error {
 // SchemaVersion is the current PRAGMA user_version for this schema.
 const SchemaVersion = 2
 
-func (s *Store) initSchema() error {
-	const schema = `
+// schemaDDL is the authoritative CREATE/INDEX statement set. Fingerprinted in
+// schema_contract_test.go so silent DDL drift cannot ship without a version bump.
+const schemaDDL = `
 CREATE TABLE IF NOT EXISTS services (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
@@ -228,7 +229,9 @@ CREATE INDEX IF NOT EXISTS idx_deps_to ON dependencies(to_service_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_name ON alerts(name);
 CREATE INDEX IF NOT EXISTS idx_changes_type_at ON changes(type, at);
 `
-	if _, err := s.db.Exec(schema); err != nil {
+
+func (s *Store) initSchema() error {
+	if _, err := s.db.Exec(schemaDDL); err != nil {
 		return fmt.Errorf("init schema: %w", err)
 	}
 	// Best-effort column add for stores created before service_id existed.

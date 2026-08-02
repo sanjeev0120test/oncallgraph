@@ -1,0 +1,84 @@
+package main
+
+import (
+	"reflect"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+)
+
+func TestCLICommandSurfaceFrozen(t *testing.T) {
+	root := newRootCmd()
+	got := commandNames(root)
+	want := []string{
+		"alerts", "ask", "blast", "changes", "compare", "completion", "demo",
+		"doctor", "evidence", "explain", "export", "fingerprint", "graph",
+		"handoff", "health", "impact", "ingest", "owners", "path", "report",
+		"resolve", "score", "services", "status", "test", "timeline", "top",
+		"validate-fixture", "verify-runbook", "version", "watch", "who", "why",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("CLI command surface drifted\n got: %v\nwant: %v", got, want)
+	}
+}
+
+func TestCLICriticalFlagsFrozen(t *testing.T) {
+	root := newRootCmd()
+	cases := map[string][]string{
+		"ask":    {"ai", "config", "data-dir", "fixture", "format", "since"},
+		"watch":  {"config", "data-dir", "fixture", "format", "interval", "once", "timeout"},
+		"export": {"config", "data-dir", "fixture", "format", "meta", "out"},
+		"health": {"config", "data-dir", "fixture", "format", "strict"},
+		"ingest": {"config", "data-dir", "fixture", "format", "replace"},
+	}
+	for name, want := range cases {
+		cmd, _, err := root.Find([]string{name})
+		if err != nil {
+			t.Fatalf("find %s: %v", name, err)
+		}
+		got := flagNames(cmd)
+		for _, f := range want {
+			if !containsString(got, f) {
+				t.Fatalf("%s missing required flag %q (have %v)", name, f, got)
+			}
+		}
+	}
+}
+
+func commandNames(root *cobra.Command) []string {
+	var out []string
+	for _, c := range root.Commands() {
+		if c.Hidden || c.Name() == "help" {
+			continue
+		}
+		// Use first token of Use (e.g. "ask <service>" -> "ask").
+		name := strings.Fields(c.Use)[0]
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func flagNames(cmd *cobra.Command) []string {
+	var out []string
+	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		out = append(out, f.Name)
+	})
+	cmd.InheritedFlags().VisitAll(func(f *pflag.Flag) {
+		out = append(out, f.Name)
+	})
+	sort.Strings(out)
+	return out
+}
+
+func containsString(list []string, want string) bool {
+	for _, s := range list {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
