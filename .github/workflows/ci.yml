@@ -180,10 +180,10 @@ jobs:
         run: |
           set -euo pipefail
           go test -count=1 -timeout=5m -race -shuffle=on -coverprofile=cover.out -covermode=atomic ./...
-          go tool cover -func=cover.out | tee cover-func.txt | go run ./scripts/coverfloor.go \
-              total=63 \
-              cmd/opsgraph=55 \
-              internal/ai=40 \
+          go tool cover -func=cover.out | tee cover-func.txt |             go run ./scripts/coverfloor.go \
+              total=64 \
+              cmd/opsgraph=56 \
+              internal/ai=45 \
               internal/ask=75 \
               internal/store=60
           tail -n 1 cover-func.txt | tee cover-summary.txt
@@ -341,6 +341,13 @@ jobs:
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" --format json | "${JA[@]}" has:path has:counts eq:mode=fixture eqnum:schema=2 has:as_of
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" status --data-dir "$DATA" --format json | "${JA[@]}" has:counts has:schema_version has:active_source eq:active_source=persisted eqnum:schema_version=2 true:ok true:has_data
+          EMPTY="$(mktemp -d)"
+          set +e
+          EMPTY_JSON="$("$BIN" status --data-dir "$EMPTY" --format json)"
+          empty_status=$?
+          set -e
+          test "$empty_status" -eq 1
+          echo "$EMPTY_JSON" | "${JA[@]}" false:ok false:has_data has:connectors has:ai
           "$BIN" doctor --format json | "${JA[@]}" has:checks has:ok has:warn has:fail true:pass
           "$BIN" version --format json | "${JA[@]}" has:version has:commit has:goos has:goarch
           "$BIN" graph --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:nodes has:edges
