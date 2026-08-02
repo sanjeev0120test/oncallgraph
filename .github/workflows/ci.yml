@@ -82,6 +82,8 @@ jobs:
           # License + installer presence (was a separate license workflow).
           test -s LICENSE
           grep -qi 'MIT License' LICENSE
+          test -s SECURITY.md
+          test -s .github/CODEOWNERS
           test -s scripts/install.sh
           test -s scripts/install.ps1
           test -s scripts/pack-release.sh

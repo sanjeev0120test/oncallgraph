@@ -39,8 +39,9 @@ func newReportCmd() *cobra.Command {
 			}
 			md := report.Markdown(res)
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), map[string]string{
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
 					"service":  res.Service.ID,
+					"health":   res.Service.Health,
 					"markdown": md,
 				})
 			}
