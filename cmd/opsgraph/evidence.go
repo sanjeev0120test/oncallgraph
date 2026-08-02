@@ -15,7 +15,7 @@ func newEvidenceCmd() *cobra.Command {
 		Use:               "evidence <id>",
 		Short:             "Look up a single evidence record by ID",
 		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeServiceArg,
+		ValidArgsFunction: completeEvidenceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("evidence id", args[0]); err != nil {
 				return err
@@ -54,5 +54,6 @@ func newEvidenceCmd() *cobra.Command {
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	return cmd
 }

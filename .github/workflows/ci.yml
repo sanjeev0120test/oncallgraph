@@ -93,9 +93,11 @@ jobs:
             https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz
           echo "6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87  /tmp/shellcheck.tar.xz" | sha256sum -c -
           tar -xJf /tmp/shellcheck.tar.xz -C /tmp
-          /tmp/shellcheck-v0.10.0/shellcheck -x scripts/install.sh scripts/pack-release.sh scripts/verify.sh
-          # Pure-Go SBOM helper must compile (used by pack-release.sh).
+          /tmp/shellcheck-v0.10.0/shellcheck -x \
+            scripts/install.sh scripts/pack-release.sh scripts/verify.sh hack/kind-demo.sh
+          # Pure-Go helpers used by pack-release / smoke must compile.
           go build -o /dev/null scripts/gomod_sbom.go
+          go build -o /dev/null scripts/jsonassert.go
           echo "| shellcheck (sha256-pinned) | ok |" >> "$GITHUB_STEP_SUMMARY"
           # Live-connector smoke fixture must resolve its k8s snapshot.
           test -f fixtures/ci_live_k8s/.opsgraph.yaml
@@ -148,9 +150,9 @@ jobs:
           if [ "${RUNNER_OS}" = Windows ]; then out=bin/opsgraph.exe; fi
           go build -trimpath -ldflags="-s -w -buildid=" -o "$out" ./cmd/opsgraph
           test -s "$out"
-      - name: Unit tests
+      - name: Unit tests (shuffle)
         if: ${{ !matrix.race }}
-        run: go test ./...
+        run: go test -shuffle=on ./...
       - name: Unit tests (race + shuffle)
         if: ${{ matrix.race }}
         env:
@@ -271,18 +273,21 @@ jobs:
           "$BIN" why checkout --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" score checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
+          JA=(go run ./scripts/jsonassert.go)
           AI_JSON="$("$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json)"
-          echo "$AI_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d.get("ai_summary") or ""; assert s.startswith("AI unavailable, deterministic result only"), s[:120]'
+          echo "$AI_JSON" | "${JA[@]}" has:ai_summary 'startswith:ai_summary=AI unavailable, deterministic result only'
           DATA="$(mktemp -d)"
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" status --data-dir "$DATA" --format json >/dev/null
           "$BIN" doctor --format json >/dev/null
-          "$BIN" version --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("version") and d.get("commit") and d.get("goos") and d.get("goarch")'
-          "$BIN" graph --fixture ./fixtures/incident_checkout --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "nodes" in d and "edges" in d'
-          "$BIN" validate-fixture ./fixtures/incident_checkout --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True'
-          "$BIN" changes --fixture ./fixtures/incident_checkout --format json --limit 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "changes" in d and "truncated" in d'
-          "$BIN" top --fixture ./fixtures/incident_checkout --format json --limit 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "services" in d and "total" in d'
+          "$BIN" version --format json | "${JA[@]}" has:version has:commit has:goos has:goarch
+          "$BIN" graph --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:nodes has:edges
+          "$BIN" validate-fixture ./fixtures/incident_checkout --format json | "${JA[@]}" true:ok
+          "$BIN" changes --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:changes has:truncated
+          "$BIN" top --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:services has:total
+          "$BIN" services --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:services has:total
+          "$BIN" owners --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:owners has:total
           set +e
           "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
           strict_health=$?
@@ -295,7 +300,13 @@ jobs:
           # Env-only source contracts (no flags).
           OPSGRAPH_FIXTURE=./fixtures/incident_checkout "$BIN" ask checkout --format json >/dev/null
           OPSGRAPH_DATA_DIR="$DATA" "$BIN" status --format json >/dev/null
+          OPSGRAPH_CONFIG=fixtures/ci_live_k8s/.opsgraph.yaml "$BIN" ask checkout --format json >/dev/null
           "$BIN" watch order --fixture ./fixtures/incident_checkout --interval 1ms --timeout 2s >/dev/null
+          # Completion scripts must generate for all supported shells.
+          for sh in bash zsh fish powershell; do
+            out="$("$BIN" completion "$sh")"
+            test -n "$out"
+          done
           MERGE="$(mktemp -d)"
           "$BIN" ingest --config fixtures/ci_live_k8s/.opsgraph.yaml --data-dir "$MERGE" --replace >/dev/null
           "$BIN" ingest --config fixtures/ci_live_k8s/.opsgraph.yaml --data-dir "$MERGE" --merge >/dev/null
@@ -492,7 +503,7 @@ jobs:
           # Same inputs must yield identical SHA256SUMS (reproducible archives).
           ./scripts/pack-release.sh "$REL_VERSION" dist dist-release-b
           cmp -s dist-release/SHA256SUMS dist-release-b/SHA256SUMS
-          python3 -c 'import json; json.load(open("dist-release/sbom.gomod.json")); assert isinstance(json.load(open("dist-release/sbom.gomod.json")), list)'
+          go run ./scripts/jsonassert.go islist < dist-release/sbom.gomod.json
           tmp="$(mktemp -d)"
           tar -xzf "dist-release/opsgraph_${REL_VERSION}_linux_amd64.tar.gz" -C "$tmp"
           "$tmp/opsgraph_${REL_VERSION}_linux_amd64" ask checkout --fixture "$GITHUB_WORKSPACE/fixtures/incident_checkout" --format json >/dev/null

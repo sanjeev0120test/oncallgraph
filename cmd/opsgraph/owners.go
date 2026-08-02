@@ -47,7 +47,10 @@ func newOwnersCmd() *cobra.Command {
 				out = append(out, row{ID: o.ID, Name: o.Name, Email: o.Email, Services: ids})
 			}
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), out)
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
+					"owners": out,
+					"total":  len(out),
+				})
 			}
 			if len(out) == 0 {
 				cmd.Println("(no owners)")
@@ -69,5 +72,6 @@ func newOwnersCmd() *cobra.Command {
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	return cmd
 }

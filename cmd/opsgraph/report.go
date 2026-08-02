@@ -51,5 +51,6 @@ func newReportCmd() *cobra.Command {
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().StringVar(&format, "format", "markdown", "output format: markdown|json")
+	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatMarkdownJSON)
 	return cmd
 }

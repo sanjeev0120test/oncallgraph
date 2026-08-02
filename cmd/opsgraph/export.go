@@ -110,6 +110,7 @@ func newExportCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().StringVar(&outPath, "out", "", "output file path (default: <service>-incident.json|md)")
 	cmd.Flags().StringVar(&format, "format", "markdown", "output format: json|markdown")
+	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatMarkdownJSON)
 	return cmd
 }
 

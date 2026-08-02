@@ -211,6 +211,24 @@ func TestCLIStatusDoctorIngestJSON(t *testing.T) {
 	}
 }
 
+func TestCLIServicesOwnersJSONEnvelope(t *testing.T) {
+	fx := fixtureDir(t)
+	out, _, code := runRoot(t, "services", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("services json exit = %d", code)
+	}
+	if !strings.Contains(out, `"services"`) || !strings.Contains(out, `"total"`) {
+		t.Fatalf("services json missing envelope: %s", out)
+	}
+	out, _, code = runRoot(t, "owners", "--fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("owners json exit = %d", code)
+	}
+	if !strings.Contains(out, `"owners"`) || !strings.Contains(out, `"total"`) {
+		t.Fatalf("owners json missing envelope: %s", out)
+	}
+}
+
 func TestCLIEnvFixtureAndWatchHealthy(t *testing.T) {
 	fx := fixtureDir(t)
 	t.Setenv("OPSGRAPH_FIXTURE", fx)

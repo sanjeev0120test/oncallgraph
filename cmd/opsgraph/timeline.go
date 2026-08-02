@@ -74,6 +74,7 @@ func newTimelineCmd() *cobra.Command {
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	cmd.Flags().IntVar(&limit, "limit", 0, "max events to show (0 = all)")
 	return cmd
 }

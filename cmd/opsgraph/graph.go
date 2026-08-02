@@ -53,5 +53,6 @@ func newGraphCmd() *cobra.Command {
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "ascii", "output format: ascii|table|mermaid|json")
+	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatGraph)
 	return cmd
 }

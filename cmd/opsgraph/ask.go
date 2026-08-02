@@ -88,6 +88,7 @@ func newAskCmd() *cobra.Command {
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (or OPSGRAPH_CONFIG)")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "read from a persistent store (or OPSGRAPH_DATA_DIR)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window (default: config default_since or 60m)")
 	cmd.Flags().BoolVar(&withRB, "runbook", true, "verify the service runbook")
 	cmd.Flags().BoolVar(&useAI, "ai", false, "add a local AI summary (needs Ollama; degrades gracefully)")

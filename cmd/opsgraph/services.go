@@ -53,7 +53,10 @@ func newServicesCmd() *cobra.Command {
 				out = append(out, row{ID: s.ID, Name: s.Name, Health: s.Health, OwnerID: s.OwnerID, Aliases: aliases})
 			}
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), out)
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
+					"services": out,
+					"total":    len(out),
+				})
 			}
 			if len(out) == 0 {
 				cmd.Println("(no services)")

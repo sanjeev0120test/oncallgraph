@@ -188,5 +188,6 @@ func newIngestCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&merge, "merge", false, "upsert without clearing prior rows (live ingest only; fixtures always replace)")
 	cmd.Flags().DurationVar(&since, "since", 0, "change lookback for live git/helm ingest (default: config default_since)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	return cmd
 }

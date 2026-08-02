@@ -23,7 +23,7 @@ LDFLAGS     := -s -w -buildid= \
 
 export CGO_ENABLED := 0
 
-.PHONY: build test fixture-test demo quick lint fmt vet tidy-check staticcheck govulncheck race ci cross clean
+.PHONY: build test fixture-test validate-fixture demo quick lint fmt vet tidy-check staticcheck govulncheck race ci cross clean
 
 build: ## Build the static binary
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN) $(PKG)
@@ -36,6 +36,9 @@ race: ## Run unit tests with the race detector (heavy - prefer CI)
 
 fixture-test: build ## Run the golden fixture test
 	$(BIN) test $(FIXTURE)
+
+validate-fixture: build ## Validate the primary fixture pack
+	$(BIN) validate-fixture $(FIXTURE)
 
 demo: build ## Run the built-in incident demo
 	$(BIN) demo
@@ -56,10 +59,10 @@ staticcheck: ## Run staticcheck via go tool (sum-pinned in go.mod)
 govulncheck: ## Run govulncheck via go tool (sum-pinned in go.mod)
 	go tool govulncheck ./...
 
-quick: fmt vet build test fixture-test demo ## Fast local validation (recommended)
+quick: fmt vet build test validate-fixture fixture-test demo ## Fast local validation (recommended)
 
 # Local "ci" stays laptop-friendly (no -race). GitHub Actions runs the race matrix.
-ci: fmt vet tidy-check build test fixture-test demo ## Local gate (race/matrix live in Actions)
+ci: fmt vet tidy-check build test validate-fixture fixture-test demo ## Local gate (race/matrix live in Actions)
 
 cross: ## Cross-compile release binaries (linux/darwin/windows × amd64/arm64)
 	@mkdir -p dist

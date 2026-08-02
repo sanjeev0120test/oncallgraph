@@ -182,6 +182,7 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (or OPSGRAPH_CONFIG)")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory to validate (or OPSGRAPH_DATA_DIR)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	return cmd
 }
 

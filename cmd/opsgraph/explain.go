@@ -51,5 +51,6 @@ func newExplainCmd() *cobra.Command {
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	return cmd
 }

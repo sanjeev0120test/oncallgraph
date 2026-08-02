@@ -56,6 +56,7 @@ func newImpactCmd() *cobra.Command {
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	return cmd
 }
 

@@ -62,8 +62,54 @@ func completeServiceArg(cmd *cobra.Command, args []string, toComplete string) ([
 	return out, cobra.ShellCompDirectiveNoFileComp
 }
 
+func completeEvidenceArg(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) >= 1 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	fixture, _ := cmd.Flags().GetString("fixture")
+	configPath, _ := cmd.Flags().GetString("config")
+	dataDir, _ := cmd.Flags().GetString("data-dir")
+	if fixture == "" {
+		fixture = strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE"))
+	}
+	cfg, err := config.Load(configPathOrEnv(configPath))
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	ls, err := loadAskStore(cmd.Context(), fixture, configPathOrEnv(configPath), dataDir, cfg, cfg.Since())
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	defer ls.cleanup()
+	evs, err := ls.store.ListAllEvidence()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	prefix := strings.ToLower(toComplete)
+	out := make([]string, 0, len(evs))
+	for _, e := range evs {
+		id := strings.TrimSpace(e.ID)
+		if id == "" {
+			continue
+		}
+		if prefix != "" && !strings.HasPrefix(strings.ToLower(id), prefix) {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out, cobra.ShellCompDirectiveNoFileComp
+}
+
 func completeFormatTableJSON(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return filterPrefix([]string{"table", "json"}, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeFormatGraph(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return filterPrefix([]string{"ascii", "table", "mermaid", "json"}, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeFormatMarkdownJSON(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return filterPrefix([]string{"markdown", "json"}, toComplete), cobra.ShellCompDirectiveNoFileComp
 }
 
 func completeHealthValues(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {

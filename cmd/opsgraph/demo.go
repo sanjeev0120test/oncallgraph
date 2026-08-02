@@ -47,6 +47,7 @@ func newDemoCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	cmd.Flags().BoolVar(&useAI, "ai", false, "add a local AI summary (needs Ollama; degrades gracefully)")
 	return cmd
 }
