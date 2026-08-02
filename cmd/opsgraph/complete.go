@@ -61,3 +61,25 @@ func completeServiceArg(cmd *cobra.Command, args []string, toComplete string) ([
 	}
 	return out, cobra.ShellCompDirectiveNoFileComp
 }
+
+func completeFormatTableJSON(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return filterPrefix([]string{"table", "json"}, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeHealthValues(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return filterPrefix([]string{"healthy", "degraded", "unhealthy", "unknown"}, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+func filterPrefix(vals []string, toComplete string) []string {
+	prefix := strings.ToLower(toComplete)
+	if prefix == "" {
+		return vals
+	}
+	out := make([]string, 0, len(vals))
+	for _, v := range vals {
+		if strings.HasPrefix(strings.ToLower(v), prefix) {
+			out = append(out, v)
+		}
+	}
+	return out
+}

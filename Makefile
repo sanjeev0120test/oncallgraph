@@ -23,7 +23,7 @@ LDFLAGS     := -s -w -buildid= \
 
 export CGO_ENABLED := 0
 
-.PHONY: build test fixture-test demo quick lint fmt vet tidy-check race ci cross clean
+.PHONY: build test fixture-test demo quick lint fmt vet tidy-check staticcheck govulncheck race ci cross clean
 
 build: ## Build the static binary
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN) $(PKG)
@@ -49,6 +49,12 @@ vet: ## go vet
 tidy-check: ## Ensure go.mod/go.sum are tidy
 	go mod tidy
 	git diff --exit-code go.mod go.sum
+
+staticcheck: ## Run staticcheck via go tool (sum-pinned in go.mod)
+	go tool staticcheck ./...
+
+govulncheck: ## Run govulncheck via go tool (sum-pinned in go.mod)
+	go tool govulncheck ./...
 
 quick: fmt vet build test fixture-test demo ## Fast local validation (recommended)
 

@@ -236,6 +236,36 @@ func TestCLITimelineLimit(t *testing.T) {
 	if !strings.Contains(out, "… +") {
 		t.Fatalf("timeline --limit should note truncated events:\n%s", out)
 	}
+	out, _, code = runRoot(t, "timeline", "checkout", "--fixture", fx, "--limit", "1", "--format", "json")
+	if code != 0 {
+		t.Fatalf("timeline json exit = %d", code)
+	}
+	if !strings.Contains(out, `"truncated": true`) || !strings.Contains(out, `"events"`) {
+		t.Fatalf("timeline json should report truncated envelope:\n%s", out)
+	}
+}
+
+func TestCLIHealthStrictAndWatchOnce(t *testing.T) {
+	fx := fixtureDir(t)
+	_, _, code := runRoot(t, "health", "--fixture", fx, "--strict")
+	if code != 1 {
+		t.Fatalf("health --strict on hot fixture exit = %d, want 1", code)
+	}
+	_, _, code = runRoot(t, "watch", "order", "--fixture", fx, "--once")
+	if code != 0 {
+		t.Fatalf("watch --once healthy exit = %d, want 0", code)
+	}
+	_, _, code = runRoot(t, "watch", "checkout", "--fixture", fx, "--once")
+	if code != 1 {
+		t.Fatalf("watch --once degraded exit = %d, want 1", code)
+	}
+	out, _, code := runRoot(t, "validate-fixture", fx, "--format", "json")
+	if code != 0 {
+		t.Fatalf("validate-fixture json exit = %d", code)
+	}
+	if !strings.Contains(out, `"ok": true`) || !strings.Contains(out, `"warnings"`) {
+		t.Fatalf("validate-fixture json missing fields: %s", out)
+	}
 }
 
 func TestCLIWhyHandoffJSON(t *testing.T) {

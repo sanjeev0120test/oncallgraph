@@ -16,16 +16,36 @@ func newWatchCmd() *cobra.Command {
 	var since time.Duration
 	var interval time.Duration
 	var timeout time.Duration
+	var once bool
 	cmd := &cobra.Command{
 		Use:   "watch <service>",
 		Short: "Poll a service until healthy (or timeout)",
 		Long: "Poll a live or persistent data source until the service reports healthy.\n" +
-			"Fixture packs are static snapshots — watch will timeout if the fixture service is not healthy.",
+			"Fixture packs are static snapshots — watch will timeout if the fixture service is not healthy.\n" +
+			"Pass --once for a single health check (exit 0 healthy, 1 otherwise).",
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err
+			}
+			if once {
+				healthy, svcID, health, line, cont, err := watchTick(cmd, &src, args[0], since)
+				if err != nil {
+					return err
+				}
+				if cont {
+					cmd.PrintErrln(line)
+					return fail(1, "watch --once: transient load failure")
+				}
+				cmd.Printf("%s  %s\n", time.Now().UTC().Format(time.RFC3339), line)
+				if healthy {
+					return nil
+				}
+				if health == "" {
+					health = "unknown"
+				}
+				return fail(1, "watch --once: %s is %s", svcID, health)
 			}
 			if interval <= 0 {
 				return fail(2, "invalid --interval %s (must be > 0)", interval)
@@ -99,6 +119,7 @@ func newWatchCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	cmd.Flags().DurationVar(&interval, "interval", 5*time.Second, "poll interval (prefer >=5s with live connectors)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 5*time.Minute, "give up after this duration")
+	cmd.Flags().BoolVar(&once, "once", false, "check health once and exit (0=healthy, 1=not)")
 	return cmd
 }
 

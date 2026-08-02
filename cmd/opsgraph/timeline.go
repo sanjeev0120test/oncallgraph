@@ -39,12 +39,20 @@ func newTimelineCmd() *cobra.Command {
 			if err != nil {
 				return failAsk(err)
 			}
+			total := len(res.Timeline)
 			events := res.Timeline
+			truncated := false
 			if limit > 0 && len(events) > limit {
 				events = events[:limit]
+				truncated = true
 			}
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), events)
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
+					"service":   res.Service.ID,
+					"events":    events,
+					"total":     total,
+					"truncated": truncated,
+				})
 			}
 			if len(res.Timeline) == 0 {
 				cmd.Println("(no events)")

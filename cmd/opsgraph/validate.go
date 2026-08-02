@@ -9,13 +9,15 @@ import (
 
 	"github.com/sanjeev0120test/opsgraph/internal/ingest"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
 func newValidateFixtureCmd() *cobra.Command {
-	return &cobra.Command{
+	var format string
+	cmd := &cobra.Command{
 		Use:   "validate-fixture <dir>",
 		Short: "Validate a fixture pack can be ingested and has required files",
 		Args:  cobra.ExactArgs(1),
@@ -23,12 +25,22 @@ func newValidateFixtureCmd() *cobra.Command {
 			if err := requireArg("fixture-dir", args[0]); err != nil {
 				return err
 			}
+			if format != "table" && format != "json" {
+				return fail(2, "invalid --format %q (want table or json)", format)
+			}
 			dir := args[0]
 			required := []string{
 				"meta.yaml", "services.yaml", "owners.yaml", "changes.yaml",
 				"dependencies.yaml", "alerts.yaml",
 			}
 			var missing []string
+			var warnings []string
+			warn := func(msg string) {
+				warnings = append(warnings, msg)
+				if format != "json" {
+					cmd.PrintErrln("warning:", msg)
+				}
+			}
 			for _, f := range required {
 				if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
 					missing = append(missing, f)
@@ -38,13 +50,12 @@ func newValidateFixtureCmd() *cobra.Command {
 				return fail(2, "missing required files: %v", missing)
 			}
 			if _, err := os.Stat(filepath.Join(dir, "runbooks")); err != nil {
-				cmd.PrintErrln("warning: no runbooks/ directory (opsgraph test may skip verify goldens)")
+				warn("no runbooks/ directory (opsgraph test may skip verify goldens)")
 			}
 			if matches, _ := filepath.Glob(filepath.Join(dir, "expected", "*.json")); len(matches) == 0 {
-				cmd.PrintErrln("warning: no expected/*.json goldens (opsgraph test has nothing to compare)")
+				warn("no expected/*.json goldens (opsgraph test has nothing to compare)")
 			}
 
-			// Referential check against declared services.yaml IDs (before stub synthesis).
 			declared, err := declaredServiceIDs(filepath.Join(dir, "services.yaml"))
 			if err != nil {
 				return fail(1, "services.yaml: %v", err)
@@ -60,7 +71,7 @@ func newValidateFixtureCmd() *cobra.Command {
 				}
 				if !declared[d.to] {
 					synthTargets = append(synthTargets, d.to)
-					cmd.PrintErrf("warning: dependency target %q not in services.yaml (will be synthesized as unknown)\n", d.to)
+					warn("dependency target " + d.to + " not in services.yaml (will be synthesized as unknown)")
 				}
 			}
 
@@ -83,14 +94,13 @@ func newValidateFixtureCmd() *cobra.Command {
 			if counts["services"] == 0 {
 				return fail(1, "fixture has zero services after ingest")
 			}
-			// Synthesized dependency targets must exist after ingest (blast-radius completeness).
 			for _, id := range uniqSorted(synthTargets) {
 				svc, err := s.GetService(id)
 				if err != nil {
 					return fail(1, "dependency target %q was not synthesized after ingest: %v", id, err)
 				}
 				if svc.Health != model.HealthUnknown {
-					cmd.PrintErrf("warning: synthesized service %q has health %q (expected unknown)\n", id, svc.Health)
+					warn("synthesized service " + id + " has health " + svc.Health + " (expected unknown)")
 				}
 			}
 			if collisions, err := s.FindAliasCollisions(); err != nil {
@@ -124,7 +134,6 @@ func newValidateFixtureCmd() *cobra.Command {
 					return fail(1, "alert %q references unknown service %q", a.ID, a.ServiceID)
 				}
 			}
-			// Cited evidence IDs must exist so ask/handoff links are not stubs.
 			for _, c := range changes {
 				if c.EvidenceID == "" {
 					continue
@@ -141,13 +150,34 @@ func newValidateFixtureCmd() *cobra.Command {
 					return fail(1, "alert %q cites missing evidence %q", a.ID, a.EvidenceID)
 				}
 			}
-			cmd.Printf("ok - fixture %q valid (now=%s)\n", dir, now.UTC().Format(time.RFC3339))
+			payload := struct {
+				OK       bool           `json:"ok"`
+				Dir      string         `json:"dir"`
+				Now      string         `json:"now"`
+				Counts   map[string]int `json:"counts"`
+				Warnings []string       `json:"warnings"`
+			}{
+				OK:       true,
+				Dir:      dir,
+				Now:      now.UTC().Format(time.RFC3339),
+				Counts:   counts,
+				Warnings: warnings,
+			}
+			if payload.Warnings == nil {
+				payload.Warnings = []string{}
+			}
+			if format == "json" {
+				return output.JSON(cmd.OutOrStdout(), payload)
+			}
+			cmd.Printf("ok - fixture %q valid (now=%s)\n", dir, payload.Now)
 			for _, k := range []string{"services", "owners", "changes", "dependencies", "alerts", "runbooks", "evidence"} {
 				cmd.Printf("  %-13s %d\n", k+":", counts[k])
 			}
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	return cmd
 }
 
 type depPair struct{ from, to string }

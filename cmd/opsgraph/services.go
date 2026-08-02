@@ -76,5 +76,7 @@ func newServicesCmd() *cobra.Command {
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&health, "health", "", "filter by health: healthy|degraded|unhealthy|unknown")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	_ = cmd.RegisterFlagCompletionFunc("health", completeHealthValues)
+	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatTableJSON)
 	return cmd
 }

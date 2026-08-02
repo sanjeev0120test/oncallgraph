@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/version"
@@ -20,9 +21,12 @@ func newVersionCmd() *cobra.Command {
 			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), map[string]string{
-					"version": version.Version,
-					"commit":  version.Commit,
-					"date":    version.Date,
+					"version":    version.Version,
+					"commit":     version.Commit,
+					"date":       version.Date,
+					"goos":       runtime.GOOS,
+					"goarch":     runtime.GOARCH,
+					"go_version": runtime.Version(),
 				})
 			}
 			// Use OutOrStdout explicitly: cobra's Println falls back to stderr

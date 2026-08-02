@@ -12,6 +12,7 @@ import (
 func newHealthCmd() *cobra.Command {
 	var src sourceFlags
 	var format string
+	var strict bool
 	cmd := &cobra.Command{
 		Use:   "health",
 		Short: "Fleet health dashboard: counts by health state",
@@ -56,25 +57,34 @@ func newHealthCmd() *cobra.Command {
 				ByState map[string][]string `json:"by_state"`
 			}{Total: len(svcs), Counts: counts, ByState: by}
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), out)
-			}
-			cmd.Printf("FLEET HEALTH  (%d services)\n", out.Total)
-			if out.Total == 0 {
-				cmd.Println("(no services)")
-				return nil
-			}
-			for _, k := range []string{model.HealthUnhealthy, model.HealthDegraded, model.HealthUnknown, model.HealthHealthy} {
-				ids := by[k]
-				if len(ids) == 0 {
-					cmd.Printf("  %-12s %d\n", k, counts[k])
-					continue
+				if err := output.JSON(cmd.OutOrStdout(), out); err != nil {
+					return fail(2, "%v", err)
 				}
-				cmd.Printf("  %-12s %d  (%s)\n", k, counts[k], strings.Join(ids, ", "))
+			} else {
+				cmd.Printf("FLEET HEALTH  (%d services)\n", out.Total)
+				if out.Total == 0 {
+					cmd.Println("(no services)")
+				} else {
+					for _, k := range []string{model.HealthUnhealthy, model.HealthDegraded, model.HealthUnknown, model.HealthHealthy} {
+						ids := by[k]
+						if len(ids) == 0 {
+							cmd.Printf("  %-12s %d\n", k, counts[k])
+							continue
+						}
+						cmd.Printf("  %-12s %d  (%s)\n", k, counts[k], strings.Join(ids, ", "))
+					}
+				}
+			}
+			if strict && (counts[model.HealthDegraded] > 0 || counts[model.HealthUnhealthy] > 0) {
+				return fail(1, "fleet not healthy: %d degraded, %d unhealthy",
+					counts[model.HealthDegraded], counts[model.HealthUnhealthy])
 			}
 			return nil
 		},
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	cmd.Flags().BoolVar(&strict, "strict", false, "exit 1 if any service is degraded or unhealthy")
+	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatTableJSON)
 	return cmd
 }

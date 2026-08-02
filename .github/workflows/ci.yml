@@ -276,8 +276,18 @@ jobs:
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" status --data-dir "$DATA" --format json >/dev/null
           "$BIN" doctor --format json >/dev/null
-          "$BIN" version --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "version" in d and "commit" in d'
+          "$BIN" version --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("version") and d.get("commit") and d.get("goos") and d.get("goarch")'
           "$BIN" graph --fixture ./fixtures/incident_checkout --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "nodes" in d and "edges" in d'
+          "$BIN" validate-fixture ./fixtures/incident_checkout --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True'
+          set +e
+          "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
+          strict_health=$?
+          "$BIN" watch checkout --fixture ./fixtures/incident_checkout --once >/dev/null
+          once_degraded=$?
+          set -e
+          test "$strict_health" -eq 1
+          test "$once_degraded" -eq 1
+          "$BIN" watch order --fixture ./fixtures/incident_checkout --once >/dev/null
           # Env-only source contracts (no flags).
           OPSGRAPH_FIXTURE=./fixtures/incident_checkout "$BIN" ask checkout --format json >/dev/null
           OPSGRAPH_DATA_DIR="$DATA" "$BIN" status --format json >/dev/null
