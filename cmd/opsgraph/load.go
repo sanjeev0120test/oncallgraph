@@ -57,12 +57,6 @@ func resolveFixtureExclusive(fixtureFlag, dataDirFlag string) (string, error) {
 	return fixture, nil
 }
 
-// validateExclusive rejects ambiguous source flag combinations.
-func (f *sourceFlags) validateExclusive() error {
-	_, err := resolveFixtureExclusive(f.fixture, f.dataDir)
-	return err
-}
-
 // failSource maps store/config load errors to CLI exit codes.
 func failSource(err error) error {
 	if err == nil {
