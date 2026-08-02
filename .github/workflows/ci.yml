@@ -101,6 +101,7 @@ jobs:
           # Pure-Go helpers used by pack-release / smoke must compile + self-check.
           go build -o /dev/null scripts/gomod_sbom.go
           go build -o /dev/null scripts/jsonassert.go
+          go build -o /dev/null scripts/coverfloor.go
           printf '%s\n' '{"ok":true,"total":2,"name":"x"}' | go run ./scripts/jsonassert.go true:ok eqnum:total=2 eq:name=x gte:total=1
           echo "| shellcheck (sha256-pinned) | ok |" >> "$GITHUB_STEP_SUMMARY"
           echo "| jsonassert self-check | ok |" >> "$GITHUB_STEP_SUMMARY"
@@ -173,19 +174,16 @@ jobs:
         if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' }}
         env:
           CGO_ENABLED: "1"
-          COVER_FLOOR: "62"
         run: |
           set -euo pipefail
           go test -count=1 -timeout=5m -race -shuffle=on -coverprofile=cover.out -covermode=atomic ./...
-          go tool cover -func=cover.out | tee cover-func.txt | tail -n 1 | tee cover-summary.txt
-          pct="$(awk '/^total:/{gsub(/%/,"",$NF); print $NF}' cover-summary.txt)"
-          awk -v p="$pct" -v min="$COVER_FLOOR" 'BEGIN {
-            if (p == "" || (p+0) < (min+0)) {
-              printf "coverage floor failed: got %s%%, want >= %s%%\n", p, min > "/dev/stderr"
-              exit 1
-            }
-            printf "coverage floor ok: %s%% >= %s%%\n", p, min
-          }'
+          go tool cover -func=cover.out | tee cover-func.txt | go run ./scripts/coverfloor.go \
+              total=63 \
+              cmd/opsgraph=55 \
+              internal/ai=40 \
+              internal/ask=75 \
+              internal/store=60
+          tail -n 1 cover-func.txt | tee cover-summary.txt
           # Short deterministic fuzz budget (no corpus commit required).
           go test -count=1 -timeout=2m -fuzz=FuzzOfStablePrefix -fuzztime=5s ./internal/fingerprint
           {
@@ -195,7 +193,7 @@ jobs:
             cat cover-summary.txt
             echo '```'
             echo ""
-            echo "Floor: >= ${COVER_FLOOR}% (failing gate)."
+            echo "Floors: total>=63, cmd/opsgraph>=55, internal/ai>=40, internal/ask>=75, internal/store>=60"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverprofile
         if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' && always() }}
