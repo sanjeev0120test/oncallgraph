@@ -11,9 +11,10 @@ func newResolveCmd() *cobra.Command {
 	var src sourceFlags
 	var format string
 	cmd := &cobra.Command{
-		Use:   "resolve <name-or-alias>",
-		Short: "Resolve a service name or alias to its canonical id",
-		Args:  cobra.ExactArgs(1),
+		Use:               "resolve <name-or-alias>",
+		Short:             "Resolve a service name or alias to its canonical id",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

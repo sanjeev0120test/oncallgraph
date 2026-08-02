@@ -9,6 +9,7 @@ import (
 
 	"github.com/sanjeev0120test/opsgraph/fixtures"
 	"github.com/sanjeev0120test/opsgraph/internal/config"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/sanjeev0120test/opsgraph/internal/version"
 	"github.com/spf13/cobra"
@@ -17,40 +18,72 @@ import (
 func newDoctorCmd() *cobra.Command {
 	var configPath string
 	var dataDir string
+	var format string
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Run offline health checks for the local opsgraph environment",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			okN, warnN, failN := 0, 0, 0
-			check := func(name string, good bool, detail string) {
-				status := "ok"
-				if !good {
-					status = "FAIL"
-					failN++
-				} else {
-					okN++
+			if err := validFormat(format); err != nil {
+				return fail(2, "%v", err)
+			}
+			type checkRow struct {
+				Name   string `json:"name"`
+				Status string `json:"status"`
+				Detail string `json:"detail"`
+			}
+			type doctorOut struct {
+				Checks []checkRow `json:"checks"`
+				OK     int        `json:"ok"`
+				Warn   int        `json:"warn"`
+				Fail   int        `json:"fail"`
+			}
+			out := doctorOut{Checks: []checkRow{}}
+			record := func(name, status, detail string) {
+				out.Checks = append(out.Checks, checkRow{Name: name, Status: status, Detail: detail})
+				switch status {
+				case "ok":
+					out.OK++
+				case "warn":
+					out.Warn++
+				case "fail":
+					out.Fail++
 				}
-				cmd.Printf("[%s] %-18s %s\n", status, name, detail)
+				if format != "json" {
+					label := status
+					if status == "fail" {
+						label = "FAIL"
+					} else if status == "warn" {
+						label = "WARN"
+					}
+					cmd.Printf("[%s] %-18s %s\n", label, name, detail)
+				}
+			}
+			check := func(name string, good bool, detail string) {
+				if good {
+					record(name, "ok", detail)
+				} else {
+					record(name, "fail", detail)
+				}
 			}
 			warnf := func(name, detail string) {
-				warnN++
-				cmd.Printf("[WARN] %-18s %s\n", name, detail)
+				record(name, "warn", detail)
 			}
 
 			check("binary", true, fmt.Sprintf("opsgraph %s (%s/%s)", version.String(), runtime.GOOS, runtime.GOARCH))
 			check("cwd", true, mustGetwd())
 
-			cfg, err := config.Load(configPath)
+			cfgPath := configPathOrEnv(configPath)
+			cfg, err := config.Load(cfgPath)
 			check("config_load", err == nil, errOrOK(err))
 			if err == nil {
-				if configPath == "" && resolveConfigPath("") == "" {
+				if cfgPath == "" && resolveConfigPath("") == "" {
 					warnf("config_file", "no .opsgraph.yaml (using built-in defaults)")
-				} else if eff := resolveConfigPath(configPath); eff != "" {
+				} else if eff := resolveConfigPath(cfgPath); eff != "" {
 					check("config_file", true, eff)
 				}
 				cfgDir := "."
-				if eff := resolveConfigPath(configPath); eff != "" {
+				if eff := resolveConfigPath(cfgPath); eff != "" {
 					cfgDir = dirOf(eff)
 				}
 				dir := resolveDataDir(dataDir, cfg, cfgDir)
@@ -81,14 +114,12 @@ func newDoctorCmd() *cobra.Command {
 					gitOK := pathExists(gitDir)
 					if gitOK {
 						check("git_repo", true, gitPath)
-						// ask/who prefer live k8s/prom/AM only — git needs ingest refresh.
 						if !liveConnectorsEnabled(cfg) && pathExists(db) {
 							warnf("git_refresh", "ask uses persisted store; run `opsgraph ingest` to pick up new commits")
 						}
 					} else if pathExists(gitPath) {
 						warnf("git_repo", gitPath+" exists but has no .git (not a repository)")
 					} else {
-						// Missing git is non-fatal for live ingest; keep doctor usable offline.
 						warnf("git_repo", gitPath+" missing (optional)")
 					}
 				}
@@ -135,15 +166,22 @@ func newDoctorCmd() *cobra.Command {
 			_, embErr := fixtures.CheckoutFS()
 			check("embedded_fixture", embErr == nil, "fixtures.CheckoutFS")
 
-			cmd.Printf("\nsummary: %d ok, %d warn, %d fail\n", okN, warnN, failN)
-			if failN > 0 {
-				return fail(1, "doctor found %d failure(s)", failN)
+			if format == "json" {
+				if err := output.JSON(cmd.OutOrStdout(), out); err != nil {
+					return fail(2, "%v", err)
+				}
+			} else {
+				cmd.Printf("\nsummary: %d ok, %d warn, %d fail\n", out.OK, out.Warn, out.Fail)
+			}
+			if out.Fail > 0 {
+				return fail(1, "doctor found %d failure(s)", out.Fail)
 			}
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory to validate")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (or OPSGRAPH_CONFIG)")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory to validate (or OPSGRAPH_DATA_DIR)")
+	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
 }
 

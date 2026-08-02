@@ -10,7 +10,7 @@
 #   opsgraph_<version>_<goos>_<goarch>[.exe]    (release build)
 #
 # Writes to <out-dir>:
-#   6 archives + LICENSE + DEPENDENCIES.txt + install.sh + install.ps1 + SHA256SUMS
+#   6 archives + LICENSE + DEPENDENCIES.txt + sbom.gomod.json + install.sh + install.ps1 + SHA256SUMS
 set -euo pipefail
 
 VERSION="${1:?version required (e.g. v0.1.5)}"
@@ -20,7 +20,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p "$OUT_DIR"
 rm -f "$OUT_DIR"/opsgraph_*.tar.gz "$OUT_DIR"/opsgraph_*.zip \
-  "$OUT_DIR"/SHA256SUMS "$OUT_DIR"/DEPENDENCIES.txt \
+  "$OUT_DIR"/SHA256SUMS "$OUT_DIR"/DEPENDENCIES.txt "$OUT_DIR"/sbom.gomod.json \
   "$OUT_DIR"/LICENSE "$OUT_DIR"/install.sh "$OUT_DIR"/install.ps1
 
 resolve_src() {
@@ -52,13 +52,21 @@ for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 wind
   echo "$meta" | grep -F "GOARCH=${GOARCH}" >/dev/null
 
   base="opsgraph_${VERSION}_${GOOS}_${GOARCH}"
+  # Stable archive metadata so same inputs rebuild to matching SHA256SUMS.
+  export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
   if [ "$GOOS" = windows ]; then
     cp "$src" "${OUT_DIR}/${base}.exe"
-    (cd "$OUT_DIR" && zip -q "${base}.zip" "${base}.exe")
+    (cd "$OUT_DIR" && zip -q -X "${base}.zip" "${base}.exe")
     rm -f "${OUT_DIR}/${base}.exe"
   else
     cp "$src" "${OUT_DIR}/${base}"
-    (cd "$OUT_DIR" && tar -czf "${base}.tar.gz" "${base}")
+    # GNU tar: fixed mtime/owner; gzip -n drops timestamp from header.
+    if tar --version 2>/dev/null | grep -qi gnu; then
+      (cd "$OUT_DIR" && tar --sort=name --owner=0 --group=0 --numeric-owner \
+        --mtime="@${SOURCE_DATE_EPOCH}" -cf - "${base}" | gzip -n > "${base}.tar.gz")
+    else
+      (cd "$OUT_DIR" && tar -czf "${base}.tar.gz" "${base}")
+    fi
     rm -f "${OUT_DIR}/${base}"
   fi
 done
@@ -68,6 +76,8 @@ cp "${ROOT}/scripts/install.sh" "${OUT_DIR}/install.sh"
 cp "${ROOT}/scripts/install.ps1" "${OUT_DIR}/install.ps1"
 chmod +x "${OUT_DIR}/install.sh"
 (cd "$ROOT" && go list -m all) > "${OUT_DIR}/DEPENDENCIES.txt"
+# Lightweight module SBOM (module path@version lines) for release verify paths.
+(cd "$ROOT" && go list -m -json all) > "${OUT_DIR}/sbom.gomod.json"
 
 if command -v sha256sum >/dev/null 2>&1; then
   HASH_CMD=(sha256sum)
@@ -83,8 +93,8 @@ fi
 (
   cd "$OUT_DIR"
   # -- stops option parsing so a leading-dash archive name cannot break hashing.
-  "${HASH_CMD[@]}" -- *.tar.gz *.zip LICENSE DEPENDENCIES.txt install.sh install.ps1 > SHA256SUMS
-  test "$(grep -c . SHA256SUMS)" -eq 10
+  "${HASH_CMD[@]}" -- *.tar.gz *.zip LICENSE DEPENDENCIES.txt sbom.gomod.json install.sh install.ps1 > SHA256SUMS
+  test "$(grep -c . SHA256SUMS)" -eq 11
   "${CHECK_CMD[@]}" SHA256SUMS
   echo "--- SHA256SUMS ---"
   cat SHA256SUMS

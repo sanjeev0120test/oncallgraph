@@ -14,9 +14,10 @@ func newScoreCmd() *cobra.Command {
 	var since time.Duration
 	var format string
 	cmd := &cobra.Command{
-		Use:   "score <service>",
-		Short: "Compute a deterministic incident severity score (0-100)",
-		Args:  cobra.ExactArgs(1),
+		Use:               "score <service>",
+		Short:             "Compute a deterministic incident severity score (0-100)",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

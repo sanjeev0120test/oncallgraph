@@ -10,9 +10,10 @@ func newPathCmd() *cobra.Command {
 	var src sourceFlags
 	var format string
 	cmd := &cobra.Command{
-		Use:   "path <from> <to>",
-		Short: "Find the shortest depends-on path between two services",
-		Args:  cobra.ExactArgs(2),
+		Use:               "path <from> <to>",
+		Short:             "Find the shortest depends-on path between two services",
+		Args:              cobra.ExactArgs(2),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

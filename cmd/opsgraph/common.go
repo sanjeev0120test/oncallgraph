@@ -73,11 +73,19 @@ func embeddedCheckout() (*loadedStore, error) {
 	return storeFromFixtureFS(fsys)
 }
 
-// resolveConfigPath returns the config path to use: the explicit flag, or
-// ./.opsgraph.yaml if present, or "".
+// configPathOrEnv returns the explicit --config flag, else OPSGRAPH_CONFIG.
+func configPathOrEnv(flag string) string {
+	if strings.TrimSpace(flag) != "" {
+		return strings.TrimSpace(flag)
+	}
+	return strings.TrimSpace(os.Getenv("OPSGRAPH_CONFIG"))
+}
+
+// resolveConfigPath returns the config path to use: the explicit flag /
+// OPSGRAPH_CONFIG, or ./.opsgraph.yaml if present, or "".
 func resolveConfigPath(configPath string) string {
-	if configPath != "" {
-		return configPath
+	if p := configPathOrEnv(configPath); p != "" {
+		return p
 	}
 	if _, err := os.Stat(".opsgraph.yaml"); err == nil {
 		return ".opsgraph.yaml"
@@ -85,11 +93,14 @@ func resolveConfigPath(configPath string) string {
 	return ""
 }
 
-// resolveDataDir picks --data-dir (CWD-relative), else config.data_dir resolved
-// against the config file's directory, else the default under configDir/CWD.
+// resolveDataDir picks --data-dir, else OPSGRAPH_DATA_DIR, else config.data_dir
+// resolved against the config file's directory, else the default under configDir/CWD.
 func resolveDataDir(flag string, cfg *config.Config, configDir string) string {
 	if flag != "" {
 		return flag
+	}
+	if v := strings.TrimSpace(os.Getenv("OPSGRAPH_DATA_DIR")); v != "" {
+		return v
 	}
 	dir := config.DefaultDataDir
 	if cfg != nil && strings.TrimSpace(cfg.DataDir) != "" {

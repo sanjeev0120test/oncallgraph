@@ -171,6 +171,32 @@ func TestCLIIngestReportsMode(t *testing.T) {
 	}
 }
 
+func TestCLIStatusDoctorIngestJSON(t *testing.T) {
+	fx := fixtureDir(t)
+	dir := t.TempDir()
+	out, _, code := runRoot(t, "ingest", "--fixture", fx, "--data-dir", dir, "--format", "json")
+	if code != 0 {
+		t.Fatalf("ingest json exit = %d", code)
+	}
+	if !strings.Contains(out, `"mode": "fixture"`) || !strings.Contains(out, `"counts"`) {
+		t.Fatalf("ingest json missing fields: %s", out)
+	}
+	out, _, code = runRoot(t, "status", "--data-dir", dir, "--format", "json")
+	if code != 0 {
+		t.Fatalf("status json exit = %d", code)
+	}
+	if !strings.Contains(out, `"active_source"`) || !strings.Contains(out, `"connectors"`) {
+		t.Fatalf("status json missing fields: %s", out)
+	}
+	out, _, code = runRoot(t, "doctor", "--data-dir", dir, "--format", "json")
+	if code != 0 {
+		t.Fatalf("doctor json exit = %d\n%s", code, out)
+	}
+	if !strings.Contains(out, `"checks"`) || !strings.Contains(out, `"ok"`) {
+		t.Fatalf("doctor json missing fields: %s", out)
+	}
+}
+
 func TestCLITimelineLimit(t *testing.T) {
 	fx := fixtureDir(t)
 	out, _, code := runRoot(t, "timeline", "checkout", "--fixture", fx, "--limit", "1")

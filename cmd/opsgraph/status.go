@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/config"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -19,20 +20,28 @@ func newStatusCmd() *cobra.Command {
 		fixture    string
 		configPath string
 		dataDir    string
+		format     string
 	)
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show connector configuration and ingested data counts",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validFormat(format); err != nil {
+				return fail(2, "%v", err)
+			}
+			if fixture == "" {
+				fixture = strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE"))
+			}
 			if fixture != "" && dataDir != "" {
 				return fail(2, "--fixture and --data-dir are mutually exclusive")
 			}
-			cfg, err := config.Load(configPath)
+			cfgPath := configPathOrEnv(configPath)
+			cfg, err := config.Load(cfgPath)
 			if err != nil {
 				return fail(2, "%v", err)
 			}
-			effPath := resolveConfigPath(configPath)
+			effPath := resolveConfigPath(cfgPath)
 			configDir := "."
 			if effPath != "" {
 				configDir = dirOf(effPath)
@@ -40,18 +49,8 @@ func newStatusCmd() *cobra.Command {
 			dir := resolveDataDir(dataDir, cfg, configDir)
 			dbPath := filepath.Join(dir, "state.db")
 
-			cmd.Println("STORE")
-			cmd.Printf("  data_dir: %s\n", dir)
-			cmd.Printf("  db:       %s\n", dbPath)
-
-			cmd.Println("CONNECTORS")
-			cmd.Printf("  fixtures:     %v\n", cfg.Connectors.Fixtures.Enabled)
 			gitPath := resolveGitRepoPath(cfg.Connectors.Git.RepoPath, configDir)
 			gitOK := pathExists(filepath.Join(gitPath, ".git"))
-			cmd.Printf("  git:          %v (repo %q has_git=%v)\n", cfg.Connectors.Git.Enabled, gitPath, gitOK)
-			if cfg.Connectors.Git.Enabled && !liveConnectorsEnabled(cfg) {
-				cmd.Println("  git_note:     ask/who/watch use persisted store; run `opsgraph ingest` to refresh git changes")
-			}
 			k8sSnap := cfg.Connectors.Kubernetes.Snapshot
 			k8sExists := false
 			if cfg.Connectors.Kubernetes.Enabled && strings.TrimSpace(k8sSnap) != "" {
@@ -60,33 +59,111 @@ func newStatusCmd() *cobra.Command {
 					snapPath = filepath.Join(configDir, snapPath)
 				}
 				k8sExists = pathExists(snapPath)
-				cmd.Printf("  kubernetes:   %v (snapshot %q exists=%v)\n", cfg.Connectors.Kubernetes.Enabled, k8sSnap, k8sExists)
-			} else {
-				cmd.Printf("  kubernetes:   %v (snapshot %q)\n", cfg.Connectors.Kubernetes.Enabled, k8sSnap)
 			}
-			cmd.Printf("  prometheus:   %v (url %q", cfg.Connectors.Prometheus.Enabled, cfg.Connectors.Prometheus.URL)
+			promOK := false
 			if cfg.Connectors.Prometheus.Enabled {
-				cmd.Printf(" reachable=%v", probeHTTP(cmd.Context(), cfg.Connectors.Prometheus.URL, "/api/v1/alerts"))
+				promOK = probeHTTP(cmd.Context(), cfg.Connectors.Prometheus.URL, "/api/v1/alerts")
 			}
-			cmd.Printf(")\n")
-			cmd.Printf("  alertmanager: %v (url %q", cfg.Connectors.Alertmanager.Enabled, cfg.Connectors.Alertmanager.URL)
+			amOK := false
 			if cfg.Connectors.Alertmanager.Enabled {
-				cmd.Printf(" reachable=%v", probeHTTP(cmd.Context(), cfg.Connectors.Alertmanager.URL, "/api/v2/alerts"))
+				amOK = probeHTTP(cmd.Context(), cfg.Connectors.Alertmanager.URL, "/api/v2/alerts")
 			}
-			cmd.Printf(")\n")
-
 			ollamaOK := probeOllama(cmd.Context(), cfg.AI.OllamaURL)
-			cmd.Printf("AI\n  enabled: %v  model: %s  embed: %s  url: %s  reachable: %v\n",
-				cfg.AI.Enabled, cfg.AI.Model, cfg.AI.EmbedModel, cfg.AI.OllamaURL, ollamaOK)
 
-			// Same source selection as ask (live k8s/prom/AM preferred over stale db).
-			ls, err := loadAskStore(cmd.Context(), fixture, configPath, dataDir, cfg, cfg.Since())
+			type connectorStatus struct {
+				Enabled   bool   `json:"enabled"`
+				Detail    string `json:"detail,omitempty"`
+				Reachable *bool  `json:"reachable,omitempty"`
+				Exists    *bool  `json:"exists,omitempty"`
+				HasGit    *bool  `json:"has_git,omitempty"`
+			}
+			boolPtr := func(b bool) *bool { return &b }
+			type statusOut struct {
+				DataDir      string                     `json:"data_dir"`
+				DB           string                     `json:"db"`
+				Connectors   map[string]connectorStatus `json:"connectors"`
+				AI           map[string]any             `json:"ai"`
+				ActiveSource string                     `json:"active_source,omitempty"`
+				SourceNote   string                     `json:"source_note,omitempty"`
+				Schema       int                        `json:"schema_version,omitempty"`
+				Counts       map[string]int             `json:"counts,omitempty"`
+				Services     []map[string]string        `json:"services,omitempty"`
+			}
+			out := statusOut{
+				DataDir: dir,
+				DB:      dbPath,
+				Connectors: map[string]connectorStatus{
+					"fixtures": {Enabled: cfg.Connectors.Fixtures.Enabled},
+					"git": {
+						Enabled: cfg.Connectors.Git.Enabled,
+						Detail:  gitPath,
+						HasGit:  boolPtr(gitOK),
+					},
+					"kubernetes": {
+						Enabled: cfg.Connectors.Kubernetes.Enabled,
+						Detail:  k8sSnap,
+						Exists:  boolPtr(k8sExists),
+					},
+					"prometheus": {
+						Enabled:   cfg.Connectors.Prometheus.Enabled,
+						Detail:    cfg.Connectors.Prometheus.URL,
+						Reachable: boolPtr(promOK),
+					},
+					"alertmanager": {
+						Enabled:   cfg.Connectors.Alertmanager.Enabled,
+						Detail:    cfg.Connectors.Alertmanager.URL,
+						Reachable: boolPtr(amOK),
+					},
+				},
+				AI: map[string]any{
+					"enabled":   cfg.AI.Enabled,
+					"model":     cfg.AI.Model,
+					"embed":     cfg.AI.EmbedModel,
+					"url":       cfg.AI.OllamaURL,
+					"reachable": ollamaOK,
+				},
+			}
+
+			if format != "json" {
+				cmd.Println("STORE")
+				cmd.Printf("  data_dir: %s\n", dir)
+				cmd.Printf("  db:       %s\n", dbPath)
+
+				cmd.Println("CONNECTORS")
+				cmd.Printf("  fixtures:     %v\n", cfg.Connectors.Fixtures.Enabled)
+				cmd.Printf("  git:          %v (repo %q has_git=%v)\n", cfg.Connectors.Git.Enabled, gitPath, gitOK)
+				if cfg.Connectors.Git.Enabled && !liveConnectorsEnabled(cfg) {
+					cmd.Println("  git_note:     ask/who/watch use persisted store; run `opsgraph ingest` to refresh git changes")
+				}
+				if cfg.Connectors.Kubernetes.Enabled && strings.TrimSpace(k8sSnap) != "" {
+					cmd.Printf("  kubernetes:   %v (snapshot %q exists=%v)\n", cfg.Connectors.Kubernetes.Enabled, k8sSnap, k8sExists)
+				} else {
+					cmd.Printf("  kubernetes:   %v (snapshot %q)\n", cfg.Connectors.Kubernetes.Enabled, k8sSnap)
+				}
+				cmd.Printf("  prometheus:   %v (url %q", cfg.Connectors.Prometheus.Enabled, cfg.Connectors.Prometheus.URL)
+				if cfg.Connectors.Prometheus.Enabled {
+					cmd.Printf(" reachable=%v", promOK)
+				}
+				cmd.Printf(")\n")
+				cmd.Printf("  alertmanager: %v (url %q", cfg.Connectors.Alertmanager.Enabled, cfg.Connectors.Alertmanager.URL)
+				if cfg.Connectors.Alertmanager.Enabled {
+					cmd.Printf(" reachable=%v", amOK)
+				}
+				cmd.Printf(")\n")
+				cmd.Printf("AI\n  enabled: %v  model: %s  embed: %s  url: %s  reachable: %v\n",
+					cfg.AI.Enabled, cfg.AI.Model, cfg.AI.EmbedModel, cfg.AI.OllamaURL, ollamaOK)
+			}
+
+			ls, err := loadAskStore(cmd.Context(), fixture, cfgPath, dataDir, cfg, cfg.Since())
 			if err != nil {
 				if fixture == "" && dataDir == "" && (errors.Is(err, ErrEmptyStore) || isNoDataSource(err)) {
+					if format == "json" {
+						_ = output.JSON(cmd.OutOrStdout(), out)
+						return fail(1, "no ingested data")
+					}
 					cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")
 					return fail(1, "no ingested data")
 				}
-				// Empty explicit --data-dir is exit 1 (same contract as ask).
 				return failSource(err)
 			}
 			defer ls.cleanup()
@@ -103,23 +180,40 @@ func newStatusCmd() *cobra.Command {
 			if active == "" {
 				active = "unknown"
 			}
-			cmd.Printf("\nACTIVE SOURCE  %s\n", active)
+			out.ActiveSource = active
+			out.Schema = ver
+			out.Counts = counts
 			switch active {
 			case "live":
-				cmd.Println("  note: ephemeral live scrape (may differ from on-disk db above)")
+				out.SourceNote = "ephemeral live scrape (may differ from on-disk db above)"
 			case "fixture":
-				cmd.Println("  note: fixture pack (ephemeral; not written to data_dir)")
+				out.SourceNote = "fixture pack (ephemeral; not written to data_dir)"
 			case "persisted":
-				cmd.Println("  note: reading on-disk state.db")
-			}
-			cmd.Printf("\nINGESTED (schema v%d)\n", ver)
-			for _, k := range sortedKeys(counts) {
-				cmd.Printf("  %-13s %d\n", k+":", counts[k])
+				out.SourceNote = "reading on-disk state.db"
 			}
 
 			services, err := ls.store.ListServices()
 			if err != nil {
 				return fail(2, "%v", err)
+			}
+			if len(services) > 0 {
+				out.Services = make([]map[string]string, 0, len(services))
+				for _, s := range services {
+					out.Services = append(out.Services, map[string]string{"id": s.ID, "health": s.Health})
+				}
+			}
+
+			if format == "json" {
+				return output.JSON(cmd.OutOrStdout(), out)
+			}
+
+			cmd.Printf("\nACTIVE SOURCE  %s\n", active)
+			if out.SourceNote != "" {
+				cmd.Printf("  note: %s\n", out.SourceNote)
+			}
+			cmd.Printf("\nINGESTED (schema v%d)\n", ver)
+			for _, k := range sortedKeys(counts) {
+				cmd.Printf("  %-13s %d\n", k+":", counts[k])
 			}
 			if len(services) > 0 {
 				cmd.Println("SERVICES")
@@ -130,9 +224,10 @@ func newStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory")
+	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory (or OPSGRAPH_FIXTURE)")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (or OPSGRAPH_CONFIG)")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "persistent store directory (or OPSGRAPH_DATA_DIR)")
+	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	return cmd
 }
 

@@ -13,9 +13,10 @@ func newTimelineCmd() *cobra.Command {
 	var format string
 	var limit int
 	cmd := &cobra.Command{
-		Use:   "timeline <service>",
-		Short: "Show only the incident timeline for a service",
-		Args:  cobra.ExactArgs(1),
+		Use:               "timeline <service>",
+		Short:             "Show only the incident timeline for a service",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

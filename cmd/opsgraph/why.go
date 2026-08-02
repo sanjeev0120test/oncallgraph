@@ -19,7 +19,8 @@ func newWhyCmd() *cobra.Command {
 		Short: "One-line root-cause hypothesis for a paged service",
 		Example: `  opsgraph why checkout --fixture fixtures/incident_checkout
   opsgraph why checkout --format json`,
-		Args: cobra.ExactArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

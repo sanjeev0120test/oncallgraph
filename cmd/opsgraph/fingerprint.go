@@ -13,9 +13,10 @@ func newFingerprintCmd() *cobra.Command {
 	var since time.Duration
 	var format string
 	cmd := &cobra.Command{
-		Use:   "fingerprint <service>",
-		Short: "Compute a deterministic incident fingerprint for dedup",
-		Args:  cobra.ExactArgs(1),
+		Use:               "fingerprint <service>",
+		Short:             "Compute a deterministic incident fingerprint for dedup",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

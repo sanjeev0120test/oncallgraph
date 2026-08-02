@@ -19,9 +19,10 @@ func newVerifyRunbookCmd() *cobra.Command {
 		format     string
 	)
 	cmd := &cobra.Command{
-		Use:   "verify-runbook <service-or-file>",
-		Short: "Check whether a service's runbook is still valid",
-		Args:  cobra.ExactArgs(1),
+		Use:               "verify-runbook <service-or-file>",
+		Short:             "Check whether a service's runbook is still valid",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validFormat(format); err != nil {
 				return fail(2, "%v", err)

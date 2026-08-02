@@ -19,9 +19,10 @@ func newExportCmd() *cobra.Command {
 	var outPath string
 	var format string
 	cmd := &cobra.Command{
-		Use:   "export <service>",
-		Short: "Export ask result to a file (json or markdown)",
-		Args:  cobra.ExactArgs(1),
+		Use:               "export <service>",
+		Short:             "Export ask result to a file (json or markdown)",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

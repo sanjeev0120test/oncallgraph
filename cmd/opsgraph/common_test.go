@@ -113,6 +113,7 @@ func TestLiveConnectorsEnabledRequiresUsableConfig(t *testing.T) {
 }
 
 func TestResolveDataDirConfigRelative(t *testing.T) {
+	t.Setenv("OPSGRAPH_DATA_DIR", "")
 	cfg := config.Default()
 	cfg.DataDir = "mystore"
 	got := resolveDataDir("", cfg, filepath.Join("cfg", "dir"))
@@ -130,5 +131,12 @@ func TestResolveDataDirConfigRelative(t *testing.T) {
 	}
 	if got := resolveDataDir("flag-data", cfg, "cfg"); got != "flag-data" {
 		t.Fatalf("flag wins: got %q", got)
+	}
+	t.Setenv("OPSGRAPH_DATA_DIR", "env-data")
+	if got := resolveDataDir("", cfg, "cfg"); got != "env-data" {
+		t.Fatalf("env wins over config: got %q", got)
+	}
+	if got := resolveDataDir("flag-data", cfg, "cfg"); got != "flag-data" {
+		t.Fatalf("flag still wins over env: got %q", got)
 	}
 }

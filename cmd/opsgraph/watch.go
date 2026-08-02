@@ -21,7 +21,8 @@ func newWatchCmd() *cobra.Command {
 		Short: "Poll a service until healthy (or timeout)",
 		Long: "Poll a live or persistent data source until the service reports healthy.\n" +
 			"Fixture packs are static snapshots — watch will timeout if the fixture service is not healthy.",
-		Args: cobra.ExactArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

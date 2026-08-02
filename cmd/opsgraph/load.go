@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"time"
 
@@ -23,17 +24,22 @@ func (f *sourceFlags) loadCtx(ctx context.Context, since time.Duration) (*loaded
 	if err := validSince(since); err != nil {
 		return nil, nil, err
 	}
-	if err := f.validateExclusive(); err != nil {
+	fixture := strings.TrimSpace(f.fixture)
+	if fixture == "" {
+		fixture = strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE"))
+	}
+	cfgPath := configPathOrEnv(f.configPath)
+	if err := (&sourceFlags{fixture: fixture, dataDir: f.dataDir}).validateExclusive(); err != nil {
 		return nil, nil, err
 	}
-	cfg, err := config.Load(f.configPath)
+	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return nil, nil, err
 	}
 	if since == 0 {
 		since = cfg.Since()
 	}
-	ls, err := loadAskStore(ctx, f.fixture, f.configPath, f.dataDir, cfg, since)
+	ls, err := loadAskStore(ctx, fixture, cfgPath, f.dataDir, cfg, since)
 	return ls, cfg, err
 }
 

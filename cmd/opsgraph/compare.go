@@ -16,9 +16,10 @@ func newCompareCmd() *cobra.Command {
 	var since time.Duration
 	var format string
 	cmd := &cobra.Command{
-		Use:   "compare <service-a> <service-b>",
-		Short: "Compare health, blast radius, and severity of two services",
-		Args:  cobra.ExactArgs(2),
+		Use:               "compare <service-a> <service-b>",
+		Short:             "Compare health, blast radius, and severity of two services",
+		Args:              cobra.ExactArgs(2),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

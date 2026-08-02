@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ai"
@@ -28,7 +30,8 @@ func newAskCmd() *cobra.Command {
 		Example: `  opsgraph ask checkout --fixture fixtures/incident_checkout
   opsgraph ask checkout --format json --ai
   opsgraph ask checkout --data-dir .opsgraph/data`,
-		Args: cobra.ExactArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err
@@ -39,10 +42,14 @@ func newAskCmd() *cobra.Command {
 			if err := validSince(since); err != nil {
 				return fail(2, "%v", err)
 			}
+			if fixture == "" {
+				fixture = strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE"))
+			}
 			if fixture != "" && dataDir != "" {
 				return fail(2, "--fixture and --data-dir are mutually exclusive")
 			}
-			cfg, err := config.Load(configPath)
+			cfgPath := configPathOrEnv(configPath)
+			cfg, err := config.Load(cfgPath)
 			if err != nil {
 				return fail(2, "%v", err)
 			}
@@ -50,7 +57,7 @@ func newAskCmd() *cobra.Command {
 				since = cfg.Since()
 			}
 
-			ls, err := loadAskStore(cmd.Context(), fixture, configPath, dataDir, cfg, since)
+			ls, err := loadAskStore(cmd.Context(), fixture, cfgPath, dataDir, cfg, since)
 			if err != nil {
 				if errors.Is(err, ErrEmptyStore) {
 					return fail(1, "%v", err)
@@ -77,9 +84,9 @@ func newAskCmd() *cobra.Command {
 			return output.Table(cmd.OutOrStdout(), res)
 		},
 	}
-	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory")
-	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml")
-	cmd.Flags().StringVar(&dataDir, "data-dir", "", "read from a persistent store (from `opsgraph ingest`)")
+	cmd.Flags().StringVar(&fixture, "fixture", "", "path to a fixture pack directory (or OPSGRAPH_FIXTURE)")
+	cmd.Flags().StringVar(&configPath, "config", "", "path to .opsgraph.yaml (or OPSGRAPH_CONFIG)")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "read from a persistent store (or OPSGRAPH_DATA_DIR)")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window (default: config default_since or 60m)")
 	cmd.Flags().BoolVar(&withRB, "runbook", true, "verify the service runbook")

@@ -37,14 +37,33 @@ jobs:
       - name: gofmt + vet + mod + build + hygiene
         run: |
           set -euo pipefail
+          {
+            echo "## lint"
+            echo ""
+            echo "| check | result |"
+            echo "| --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
           fmtout="$(gofmt -l .)"
-          if [ -n "$fmtout" ]; then echo "Unformatted files:"; echo "$fmtout"; exit 1; fi
+          if [ -n "$fmtout" ]; then
+            echo "::error::gofmt drift — run gofmt -w on listed files"
+            echo "Unformatted files:"; echo "$fmtout"
+            echo "| gofmt | fail |" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "| gofmt | ok |" >> "$GITHUB_STEP_SUMMARY"
           go vet ./...
+          echo "| go vet | ok |" >> "$GITHUB_STEP_SUMMARY"
           go mod download
           go mod verify
           go mod tidy
-          git diff --exit-code go.mod go.sum
+          if ! git diff --exit-code go.mod go.sum; then
+            echo "::error::go.mod/go.sum drift — run go mod tidy"
+            echo "| go mod tidy | fail |" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "| go mod tidy | ok |" >> "$GITHUB_STEP_SUMMARY"
           go build ./...
+          echo "| go build | ok |" >> "$GITHUB_STEP_SUMMARY"
           # Precompiled binaries/archives belong in GitHub Releases only.
           tracked="$(git ls-files -z | tr '\0' '\n' | grep -E '(^|/)(bin|dist)/|(^|/)opsgraph(\.exe)?$|(^|/)opsgraph_.+\.(tar\.gz|zip)$|(^|/)SHA256SUMS$|(^|/)DEPENDENCIES\.txt$' || true)"
           if [ -n "$tracked" ]; then
@@ -69,15 +88,18 @@ jobs:
           head -n 1 scripts/install.sh | grep -qE '^#!/'
           head -n 1 scripts/pack-release.sh | grep -qE '^#!/'
           head -n 1 scripts/verify.sh | grep -qE '^#!/'
-          # Shell scripts must stay POSIX-clean (installers + verify).
+          # Shell scripts must stay POSIX-clean; pin shellcheck tarball by SHA256.
           curl -fsSL -o /tmp/shellcheck.tar.xz \
             https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz
+          echo "6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87  /tmp/shellcheck.tar.xz" | sha256sum -c -
           tar -xJf /tmp/shellcheck.tar.xz -C /tmp
           /tmp/shellcheck-v0.10.0/shellcheck -x scripts/install.sh scripts/pack-release.sh scripts/verify.sh
+          echo "| shellcheck (sha256-pinned) | ok |" >> "$GITHUB_STEP_SUMMARY"
           # Live-connector smoke fixture must resolve its k8s snapshot.
           test -f fixtures/ci_live_k8s/.opsgraph.yaml
           test -d fixtures/incident_checkout/k8s
           test -f fixtures/incident_checkout/k8s/deployments.yaml
+          echo "| fixture hygiene | ok |" >> "$GITHUB_STEP_SUMMARY"
 
   staticcheck:
     name: staticcheck
@@ -130,8 +152,13 @@ jobs:
       - name: Unit tests
         if: ${{ !matrix.race }}
         run: go test ./...
+      - name: Unit tests (race + shuffle)
+        if: ${{ matrix.race && matrix.os == 'ubuntu-latest' }}
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -shuffle=on ./...
       - name: Unit tests (race)
-        if: ${{ matrix.race }}
+        if: ${{ matrix.race && matrix.os != 'ubuntu-latest' }}
         env:
           CGO_ENABLED: "1"
         run: go test -race ./...
@@ -146,9 +173,20 @@ jobs:
           "$BIN" demo --format json >/dev/null
           # Determinism gate (was separate fixtures workflow).
           tmpdir="$(mktemp -d 2>/dev/null || mktemp -d -t opsgraph)"
+          echo "SMOKE_TMP=$tmpdir" >> "$GITHUB_ENV"
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > "$tmpdir/a.json"
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json > "$tmpdir/b.json"
           cmp -s "$tmpdir/a.json" "$tmpdir/b.json"
+      - name: Upload smoke diffs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: smoke-failure-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ env.SMOKE_TMP }}
+            bin/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Compact CLI smoke (macos/windows)
         if: ${{ matrix.smoke == 'compact' }}
         shell: bash
@@ -239,11 +277,13 @@ jobs:
           "$BIN" why checkout --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" fingerprint checkout --fixture ./fixtures/incident_checkout >/dev/null
           "$BIN" score checkout --fixture ./fixtures/incident_checkout --format json >/dev/null
-          "$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json >/dev/null
+          AI_JSON="$("$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json)"
+          echo "$AI_JSON" | grep -F 'AI unavailable, deterministic result only' >/dev/null
           DATA="$(mktemp -d)"
-          "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" >/dev/null
+          "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
-          "$BIN" status --data-dir "$DATA" >/dev/null
+          "$BIN" status --data-dir "$DATA" --format json >/dev/null
+          "$BIN" doctor --format json >/dev/null
           MERGE="$(mktemp -d)"
           "$BIN" ingest --config fixtures/ci_live_k8s/.opsgraph.yaml --data-dir "$MERGE" --replace >/dev/null
           "$BIN" ingest --config fixtures/ci_live_k8s/.opsgraph.yaml --data-dir "$MERGE" --merge >/dev/null
@@ -484,6 +524,24 @@ jobs:
       - name: Aggregate job results
         run: |
           set -euo pipefail
+          {
+            echo "## all checks passed"
+            echo ""
+            echo "| job | result |"
+            echo "| --- | --- |"
+            echo "| lint | ${{ needs.lint.result }} |"
+            echo "| staticcheck | ${{ needs.staticcheck.result }} |"
+            echo "| test (3-OS matrix) | ${{ needs.test.result }} |"
+            echo "| cross + release-pack | ${{ needs.cross.result }} |"
+            echo "| govulncheck | ${{ needs.vuln.result }} |"
+            echo "| repro-build | ${{ needs.repro.result }} |"
+            echo "| gitleaks | ${{ needs.gitleaks.result }} |"
+            echo "| zizmor | ${{ needs.zizmor.result }} |"
+            echo "| actionlint | ${{ needs.actionlint.result }} |"
+            echo "| dependency-review | ${{ needs.dependency-review.result }} |"
+            echo ""
+            echo "CodeQL runs on PRs/schedule via \`codeql.yml\` (advisory; not in this aggregator to keep push wall-clock lean)."
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "lint=${{ needs.lint.result }}"
           echo "staticcheck=${{ needs.staticcheck.result }}"
           echo "test=${{ needs.test.result }}"

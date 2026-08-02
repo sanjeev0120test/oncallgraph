@@ -76,12 +76,16 @@ jobs:
             PRERELEASE=true
             MAKE_LATEST=false
           fi
+          # Reproducible stamp: commit committer unix time (not wall-clock build time).
+          EPOCH="$(git -c log.showSignature=false show -s --format=%ct "${GITHUB_SHA}")"
+          DATE="$(date -u -d "@${EPOCH}" +%Y-%m-%dT%H:%M:%SZ)"
           {
             echo "version=${VERSION}"
             echo "prerelease=${PRERELEASE}"
             echo "make_latest=${MAKE_LATEST}"
             echo "commit=${GITHUB_SHA}"
-            echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "date=${DATE}"
+            echo "epoch=${EPOCH}"
           } >> "$GITHUB_OUTPUT"
       - name: Run unit + fixture gates before packaging
         env:
@@ -124,6 +128,7 @@ jobs:
       - name: Package release archives (shared script)
         env:
           VERSION: ${{ steps.meta.outputs.version }}
+          SOURCE_DATE_EPOCH: ${{ steps.meta.outputs.epoch }}
         run: |
           set -euo pipefail
           chmod +x scripts/pack-release.sh
@@ -185,6 +190,7 @@ jobs:
             dist/*.zip
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
+            dist/sbom.gomod.json
             dist/LICENSE
             dist/install.sh
             dist/install.ps1
@@ -225,7 +231,7 @@ jobs:
             "opsgraph_${VERSION}_darwin_arm64.tar.gz" \
             "opsgraph_${VERSION}_windows_amd64.zip" \
             "opsgraph_${VERSION}_windows_arm64.zip" \
-            SHA256SUMS DEPENDENCIES.txt LICENSE install.sh install.ps1
+            SHA256SUMS DEPENDENCIES.txt sbom.gomod.json LICENSE install.sh install.ps1
           do
             test -s "$f"
           done
@@ -238,6 +244,7 @@ jobs:
             dist/*.zip
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
+            dist/sbom.gomod.json
             dist/LICENSE
             dist/install.sh
             dist/install.ps1
@@ -258,6 +265,7 @@ jobs:
 
             - Binaries are distributed **only** via GitHub Releases (never committed to the git source tree).
             - Verify downloads with `SHA256SUMS` before running installers.
+            - Module SBOM: `sbom.gomod.json` (from `go list -m -json all`).
             - Provenance attestation is attached to this release.
             - Installers: `install.sh` (Unix) and `install.ps1` (Windows).
 
@@ -274,6 +282,7 @@ jobs:
             dist/*.zip
             dist/SHA256SUMS
             dist/DEPENDENCIES.txt
+            dist/sbom.gomod.json
             dist/LICENSE
             dist/install.sh
             dist/install.ps1

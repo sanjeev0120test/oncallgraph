@@ -12,10 +12,11 @@ func newBlastCmd() *cobra.Command {
 	var since time.Duration
 	var format string
 	cmd := &cobra.Command{
-		Use:   "blast <service>",
-		Short: "Show 1-hop upstream/downstream blast radius for a service",
-		Long:  "Shows immediate (1-hop) upstream and downstream neighbors. For recursive downstream impact, use `opsgraph impact`.",
-		Args:  cobra.ExactArgs(1),
+		Use:               "blast <service>",
+		Short:             "Show 1-hop upstream/downstream blast radius for a service",
+		Long:              "Shows immediate (1-hop) upstream and downstream neighbors. For recursive downstream impact, use `opsgraph impact`.",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err

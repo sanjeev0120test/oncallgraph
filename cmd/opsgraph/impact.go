@@ -10,10 +10,11 @@ func newImpactCmd() *cobra.Command {
 	var src sourceFlags
 	var format string
 	cmd := &cobra.Command{
-		Use:   "impact <service>",
-		Short: "Show recursive downstream impact if a service fails",
-		Long:  "Walks the dependency graph transitively to list every downstream service that would be impacted. For 1-hop neighbors only, use `opsgraph blast`.",
-		Args:  cobra.ExactArgs(1),
+		Use:               "impact <service>",
+		Short:             "Show recursive downstream impact if a service fails",
+		Long:              "Walks the dependency graph transitively to list every downstream service that would be impacted. For 1-hop neighbors only, use `opsgraph blast`.",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeServiceArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("service", args[0]); err != nil {
 				return err
