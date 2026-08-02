@@ -37,42 +37,39 @@ jobs:
       - name: gofmt + vet + mod + build + hygiene
         run: |
           set -euo pipefail
-          {
-            echo "## lint"
-            echo ""
-            echo "| check | result |"
-            echo "| --- | --- |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          # Single-writer helper keeps shellcheck SC2129 clean with interleaved checks.
+          sum() { printf '%s\n' "$@" >> "$GITHUB_STEP_SUMMARY"; }
+          sum "## lint" "" "| check | result |" "| --- | --- |"
           fmtout="$(gofmt -l .)"
           if [ -n "$fmtout" ]; then
             echo "::error::gofmt drift — run gofmt -w on listed files"
             echo "Unformatted files:"; echo "$fmtout"
-            echo "| gofmt | fail |" >> "$GITHUB_STEP_SUMMARY"
+            sum "| gofmt | fail |"
             exit 1
           fi
-          echo "| gofmt | ok |" >> "$GITHUB_STEP_SUMMARY"
+          sum "| gofmt | ok |"
           go vet ./...
-          echo "| go vet | ok |" >> "$GITHUB_STEP_SUMMARY"
+          sum "| go vet | ok |"
           go mod download
           go mod verify
           go mod tidy
           if ! git diff --exit-code go.mod go.sum; then
             echo "::error::go.mod/go.sum drift — run go mod tidy"
-            echo "| go mod tidy | fail |" >> "$GITHUB_STEP_SUMMARY"
+            sum "| go mod tidy | fail |"
             exit 1
           fi
-          echo "| go mod tidy | ok |" >> "$GITHUB_STEP_SUMMARY"
+          sum "| go mod tidy | ok |"
           # Clean module graph: no replace/exclude hacks (portable, reproducible).
           if grep -E '^(replace|exclude)[[:space:]]|^replace \(|^exclude \(' go.mod; then
             echo "::error::go.mod must not contain replace/exclude directives"
-            echo "| go.mod hygiene | fail |" >> "$GITHUB_STEP_SUMMARY"
+            sum "| go.mod hygiene | fail |"
             exit 1
           fi
-          echo "| go.mod hygiene | ok |" >> "$GITHUB_STEP_SUMMARY"
+          sum "| go.mod hygiene | ok |"
           # Offline-first + locked module graph for the production package.
           GOPROXY=off GOFLAGS="-mod=readonly" go build -trimpath -ldflags="-s -w -buildid=" ./cmd/opsgraph
           GOPROXY=off go build ./...
-          echo "| go build (GOPROXY=off, -mod=readonly cmd) | ok |" >> "$GITHUB_STEP_SUMMARY"
+          sum "| go build (GOPROXY=off, -mod=readonly cmd) | ok |"
           # Precompiled binaries/archives belong in GitHub Releases only.
           tracked="$(git ls-files -z | tr '\0' '\n' | grep -E '(^|/)(bin|dist)/|(^|/)opsgraph(\.exe)?$|(^|/)opsgraph_.+\.(tar\.gz|zip)$|(^|/)SHA256SUMS$|(^|/)DEPENDENCIES\.txt$' || true)"
           if [ -n "$tracked" ]; then
@@ -122,9 +119,7 @@ jobs:
             fixtures/fleet_healthy/expected \
             fixtures/incident_checkout \
             fixtures/fleet_healthy
-          echo "| shellcheck (sha256-pinned) | ok |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| jsonassert self-check | ok |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| golden LF-only | ok |" >> "$GITHUB_STEP_SUMMARY"
+          sum "| shellcheck (sha256-pinned) | ok |" "| jsonassert self-check | ok |" "| golden LF-only | ok |"
           # Live-connector smoke fixture must resolve its k8s snapshot.
           test -f fixtures/ci_live_k8s/.opsgraph.yaml
           test -d fixtures/incident_checkout/k8s
@@ -133,7 +128,7 @@ jobs:
           test -f fixtures/fleet_healthy/services.yaml
           test -f fixtures/fleet_healthy/expected/ask_api.json
           test -f fixtures/fleet_healthy/expected/verify_api.json
-          echo "| fixture hygiene | ok |" >> "$GITHUB_STEP_SUMMARY"
+          sum "| fixture hygiene | ok |"
 
   staticcheck:
     name: staticcheck
