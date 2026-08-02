@@ -144,7 +144,7 @@ Prefer the **attested release copies** of the installers (same tag as the binary
 
 ```bash
 # Linux/macOS — pin VERSION to a release tag; verify installer via SHA256SUMS
-VERSION=v0.1.8
+VERSION=v0.1.10
 curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/SHA256SUMS" -o SHA256SUMS
 curl -fsSL "https://github.com/sanjeev0120test/opsgraph/releases/download/${VERSION}/install.sh" -o install.sh
 sha256sum -c SHA256SUMS --ignore-missing
@@ -153,7 +153,7 @@ OPSGRAPH_VERSION="$VERSION" ./install.sh
 # Installer lands in ~/.local/bin by default — add it to PATH if needed.
 
 # Windows PowerShell
-$Version = "v0.1.8"
+$Version = "v0.1.10"
 Invoke-WebRequest "https://github.com/sanjeev0120test/opsgraph/releases/download/$Version/SHA256SUMS" -OutFile SHA256SUMS
 Invoke-WebRequest "https://github.com/sanjeev0120test/opsgraph/releases/download/$Version/install.ps1" -OutFile install.ps1
 # Confirm install.ps1 hash appears in SHA256SUMS, then:

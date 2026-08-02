@@ -1,0 +1,76 @@
+{
+  "service": {
+    "id": "api",
+    "name": "api",
+    "aliases": [
+      "api-gateway"
+    ],
+    "owner_id": "platform",
+    "health": "healthy",
+    "sources": [
+      "fixture"
+    ]
+  },
+  "owner": {
+    "id": "platform",
+    "name": "Platform Team",
+    "email": "platform@example.com"
+  },
+  "window": "60m",
+  "generated_at": "2026-07-31T12:00:00Z",
+  "changes": [],
+  "alerts": [],
+  "upstream": [
+    {
+      "id": "db",
+      "name": "db",
+      "owner_id": "platform",
+      "health": "healthy",
+      "sources": [
+        "fixture"
+      ]
+    }
+  ],
+  "downstream": [],
+  "runbook": {
+    "service_id": "api",
+    "path": "runbooks/api.md",
+    "status": "pass",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Confirm api is healthy.",
+        "check": "service_healthy:api",
+        "status": "pass",
+        "message": "api is healthy"
+      },
+      {
+        "number": 2,
+        "text": "Confirm db dependency is healthy.",
+        "check": "service_healthy:db",
+        "status": "pass",
+        "message": "db is healthy"
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "at": "2026-07-31T12:00:00Z",
+      "kind": "health",
+      "summary": "api is healthy",
+      "service_id": "api"
+    },
+    {
+      "at": "2026-07-31T12:00:00Z",
+      "kind": "runbook",
+      "summary": "runbook runbooks/api.md is pass",
+      "service_id": "api"
+    }
+  ],
+  "correlations": [],
+  "recommendations": [
+    "Notify owner Platform Team <platform@example.com>.",
+    "Write a short handoff note with evidence IDs before closing the incident."
+  ],
+  "evidence": []
+}

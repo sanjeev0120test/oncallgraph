@@ -220,6 +220,7 @@ jobs:
           BIN=./bin/opsgraph
           if [ -f ./bin/opsgraph.exe ]; then BIN=./bin/opsgraph.exe; fi
           "$BIN" test ./fixtures/incident_checkout
+          "$BIN" test ./fixtures/fleet_healthy
           "$BIN" validate-fixture ./fixtures/incident_checkout
           "$BIN" validate-fixture ./fixtures/fleet_healthy
           "$BIN" demo --format json >/dev/null

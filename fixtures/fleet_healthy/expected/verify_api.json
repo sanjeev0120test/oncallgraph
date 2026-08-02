@@ -1,0 +1,21 @@
+{
+  "service_id": "api",
+  "path": "runbooks/api.md",
+  "status": "pass",
+  "steps": [
+    {
+      "number": 1,
+      "text": "Confirm api is healthy.",
+      "check": "service_healthy:api",
+      "status": "pass",
+      "message": "api is healthy"
+    },
+    {
+      "number": 2,
+      "text": "Confirm db dependency is healthy.",
+      "check": "service_healthy:db",
+      "status": "pass",
+      "message": "db is healthy"
+    }
+  ]
+}

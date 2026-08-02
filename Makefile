@@ -68,7 +68,7 @@ deadcode: ## Fail if unreachable funcs remain (go tool, sum-pinned)
 govulncheck: ## Run govulncheck via go tool (sum-pinned in go.mod)
 	go tool govulncheck ./...
 
-quick: fmt vet build test validate-fixture fleet-healthy fixture-test demo ## Fast local validation (recommended)
+quick: fmt vet tidy-check staticcheck build test validate-fixture fleet-healthy fixture-test demo ## Fast local validation (recommended)
 
 # Local "ci" stays laptop-friendly (no -race). GitHub Actions runs the race matrix.
 ci: fmt vet tidy-check staticcheck build test validate-fixture fleet-healthy fixture-test demo ## Local gate (race/matrix live in Actions)
