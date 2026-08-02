@@ -12,6 +12,7 @@ AGENTS.md
 *.test
 cover.out
 coverage.*
+**/testdata/fuzz/
 # Precompiled release archives must not enter the source tree.
 *.tar.gz
 *.zip

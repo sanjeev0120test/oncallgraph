@@ -19,3 +19,10 @@ Include:
 - Impact assessment
 
 We aim to acknowledge reports within 7 days.
+
+## Repository controls
+
+`main` is protected by a GitHub ruleset that requires the CI aggregator check
+`all checks passed` before merges (admins may bypass for emergency fixes).
+Direct pushes still run the full Actions matrix afterward; treat a red tip as
+not releasable.

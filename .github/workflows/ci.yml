@@ -171,7 +171,7 @@ jobs:
         if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' }}
         env:
           CGO_ENABLED: "1"
-          COVER_FLOOR: "55"
+          COVER_FLOOR: "58"
         run: |
           set -euo pipefail
           go test -count=1 -timeout=5m -race -shuffle=on -coverprofile=cover.out -covermode=atomic ./...
@@ -184,6 +184,8 @@ jobs:
             }
             printf "coverage floor ok: %s%% >= %s%%\n", p, min
           }'
+          # Short deterministic fuzz budget (no corpus commit required).
+          go test -count=1 -timeout=2m -fuzz=FuzzOfStablePrefix -fuzztime=5s ./internal/fingerprint
           {
             echo "## coverage"
             echo ""
@@ -329,10 +331,10 @@ jobs:
           AI_JSON="$("$BIN" ask checkout --fixture ./fixtures/incident_checkout --ai --format json)"
           echo "$AI_JSON" | "${JA[@]}" has:ai_summary 'startswith:ai_summary=AI unavailable, deterministic result only'
           DATA="$(mktemp -d)"
-          "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" --format json >/dev/null
+          "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" --format json | "${JA[@]}" has:path has:counts eq:mode=fixture has:schema has:as_of
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
-          "$BIN" status --data-dir "$DATA" --format json >/dev/null
-          "$BIN" doctor --format json >/dev/null
+          "$BIN" status --data-dir "$DATA" --format json | "${JA[@]}" has:counts has:schema_version has:active_source eq:active_source=persisted
+          "$BIN" doctor --format json | "${JA[@]}" has:checks has:ok has:warn has:fail
           "$BIN" version --format json | "${JA[@]}" has:version has:commit has:goos has:goarch
           "$BIN" graph --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:nodes has:edges
           "$BIN" validate-fixture ./fixtures/incident_checkout --format json | "${JA[@]}" true:ok
