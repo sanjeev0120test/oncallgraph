@@ -160,12 +160,15 @@ func newStatusCmd() *cobra.Command {
 
 			ls, err := loadAskStore(cmd.Context(), fixture, cfgPath, dataDir, cfg, cfg.Since())
 			if err != nil {
-				if fixture == "" && dataDir == "" && (errors.Is(err, ErrEmptyStore) || isNoDataSource(err)) {
+				emptyish := errors.Is(err, ErrEmptyStore) || isNoDataSource(err)
+				if emptyish && fixture == "" {
 					if format == "json" {
 						_ = output.JSON(cmd.OutOrStdout(), out)
 						return fail(1, "no ingested data")
 					}
-					cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")
+					if dataDir == "" {
+						cmd.Println("\nNo data source (pass --fixture <pack>, run `opsgraph ingest`, or add .opsgraph.yaml) - showing config only.")
+					}
 					return fail(1, "no ingested data")
 				}
 				return failSource(err)

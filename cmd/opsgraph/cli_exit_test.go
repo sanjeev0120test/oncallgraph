@@ -103,6 +103,13 @@ func TestCLIExitEmptyDataDir(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("status empty data-dir exit = %d, want 1", code)
 	}
+	out, _, code := runRoot(t, "status", "--data-dir", dir, "--format", "json")
+	if code != 1 {
+		t.Fatalf("status empty json exit = %d, want 1", code)
+	}
+	if !strings.Contains(out, `"ok": false`) || !strings.Contains(out, `"has_data": false`) || !strings.Contains(out, `"connectors"`) {
+		t.Fatalf("empty status json missing machine fields: %s", out)
+	}
 }
 
 func TestCLIFixtureDataDirClockParity(t *testing.T) {
