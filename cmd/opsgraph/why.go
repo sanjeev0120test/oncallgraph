@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
+	"github.com/sanjeev0120test/opsgraph/internal/fingerprint"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
 	"github.com/sanjeev0120test/opsgraph/internal/output"
+	"github.com/sanjeev0120test/opsgraph/internal/score"
 	"github.com/spf13/cobra"
 )
 
@@ -42,10 +44,15 @@ func newWhyCmd() *cobra.Command {
 			}
 			line := whyLine(res)
 			if format == "json" {
+				sc := score.Compute(res)
+				fp := fingerprint.Of(res)
 				return output.JSON(cmd.OutOrStdout(), map[string]any{
-					"service": res.Service.ID,
-					"health":  res.Service.Health,
-					"why":     line,
+					"service":     res.Service.ID,
+					"health":      res.Service.Health,
+					"score":       sc.Score,
+					"level":       sc.Level,
+					"fingerprint": fp.Fingerprint,
+					"why":         line,
 				})
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), line)

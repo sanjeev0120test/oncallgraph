@@ -115,7 +115,7 @@ func newAlertsCmd() *cobra.Command {
 					a.At.Format(time.RFC3339), a.Status, a.Severity, a.ServiceID, a.Name, ev)
 			}
 			if truncated {
-				cmd.Printf("… +%d more (raise --limit)\n", total-limit)
+				cmd.Printf("... +%d more (raise --limit)\n", total-limit)
 			}
 			return nil
 		},
