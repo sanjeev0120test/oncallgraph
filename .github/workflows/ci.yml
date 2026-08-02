@@ -279,6 +279,8 @@ jobs:
           "$BIN" version --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("version") and d.get("commit") and d.get("goos") and d.get("goarch")'
           "$BIN" graph --fixture ./fixtures/incident_checkout --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "nodes" in d and "edges" in d'
           "$BIN" validate-fixture ./fixtures/incident_checkout --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True'
+          "$BIN" changes --fixture ./fixtures/incident_checkout --format json --limit 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "changes" in d and "truncated" in d'
+          "$BIN" top --fixture ./fixtures/incident_checkout --format json --limit 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "services" in d and "total" in d'
           set +e
           "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
           strict_health=$?
@@ -334,6 +336,19 @@ jobs:
           set -e
           test "$bad_health" -eq 2
           test "$bad_since" -eq 2
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## test (${{ matrix.os }})"
+            echo ""
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| race | ${{ matrix.race }} |"
+            echo "| smoke | ${{ matrix.smoke }} |"
+            echo "| result | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: go install smoke
         if: matrix.os == 'ubuntu-latest'
         shell: bash

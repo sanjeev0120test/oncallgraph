@@ -64,11 +64,20 @@ func newTopCmd() *cobra.Command {
 			if len(rows) == 0 && skipped > 0 {
 				return fail(1, "top: all %d service(s) failed to score", skipped)
 			}
-			if len(rows) > limit {
+			total := len(rows)
+			truncated := false
+			if limit > 0 && len(rows) > limit {
 				rows = rows[:limit]
+				truncated = true
 			}
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), rows)
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
+					"services":  rows,
+					"total":     total,
+					"truncated": truncated,
+					"limit":     limit,
+					"skipped":   skipped,
+				})
 			}
 			if len(rows) == 0 {
 				cmd.Println("(no services)")
@@ -78,6 +87,9 @@ func newTopCmd() *cobra.Command {
 			for i, r := range rows {
 				cmd.Printf("%-4d %-16s %-12s %-6d %s\n", i+1, r.Service, r.Health, r.Score, r.Level)
 			}
+			if truncated {
+				cmd.Printf("… +%d more (raise --limit)\n", total-limit)
+			}
 			if skipped > 0 {
 				cmd.PrintErrf("warning: %d service(s) skipped due to errors\n", skipped)
 			}
@@ -86,6 +98,7 @@ func newTopCmd() *cobra.Command {
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatTableJSON)
 	cmd.Flags().IntVar(&limit, "limit", 10, "max services to show")
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback window")
 	return cmd
