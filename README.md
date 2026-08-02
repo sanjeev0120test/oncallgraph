@@ -1,6 +1,6 @@
 # opsgraph
 
-Free, offline-first incident context for on-call engineers.
+Free, offline-first incident context for engineers.
 
 Evidence-backed timeline, blast radius, runbooks, severity scoring, and optional local AI - no accounts, no cloud LLM, no paid services.
 
