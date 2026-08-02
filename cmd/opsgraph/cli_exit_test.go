@@ -299,8 +299,8 @@ func TestCLIWhyHandoffJSON(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("handoff json exit = %d", code)
 	}
-	if !strings.Contains(out, `"note"`) {
-		t.Fatalf("handoff json missing note: %s", out)
+	if !strings.Contains(out, `"note"`) || !strings.Contains(out, `"fingerprint"`) || !strings.Contains(out, `"score"`) {
+		t.Fatalf("handoff json missing fields: %s", out)
 	}
 	out, _, code = runRoot(t, "explain", "checkout", "--fixture", fx, "--format", "json")
 	if code != 0 {

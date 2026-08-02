@@ -43,10 +43,15 @@ func newHandoffCmd() *cobra.Command {
 			}
 			note := handoffNote(res)
 			if format == "json" {
+				sc := score.Compute(res)
+				fp := fingerprint.Of(res)
 				return output.JSON(cmd.OutOrStdout(), map[string]any{
-					"service": res.Service.ID,
-					"health":  res.Service.Health,
-					"note":    note,
+					"service":     res.Service.ID,
+					"health":      res.Service.Health,
+					"score":       sc.Score,
+					"level":       sc.Level,
+					"fingerprint": fp.Fingerprint,
+					"note":        note,
 				})
 			}
 			fmt.Fprint(cmd.OutOrStdout(), note)

@@ -37,10 +37,12 @@ func newBlastCmd() *cobra.Command {
 				return failAsk(err)
 			}
 			out := struct {
-				Service    string              `json:"service"`
-				Health     string              `json:"health"`
-				Upstream   []map[string]string `json:"upstream"`
-				Downstream []map[string]string `json:"downstream"`
+				Service         string              `json:"service"`
+				Health          string              `json:"health"`
+				Upstream        []map[string]string `json:"upstream"`
+				Downstream      []map[string]string `json:"downstream"`
+				UpstreamCount   int                 `json:"upstream_count"`
+				DownstreamCount int                 `json:"downstream_count"`
 			}{
 				Service:    res.Service.ID,
 				Health:     res.Service.Health,
@@ -53,6 +55,8 @@ func newBlastCmd() *cobra.Command {
 			for _, d := range res.Downstream {
 				out.Downstream = append(out.Downstream, map[string]string{"id": d.ID, "health": d.Health})
 			}
+			out.UpstreamCount = len(out.Upstream)
+			out.DownstreamCount = len(out.Downstream)
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), out)
 			}
