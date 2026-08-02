@@ -60,9 +60,19 @@ func newCompareCmd() *cobra.Command {
 				Upstream   []string `json:"upstream"`
 				Downstream []string `json:"downstream"`
 			}
+			delta := sa.Score - sb.Score
+			winner := "tie"
+			switch {
+			case sa.Score > sb.Score:
+				winner = a.Service.ID
+			case sb.Score > sa.Score:
+				winner = b.Service.ID
+			}
 			out := struct {
-				A side `json:"a"`
-				B side `json:"b"`
+				A      side   `json:"a"`
+				B      side   `json:"b"`
+				Delta  int    `json:"delta"`
+				Winner string `json:"winner"`
 			}{
 				A: side{
 					Service: a.Service.ID, Health: a.Service.Health, Score: sa.Score, Level: sa.Level,
@@ -74,6 +84,8 @@ func newCompareCmd() *cobra.Command {
 					Changes: len(b.Changes), Alerts: countActiveAlerts(b.Alerts),
 					Upstream: svcIDs(b.Upstream), Downstream: svcIDs(b.Downstream),
 				},
+				Delta:  delta,
+				Winner: winner,
 			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), out)
@@ -86,6 +98,7 @@ func newCompareCmd() *cobra.Command {
 			cmd.Printf("%-12s %-12d %-12d\n", "alerts", out.A.Alerts, out.B.Alerts)
 			cmd.Printf("%-12s %-12s %-12s\n", "upstream", strings.Join(out.A.Upstream, ","), strings.Join(out.B.Upstream, ","))
 			cmd.Printf("%-12s %-12s %-12s\n", "downstream", strings.Join(out.A.Downstream, ","), strings.Join(out.B.Downstream, ","))
+			cmd.Printf("WINNER  %s (delta %d)\n", winner, delta)
 			return nil
 		},
 	}

@@ -7,9 +7,10 @@ go build -o bin/opsgraph ./cmd/opsgraph   # or: make build
 ```
 
 Most inspection commands accept `--format table|json` (default `table`).
-Exceptions: `graph` (`ascii|table|mermaid|json`), `export`/`report` (`json|markdown`), `watch` (text; supports `--once`).
-`status` / `doctor` / `ingest` / `version` / `validate-fixture` / `why` / `handoff` / `explain` accept `--format json` for automation.
+Exceptions: `graph` (`ascii|table|mermaid|json`), `export`/`report` (`json|markdown`), `watch` (`--once` supports `--format json`).
+`status` / `doctor` / `ingest` / `version` / `validate-fixture` / `test` / `why` / `handoff` / `explain` / `evidence` accept `--format json`.
 `health --strict` exits `1` when any service is degraded or unhealthy.
+`export --meta` prints `{path,bytes,service,format}` for automation.
 
 Environment defaults (flags win when set):
 - `OPSGRAPH_CONFIG` — path to `.opsgraph.yaml`

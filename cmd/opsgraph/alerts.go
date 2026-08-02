@@ -19,6 +19,7 @@ func newAlertsCmd() *cobra.Command {
 	var firingOnly bool
 	var service string
 	var since time.Duration
+	var limit int
 	cmd := &cobra.Command{
 		Use:   "alerts",
 		Short: "List alerts across the fleet",
@@ -29,6 +30,9 @@ func newAlertsCmd() *cobra.Command {
 			}
 			if err := validSince(since); err != nil {
 				return fail(2, "%v", err)
+			}
+			if limit < 0 {
+				return fail(2, "invalid --limit %d (must be >= 0)", limit)
 			}
 			ls, cfg, err := src.loadCtx(cmd.Context(), since)
 			if err != nil {
@@ -82,10 +86,20 @@ func newAlertsCmd() *cobra.Command {
 				}
 				list = filtered
 			}
+			total := len(list)
+			truncated := false
+			if limit > 0 && len(list) > limit {
+				list = list[:limit]
+				truncated = true
+			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), map[string]any{
-					"alerts": list,
-					"total":  len(list),
+					"alerts":    list,
+					"total":     total,
+					"limit":     limit,
+					"truncated": truncated,
+					"service":   service,
+					"firing":    firingOnly,
 				})
 			}
 			if len(list) == 0 {
@@ -100,6 +114,9 @@ func newAlertsCmd() *cobra.Command {
 				cmd.Printf("%s  %-10s %-10s %-14s %s [%s]\n",
 					a.At.Format(time.RFC3339), a.Status, a.Severity, a.ServiceID, a.Name, ev)
 			}
+			if truncated {
+				cmd.Printf("… +%d more (raise --limit)\n", total-limit)
+			}
 			return nil
 		},
 	}
@@ -110,5 +127,6 @@ func newAlertsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&service, "service", "", "filter to one service name/alias")
 	_ = cmd.RegisterFlagCompletionFunc("service", completeServiceArg)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback for resolved alerts (live+suppressed always shown; default: config)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "max alerts to show (0 = all)")
 	return cmd
 }

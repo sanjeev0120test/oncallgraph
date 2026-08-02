@@ -322,6 +322,8 @@ jobs:
           "$BIN" evidence --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:evidence has:total
           EXP_META="$(mktemp -d)"
           "$BIN" export checkout --fixture ./fixtures/incident_checkout --format markdown --out "$EXP_META/r.md" --meta | "${JA[@]}" has:path has:bytes has:service
+          "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:delta has:winner
+          "$BIN" alerts --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:alerts has:truncated
           set +e
           "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
           strict_health=$?
