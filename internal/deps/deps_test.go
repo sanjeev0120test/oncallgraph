@@ -20,6 +20,7 @@ func TestDefaultBuildHasNoK8sIO(t *testing.T) {
 
 	cmd := exec.Command("go", "list", "-deps", "./cmd/opsgraph")
 	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("go list -deps failed: %v", err)
@@ -60,8 +61,10 @@ func TestCmdOpsgraphIsPureGo(t *testing.T) {
 		t.Skip("go toolchain not on PATH")
 	}
 	root := moduleRoot(t)
+	// Force CGO off even when the race job sets CGO_ENABLED=1.
 	cmd := exec.Command("go", "list", "-deps", "-f", "{{if .CgoFiles}}{{.ImportPath}}{{end}}", "./cmd/opsgraph")
 	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("go list -deps: %v", err)

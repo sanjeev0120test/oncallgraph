@@ -213,8 +213,7 @@ jobs:
               cmd/opsgraph=56 \
               internal/ai=45 \
               internal/ask=75 \
-              internal/store=60 \
-              internal/deps=80
+              internal/store=60
           tail -n 1 cover-func.txt | tee cover-summary.txt
           # Short deterministic fuzz budget (no corpus commit required).
           go test -count=1 -timeout=2m -fuzz=FuzzOfStablePrefix -fuzztime=5s ./internal/fingerprint
@@ -225,7 +224,8 @@ jobs:
             cat cover-summary.txt
             echo '```'
             echo ""
-            echo "Floors: total>=64, cmd/opsgraph>=56, internal/ai>=45, internal/ask>=75, internal/store>=60, internal/deps>=80"
+            echo "Floors: total>=64, cmd/opsgraph>=56, internal/ai>=45, internal/ask>=75, internal/store>=60"
+            echo "Note: internal/deps is test-only (no statements); pure-Go/mod hygiene covered by deps tests + lint."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverprofile
         if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' && always() }}
