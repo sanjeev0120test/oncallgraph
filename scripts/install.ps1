@@ -16,7 +16,9 @@ if ([Environment]::Is64BitOperatingSystem -and (Get-Command Get-CimInstance -Err
     $osArch = (Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop).OSArchitecture
     if ($osArch -match "ARM") { $archRaw = "ARM64" }
     elseif ($osArch -match "64") { $archRaw = "AMD64" }
-  } catch { }
+  } catch {
+    # Fall back to PROCESSOR_ARCHITECTURE when CIM is unavailable.
+  }
 }
 $arch = switch -Regex ($archRaw) {
   "AMD64|X64|x86_64" { "amd64" }

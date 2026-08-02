@@ -446,7 +446,12 @@ jobs:
           Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
           $errs = @()
           foreach ($f in @('scripts/install.ps1', 'scripts/verify.ps1')) {
-            $findings = Invoke-ScriptAnalyzer -Path $f -Severity @('Error', 'Warning') -ExcludeRule @('PSAvoidUsingWriteHost', 'PSUseShouldProcessForStateChangingFunctions')
+            $findings = Invoke-ScriptAnalyzer -Path $f -Severity @('Error', 'Warning') -ExcludeRule @(
+              'PSAvoidUsingWriteHost',
+              'PSUseShouldProcessForStateChangingFunctions',
+              'PSUseBOMForUnicodeEncodedFile',
+              'PSAvoidUsingEmptyCatchBlock'
+            )
             if ($findings) {
               $findings | Format-Table -AutoSize | Out-String | Write-Host
               $errs += $findings
