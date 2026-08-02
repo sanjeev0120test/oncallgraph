@@ -339,15 +339,20 @@ jobs:
       - name: Job summary
         if: always()
         shell: bash
+        env:
+          MATRIX_OS: ${{ matrix.os }}
+          MATRIX_RACE: ${{ matrix.race }}
+          MATRIX_SMOKE: ${{ matrix.smoke }}
+          JOB_STATUS: ${{ job.status }}
         run: |
           {
-            echo "## test (${{ matrix.os }})"
+            echo "## test (${MATRIX_OS})"
             echo ""
             echo "| field | value |"
             echo "| --- | --- |"
-            echo "| race | ${{ matrix.race }} |"
-            echo "| smoke | ${{ matrix.smoke }} |"
-            echo "| result | ${{ job.status }} |"
+            echo "| race | ${MATRIX_RACE} |"
+            echo "| smoke | ${MATRIX_SMOKE} |"
+            echo "| result | ${JOB_STATUS} |"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: go install smoke
         if: matrix.os == 'ubuntu-latest'
