@@ -86,15 +86,17 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 (cd "$ROOT" && go list -m -json all) | python3 -c '
 import json, sys
-objs, buf = [], []
-for line in sys.stdin:
-    if line.strip() == "" and buf:
-        objs.append(json.loads("".join(buf)))
-        buf = []
-    else:
-        buf.append(line)
-if buf:
-    objs.append(json.loads("".join(buf)))
+dec = json.JSONDecoder()
+data = sys.stdin.read()
+objs, idx = [], 0
+while True:
+    while idx < len(data) and data[idx].isspace():
+        idx += 1
+    if idx >= len(data):
+        break
+    obj, end = dec.raw_decode(data, idx)
+    objs.append(obj)
+    idx = end
 json.dump(objs, sys.stdout, indent=2)
 print()
 ' > "${OUT_DIR}/sbom.gomod.json"
