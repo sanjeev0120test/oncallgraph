@@ -384,6 +384,10 @@ jobs:
           "$BIN" health --fixture ./fixtures/fleet_healthy --strict >/dev/null
           "$BIN" ask api --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" has:service has:recommendations
           "$BIN" verify-runbook api --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eq:status=pass eq:service_id=api
+          "$BIN" test ./fixtures/fleet_healthy --format json | "${JA[@]}" true:ok has:checked
+          "$BIN" who api --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eq:service=api has:owner_id eq:owner_id=platform
+          "$BIN" score api --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eq:service=api eq:level=low gte:score=0
+          "$BIN" services --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eqnum:total=2 has:services
           set +e
           "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
           strict_health=$?

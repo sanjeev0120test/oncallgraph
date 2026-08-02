@@ -82,11 +82,11 @@ func newTimelineCmd() *cobra.Command {
 
 func trunc(s string, n int) string {
 	if n <= 1 {
-		return "…"
+		return "..."
 	}
 	r := []rune(s)
 	if len(r) <= n {
 		return s
 	}
-	return string(r[:n-1]) + "…"
+	return string(r[:n-1]) + "..."
 }
