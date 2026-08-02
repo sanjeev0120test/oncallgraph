@@ -13,4 +13,4 @@ go install github.com/sanjeev0120test/opsgraph/cmd/opsgraph@latest
 opsgraph demo
 ```
 
-Docs: [Usage](docs/USAGE.md) | [Architecture](docs/ARCHITECTURE.md) | [Runbook format](docs/RUNBOOK_FORMAT.md) | [Security](SECURITY.md) | [Releases](https://github.com/sanjeev0120test/opsgraph/releases)
+Docs: [Usage](docs/USAGE.md) | [Architecture](docs/ARCHITECTURE.md) | [Runbook format](docs/RUNBOOK_FORMAT.md) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Releases](https://github.com/sanjeev0120test/opsgraph/releases)

@@ -84,10 +84,13 @@ jobs:
           test -s LICENSE
           grep -qi 'MIT License' LICENSE
           test -s SECURITY.md
+          test -s CONTRIBUTING.md
           test -s .github/CODEOWNERS
           test -s scripts/install.sh
           test -s scripts/install.ps1
           test -s scripts/pack-release.sh
+          test -s scripts/coverfloor.go
+          test -s scripts/jsonassert.go
           head -n 1 scripts/install.sh | grep -qE '^#!/'
           head -n 1 scripts/pack-release.sh | grep -qE '^#!/'
           head -n 1 scripts/verify.sh | grep -qE '^#!/'
@@ -364,7 +367,7 @@ jobs:
           "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:delta has:winner eq:winner=checkout eqnum:delta=45
           "$BIN" alerts --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:alerts has:truncated
           "$BIN" handoff checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:note has:score has:fingerprint
-          "$BIN" blast checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:upstream_count has:downstream_count
+          "$BIN" blast checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:upstream_count has:downstream_count has:upstream has:downstream gte:upstream_count=1 gte:downstream_count=1 eq:service=checkout
           # Machine contracts previously only covered in Go tests.
           "$BIN" ask checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:service has:timeline has:recommendations has:generated_at eq:window=60m
           "$BIN" verify-runbook auth --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:service_id has:status has:steps eq:service_id=auth
