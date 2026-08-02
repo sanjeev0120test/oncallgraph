@@ -192,7 +192,7 @@ func TestCLIStatusDoctorIngestJSON(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("doctor json exit = %d\n%s", code, out)
 	}
-	if !strings.Contains(out, `"checks"`) || !strings.Contains(out, `"ok"`) {
+	if !strings.Contains(out, `"checks"`) || !strings.Contains(out, `"ok"`) || !strings.Contains(out, `"pass": true`) {
 		t.Fatalf("doctor json missing fields: %s", out)
 	}
 	out, _, code = runRoot(t, "version", "--format", "json")

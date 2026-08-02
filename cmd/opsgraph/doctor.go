@@ -34,6 +34,7 @@ func newDoctorCmd() *cobra.Command {
 			}
 			type doctorOut struct {
 				Checks []checkRow `json:"checks"`
+				Pass   bool       `json:"pass"`
 				OK     int        `json:"ok"`
 				Warn   int        `json:"warn"`
 				Fail   int        `json:"fail"`
@@ -175,6 +176,7 @@ func newDoctorCmd() *cobra.Command {
 			_, embErr := fixtures.CheckoutFS()
 			check("embedded_fixture", embErr == nil, "fixtures.CheckoutFS")
 
+			out.Pass = out.Fail == 0
 			if format == "json" {
 				if err := output.JSON(cmd.OutOrStdout(), out); err != nil {
 					return fail(2, "%v", err)

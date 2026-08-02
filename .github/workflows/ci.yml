@@ -339,7 +339,7 @@ jobs:
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" --format json | "${JA[@]}" has:path has:counts eq:mode=fixture eqnum:schema=2 has:as_of
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
           "$BIN" status --data-dir "$DATA" --format json | "${JA[@]}" has:counts has:schema_version has:active_source eq:active_source=persisted eqnum:schema_version=2
-          "$BIN" doctor --format json | "${JA[@]}" has:checks has:ok has:warn has:fail
+          "$BIN" doctor --format json | "${JA[@]}" has:checks has:ok has:warn has:fail true:pass
           "$BIN" version --format json | "${JA[@]}" has:version has:commit has:goos has:goarch
           "$BIN" graph --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:nodes has:edges
           "$BIN" validate-fixture ./fixtures/incident_checkout --format json | "${JA[@]}" true:ok
