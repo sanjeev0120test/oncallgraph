@@ -6,6 +6,7 @@ BINARY      := opsgraph
 PKG         := ./cmd/opsgraph
 BIN_DIR     := bin
 FIXTURE     := ./fixtures/incident_checkout
+HEALTHY     := ./fixtures/fleet_healthy
 ifeq ($(OS),Windows_NT)
 EXE := .exe
 else
@@ -23,7 +24,7 @@ LDFLAGS     := -s -w -buildid= \
 
 export CGO_ENABLED := 0
 
-.PHONY: build test fixture-test validate-fixture demo quick lint fmt vet tidy-check staticcheck govulncheck race ci cross clean
+.PHONY: build test fixture-test validate-fixture fleet-healthy demo quick lint fmt vet tidy-check staticcheck deadcode govulncheck race ci cross clean
 
 build: ## Build the static binary
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN) $(PKG)
