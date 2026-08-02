@@ -83,7 +83,10 @@ func newAlertsCmd() *cobra.Command {
 				list = filtered
 			}
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), list)
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
+					"alerts": list,
+					"total":  len(list),
+				})
 			}
 			if len(list) == 0 {
 				cmd.Println("(no alerts)")
@@ -102,8 +105,10 @@ func newAlertsCmd() *cobra.Command {
 	}
 	bindSourceFlags(cmd, &src)
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatTableJSON)
 	cmd.Flags().BoolVar(&firingOnly, "firing", false, "only active alerts (firing or pending; excludes suppressed/resolved)")
 	cmd.Flags().StringVar(&service, "service", "", "filter to one service name/alias")
+	_ = cmd.RegisterFlagCompletionFunc("service", completeServiceArg)
 	cmd.Flags().DurationVar(&since, "since", 0, "lookback for resolved alerts (live+suppressed always shown; default: config)")
 	return cmd
 }

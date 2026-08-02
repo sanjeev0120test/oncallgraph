@@ -94,6 +94,8 @@ jobs:
           echo "6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87  /tmp/shellcheck.tar.xz" | sha256sum -c -
           tar -xJf /tmp/shellcheck.tar.xz -C /tmp
           /tmp/shellcheck-v0.10.0/shellcheck -x scripts/install.sh scripts/pack-release.sh scripts/verify.sh
+          # Pure-Go SBOM helper must compile (used by pack-release.sh).
+          go build -o /dev/null scripts/gomod_sbom.go
           echo "| shellcheck (sha256-pinned) | ok |" >> "$GITHUB_STEP_SUMMARY"
           # Live-connector smoke fixture must resolve its k8s snapshot.
           test -f fixtures/ci_live_k8s/.opsgraph.yaml

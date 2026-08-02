@@ -79,27 +79,8 @@ cp "${ROOT}/scripts/install.sh" "${OUT_DIR}/install.sh"
 cp "${ROOT}/scripts/install.ps1" "${OUT_DIR}/install.ps1"
 chmod +x "${OUT_DIR}/install.sh"
 (cd "$ROOT" && go list -m all) > "${OUT_DIR}/DEPENDENCIES.txt"
-# Module SBOM as a single JSON array (go list -m -json emits pretty multi-object stream).
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 required to build sbom.gomod.json" >&2
-  exit 1
-fi
-(cd "$ROOT" && go list -m -json all) | python3 -c '
-import json, sys
-dec = json.JSONDecoder()
-data = sys.stdin.read()
-objs, idx = [], 0
-while True:
-    while idx < len(data) and data[idx].isspace():
-        idx += 1
-    if idx >= len(data):
-        break
-    obj, end = dec.raw_decode(data, idx)
-    objs.append(obj)
-    idx = end
-json.dump(objs, sys.stdout, indent=2)
-print()
-' > "${OUT_DIR}/sbom.gomod.json"
+# Module SBOM as a single JSON array (go list -m -json emits an object stream).
+(cd "$ROOT" && go list -m -json all) | go run "${ROOT}/scripts/gomod_sbom.go" > "${OUT_DIR}/sbom.gomod.json"
 
 if command -v sha256sum >/dev/null 2>&1; then
   HASH_CMD=(sha256sum)
