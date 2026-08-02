@@ -98,10 +98,12 @@ jobs:
           tar -xJf /tmp/shellcheck.tar.xz -C /tmp
           /tmp/shellcheck-v0.10.0/shellcheck -x \
             scripts/install.sh scripts/pack-release.sh scripts/verify.sh hack/kind-demo.sh
-          # Pure-Go helpers used by pack-release / smoke must compile.
+          # Pure-Go helpers used by pack-release / smoke must compile + self-check.
           go build -o /dev/null scripts/gomod_sbom.go
           go build -o /dev/null scripts/jsonassert.go
+          printf '%s\n' '{"ok":true,"total":2,"name":"x"}' | go run ./scripts/jsonassert.go true:ok eqnum:total=2 eq:name=x gte:total=1
           echo "| shellcheck (sha256-pinned) | ok |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| jsonassert self-check | ok |" >> "$GITHUB_STEP_SUMMARY"
           # Live-connector smoke fixture must resolve its k8s snapshot.
           test -f fixtures/ci_live_k8s/.opsgraph.yaml
           test -d fixtures/incident_checkout/k8s
@@ -171,7 +173,7 @@ jobs:
         if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' }}
         env:
           CGO_ENABLED: "1"
-          COVER_FLOOR: "60"
+          COVER_FLOOR: "62"
         run: |
           set -euo pipefail
           go test -count=1 -timeout=5m -race -shuffle=on -coverprofile=cover.out -covermode=atomic ./...
@@ -336,7 +338,7 @@ jobs:
           DATA="$(mktemp -d)"
           "$BIN" ingest --fixture ./fixtures/incident_checkout --data-dir "$DATA" --format json | "${JA[@]}" has:path has:counts eq:mode=fixture eqnum:schema=2 has:as_of
           "$BIN" ask checkout --data-dir "$DATA" --format json >/dev/null
-          "$BIN" status --data-dir "$DATA" --format json | "${JA[@]}" has:counts has:schema_version has:active_source eq:active_source=persisted
+          "$BIN" status --data-dir "$DATA" --format json | "${JA[@]}" has:counts has:schema_version has:active_source eq:active_source=persisted eqnum:schema_version=2
           "$BIN" doctor --format json | "${JA[@]}" has:checks has:ok has:warn has:fail
           "$BIN" version --format json | "${JA[@]}" has:version has:commit has:goos has:goarch
           "$BIN" graph --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:nodes has:edges
@@ -354,7 +356,7 @@ jobs:
           "$BIN" evidence --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:evidence has:total
           EXP_META="$(mktemp -d)"
           "$BIN" export checkout --fixture ./fixtures/incident_checkout --format markdown --out "$EXP_META/r.md" --meta | "${JA[@]}" has:path has:bytes has:service eq:format=markdown eq:service=checkout gte:bytes=1
-          "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:delta has:winner
+          "$BIN" compare checkout auth --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:delta has:winner eq:winner=checkout eqnum:delta=45
           "$BIN" alerts --fixture ./fixtures/incident_checkout --format json --limit 1 | "${JA[@]}" has:alerts has:truncated
           "$BIN" handoff checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:note has:score has:fingerprint
           "$BIN" blast checkout --fixture ./fixtures/incident_checkout --format json | "${JA[@]}" has:upstream_count has:downstream_count

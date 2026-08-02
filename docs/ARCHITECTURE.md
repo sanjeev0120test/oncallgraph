@@ -7,13 +7,13 @@
 - `cmd/opsgraph` — cobra CLI (`ask`, fleet helpers, `demo`, `test`, `status`, …).
 - `internal/model` — shared domain types (`AskResult`, services, alerts, evidence).
 - `internal/config` — `.opsgraph.yaml` loader with defaults.
-- `internal/store` — pure-Go SQLite (`modernc.org/sqlite`), `PRAGMA user_version` gated.
+- `internal/store` — pure-Go SQLite (`modernc.org/sqlite`), `PRAGMA user_version` gated (current schema v2; v1→v2 adds alert/change indexes).
 - `internal/ingest` — fixtures, git, k8s snapshot, optional Prometheus/Alertmanager/Helm.
 - `internal/ask` — blast radius, timeline, recommendations R1–R6.
 - `internal/runbook` — Markdown parse + check catalog (`opsgraph:check=`).
 - `internal/ai` — optional Ollama + chromem-go RAG; stubbed in tests.
 - `internal/{score,explain,report,graphviz,pathfind,impact,fingerprint}` — enterprise helpers.
-- `fixtures/` — embedded `incident_checkout` pack for `demo`.
+- `fixtures/` — embedded `incident_checkout` pack for `demo`; disk-only `fleet_healthy` for strict healthy-path contracts.
 
 ## Data flow
 
@@ -31,4 +31,4 @@
 
 ## Cross-platform
 
-`CGO_ENABLED=0`, `filepath` for OS paths, `fs.FS` + forward slashes for fixtures, LF via `.gitattributes`. CI covers ubuntu/macOS/windows plus linux/darwin/windows × amd64/arm64 cross-builds.
+`CGO_ENABLED=0`, `filepath` for OS paths, `fs.FS` + forward slashes for fixtures, LF via `.gitattributes`. CI covers ubuntu-24.04/macOS/windows, native linux/arm64 smoke, race+coverage floor on ubuntu, plus linux/darwin/windows × amd64/arm64 cross-builds.
