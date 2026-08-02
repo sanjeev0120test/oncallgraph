@@ -10,6 +10,8 @@ import (
 
 // Path is an ordered list of service IDs from start to goal along depends-on edges.
 type Path struct {
+	From  string   `json:"from"`
+	To    string   `json:"to"`
 	Nodes []string `json:"nodes"`
 	Hops  int      `json:"hops"`
 }
@@ -18,7 +20,7 @@ type Path struct {
 // Direction follows dependency edges: walker moves From → To.
 func Shortest(deps []model.Dependency, from, to string) (Path, error) {
 	if from == to {
-		return Path{Nodes: []string{from}, Hops: 0}, nil
+		return Path{From: from, To: to, Nodes: []string{from}, Hops: 0}, nil
 	}
 	adj := map[string][]string{}
 	for _, d := range deps {
@@ -42,7 +44,7 @@ func Shortest(deps []model.Dependency, from, to string) (Path, error) {
 			}
 			np := append(append([]string{}, cur.path...), next)
 			if next == to {
-				return Path{Nodes: np, Hops: len(np) - 1}, nil
+				return Path{From: from, To: to, Nodes: np, Hops: len(np) - 1}, nil
 			}
 			seen[next] = true
 			q = append(q, item{next, np})

@@ -7,6 +7,7 @@ import (
 
 	"github.com/sanjeev0120test/opsgraph/internal/ask"
 	"github.com/sanjeev0120test/opsgraph/internal/model"
+	"github.com/sanjeev0120test/opsgraph/internal/output"
 	"github.com/sanjeev0120test/opsgraph/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -17,6 +18,7 @@ func newWatchCmd() *cobra.Command {
 	var interval time.Duration
 	var timeout time.Duration
 	var once bool
+	var format string
 	cmd := &cobra.Command{
 		Use:   "watch <service>",
 		Short: "Poll a service until healthy (or timeout)",
@@ -29,6 +31,9 @@ func newWatchCmd() *cobra.Command {
 			if err := requireArg("service", args[0]); err != nil {
 				return err
 			}
+			if format != "table" && format != "json" {
+				return fail(2, "invalid --format %q (want table or json)", format)
+			}
 			if once {
 				healthy, svcID, health, line, cont, err := watchTick(cmd, &src, args[0], since)
 				if err != nil {
@@ -38,14 +43,26 @@ func newWatchCmd() *cobra.Command {
 					cmd.PrintErrln(line)
 					return fail(1, "watch --once: transient load failure")
 				}
-				cmd.Printf("%s  %s\n", time.Now().UTC().Format(time.RFC3339), line)
-				if healthy {
-					return nil
-				}
 				if health == "" {
 					health = "unknown"
 				}
+				if format == "json" {
+					_ = output.JSON(cmd.OutOrStdout(), map[string]any{
+						"service": svcID,
+						"health":  health,
+						"healthy": healthy,
+						"ok":      healthy,
+					})
+				} else {
+					cmd.Printf("%s  %s\n", time.Now().UTC().Format(time.RFC3339), line)
+				}
+				if healthy {
+					return nil
+				}
 				return fail(1, "watch --once: %s is %s", svcID, health)
+			}
+			if format == "json" {
+				return fail(2, "--format json is only supported with --once")
 			}
 			if interval <= 0 {
 				return fail(2, "invalid --interval %s (must be > 0)", interval)
@@ -120,6 +137,8 @@ func newWatchCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&interval, "interval", 5*time.Second, "poll interval (prefer >=5s with live connectors)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 5*time.Minute, "give up after this duration")
 	cmd.Flags().BoolVar(&once, "once", false, "check health once and exit (0=healthy, 1=not)")
+	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json (json requires --once)")
+	bindFormatCompletion(cmd)
 	return cmd
 }
 

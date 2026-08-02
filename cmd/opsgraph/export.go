@@ -18,6 +18,7 @@ func newExportCmd() *cobra.Command {
 	var since time.Duration
 	var outPath string
 	var format string
+	var meta bool
 	cmd := &cobra.Command{
 		Use:               "export <service>",
 		Short:             "Export ask result to a file (json or markdown)",
@@ -102,6 +103,18 @@ func newExportCmd() *cobra.Command {
 				}
 				_ = os.Remove(bak)
 			}
+			info, err := os.Stat(outPath)
+			if err != nil {
+				return fail(2, "%v", err)
+			}
+			if meta {
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
+					"path":    outPath,
+					"bytes":   info.Size(),
+					"service": res.Service.ID,
+					"format":  format,
+				})
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), "wrote", outPath)
 			return nil
 		},
@@ -111,6 +124,7 @@ func newExportCmd() *cobra.Command {
 	cmd.Flags().StringVar(&outPath, "out", "", "output file path (default: <service>-incident.json|md)")
 	cmd.Flags().StringVar(&format, "format", "markdown", "output format: json|markdown")
 	_ = cmd.RegisterFlagCompletionFunc("format", completeFormatMarkdownJSON)
+	cmd.Flags().BoolVar(&meta, "meta", false, "print JSON {path,bytes,service,format} instead of wrote line")
 	return cmd
 }
 

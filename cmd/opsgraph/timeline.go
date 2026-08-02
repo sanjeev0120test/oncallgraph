@@ -51,6 +51,7 @@ func newTimelineCmd() *cobra.Command {
 					"service":   res.Service.ID,
 					"events":    events,
 					"total":     total,
+					"limit":     limit,
 					"truncated": truncated,
 				})
 			}

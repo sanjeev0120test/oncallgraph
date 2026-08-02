@@ -144,7 +144,9 @@ try {
     if (-not $p) { continue }
     try {
       if ([System.IO.Path]::GetFullPath($p).TrimEnd('\') -ieq $normInstall) { $onPath = $true; break }
-    } catch { }
+    } catch {
+      # Ignore malformed PATH entries.
+    }
   }
   if (-not $onPath) {
     Write-Warning "add $InstallDir to PATH to run opsgraph from any shell"

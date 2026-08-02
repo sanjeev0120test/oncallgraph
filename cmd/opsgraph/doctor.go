@@ -72,6 +72,15 @@ func newDoctorCmd() *cobra.Command {
 
 			check("binary", true, fmt.Sprintf("opsgraph %s (%s/%s)", version.String(), runtime.GOOS, runtime.GOARCH))
 			check("cwd", true, mustGetwd())
+			if v := strings.TrimSpace(os.Getenv("OPSGRAPH_CONFIG")); v != "" {
+				check("env_OPSGRAPH_CONFIG", true, v)
+			}
+			if v := strings.TrimSpace(os.Getenv("OPSGRAPH_DATA_DIR")); v != "" {
+				check("env_OPSGRAPH_DATA_DIR", true, v)
+			}
+			if v := strings.TrimSpace(os.Getenv("OPSGRAPH_FIXTURE")); v != "" {
+				check("env_OPSGRAPH_FIXTURE", true, v)
+			}
 
 			cfgPath := configPathOrEnv(configPath)
 			cfg, err := config.Load(cfgPath)

@@ -39,7 +39,15 @@ func newScoreCmd() *cobra.Command {
 			}
 			sc := score.Compute(res)
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), sc)
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
+					"service":    res.Service.ID,
+					"health":     res.Service.Health,
+					"window":     res.Window,
+					"score":      sc.Score,
+					"level":      sc.Level,
+					"breakdown":  sc.Breakdown,
+					"highlights": sc.Highlights,
+				})
 			}
 			cmd.Printf("SCORE   %d (%s)\n", sc.Score, sc.Level)
 			cmd.Println("BREAKDOWN")
