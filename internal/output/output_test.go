@@ -61,3 +61,22 @@ func TestJSONDoesNotEscapeHTML(t *testing.T) {
 		t.Fatal("JSON output must end with newline")
 	}
 }
+
+func TestJSONDeterministic(t *testing.T) {
+	v := model.AskResult{
+		Service:         model.Service{ID: "checkout", Health: model.HealthDegraded},
+		Window:          "60m",
+		GeneratedAt:     mustParseTime(t, "2026-07-31T12:00:00Z"),
+		Recommendations: []string{"a", "b"},
+	}
+	var a, b bytes.Buffer
+	if err := output.JSON(&a, v); err != nil {
+		t.Fatal(err)
+	}
+	if err := output.JSON(&b, v); err != nil {
+		t.Fatal(err)
+	}
+	if a.String() != b.String() {
+		t.Fatalf("JSON not deterministic:\n%s\n---\n%s", a.String(), b.String())
+	}
+}

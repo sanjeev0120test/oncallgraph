@@ -152,7 +152,7 @@ func (s *Store) ReplaceFromFile(srcDB string) error {
 }
 
 // SchemaVersion is the current PRAGMA user_version for this schema.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 func (s *Store) initSchema() error {
 	const schema = `
@@ -225,6 +225,8 @@ CREATE INDEX IF NOT EXISTS idx_alerts_service_status_at ON alerts(service_id, st
 CREATE INDEX IF NOT EXISTS idx_evidence_service ON evidence(service_id);
 CREATE INDEX IF NOT EXISTS idx_deps_from ON dependencies(from_service_id);
 CREATE INDEX IF NOT EXISTS idx_deps_to ON dependencies(to_service_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_name ON alerts(name);
+CREATE INDEX IF NOT EXISTS idx_changes_type_at ON changes(type, at);
 `
 	if _, err := s.db.Exec(schema); err != nil {
 		return fmt.Errorf("init schema: %w", err)
@@ -239,19 +241,29 @@ CREATE INDEX IF NOT EXISTS idx_deps_to ON dependencies(to_service_id);
 	if ver > SchemaVersion {
 		return fmt.Errorf("database schema v%d is newer than this binary (supports v%d); upgrade opsgraph", ver, SchemaVersion)
 	}
-	switch {
-	case ver == SchemaVersion:
-		return nil
-	case ver == 0:
-		// Fresh database: stamp current schema version.
-		if _, err := s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", SchemaVersion)); err != nil {
+	for ver < SchemaVersion {
+		switch ver {
+		case 0:
+			// Fresh database: jump to current after CREATE IF NOT EXISTS above.
+			ver = SchemaVersion
+		case 1:
+			// v1 -> v2: alert/change lookup indexes (idempotent IF NOT EXISTS).
+			if _, err := s.db.Exec(`
+CREATE INDEX IF NOT EXISTS idx_alerts_name ON alerts(name);
+CREATE INDEX IF NOT EXISTS idx_changes_type_at ON changes(type, at);
+`); err != nil {
+				return fmt.Errorf("migrate v1->v2: %w", err)
+			}
+			ver = 2
+		default:
+			// Never silently stamp over an unknown older schema without migrations.
+			return fmt.Errorf("database schema v%d needs migration to v%d; recreate with `opsgraph ingest --replace` or upgrade opsgraph", ver, SchemaVersion)
+		}
+		if _, err := s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", ver)); err != nil {
 			return fmt.Errorf("set user_version: %w", err)
 		}
-		return nil
-	default:
-		// Never silently stamp over an older populated schema without migrations.
-		return fmt.Errorf("database schema v%d needs migration to v%d; recreate with `opsgraph ingest --replace` or upgrade opsgraph", ver, SchemaVersion)
 	}
+	return nil
 }
 
 // UserVersion returns PRAGMA user_version.

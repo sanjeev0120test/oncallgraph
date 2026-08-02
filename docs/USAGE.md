@@ -9,7 +9,8 @@ go build -o bin/opsgraph ./cmd/opsgraph   # or: make build
 Most inspection commands accept `--format table|json` (default `table`).
 Exceptions: `graph` (`ascii|table|mermaid|json`), `export`/`report` (`json|markdown`), `watch` (`--once` supports `--format json`).
 `status` / `doctor` / `ingest` / `version` / `validate-fixture` / `test` / `why` / `handoff` / `explain` / `evidence` accept `--format json`.
-`health --strict` exits `1` when any service is degraded or unhealthy.
+`health --strict` exits `1` when any service is degraded or unhealthy; JSON includes `"ok": true|false`.
+Healthy-path CI pack: `fixtures/fleet_healthy` (all services healthy; use with `health --strict`).
 `export --meta` prints `{path,bytes,service,format}` for automation.
 
 Environment defaults (flags win when set):
@@ -117,7 +118,7 @@ Fleet alert list. `--firing` keeps active (`firing`/`pending`) alerts; `--servic
 
 ## Validation
 
-- Heavy validation runs in GitHub Actions (3-OS matrix, race on ubuntu+macos, cross-compile 6 targets, install smoke).
+- Heavy validation runs in GitHub Actions (ubuntu-24.04 + macos + windows, race+coverage floor on ubuntu, native linux/arm64 smoke, cross-compile 6 targets, install smoke, deadcode/govulncheck).
 - Locally: `pwsh scripts/verify.ps1` (Windows) or `bash scripts/verify.sh` / `make quick` (Unix).
 
 ## Optional live connectors
