@@ -130,3 +130,18 @@ owners:
 		t.Fatalf("ai defaults missing: %+v", cfg.AI)
 	}
 }
+
+func TestAITimeoutDefaultsAndOverride(t *testing.T) {
+	cfg := Default()
+	if cfg.AITimeout() != 20*time.Second {
+		t.Fatalf("default AITimeout=%v", cfg.AITimeout())
+	}
+	cfg.AI.Timeout = "5s"
+	if cfg.AITimeout() != 5*time.Second {
+		t.Fatalf("override AITimeout=%v", cfg.AITimeout())
+	}
+	cfg.AI.Timeout = "nope"
+	if cfg.AITimeout() != 20*time.Second {
+		t.Fatalf("invalid timeout should fall back, got %v", cfg.AITimeout())
+	}
+}

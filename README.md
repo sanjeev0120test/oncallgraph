@@ -11,6 +11,9 @@ Evidence-backed timeline, blast radius, runbooks, severity scoring, and optional
 # Dev-only tip-of-tree (no release ldflags):
 go install github.com/sanjeev0120test/opsgraph/cmd/opsgraph@latest
 opsgraph demo
+# From a clone:
+opsgraph ask checkout --fixture fixtures/incident_checkout
+opsgraph health --fixture fixtures/fleet_healthy --strict
 ```
 
 Docs: [Usage](docs/USAGE.md) | [Architecture](docs/ARCHITECTURE.md) | [Runbook format](docs/RUNBOOK_FORMAT.md) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Releases](https://github.com/sanjeev0120test/opsgraph/releases)
