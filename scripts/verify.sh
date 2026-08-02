@@ -11,10 +11,8 @@ if [ -n "$(gofmt -l .)" ]; then echo "unformatted files:"; gofmt -l .; exit 1; f
 echo "==> go vet"
 go vet ./...
 
-if command -v go >/dev/null 2>&1 && go tool staticcheck -h >/dev/null 2>&1; then
-  echo "==> go tool staticcheck (optional)"
-  go tool staticcheck ./...
-fi
+echo "==> go tool staticcheck"
+go tool staticcheck ./...
 
 echo "==> go mod tidy (check)"
 go mod tidy

@@ -14,6 +14,10 @@ Write-Host "==> go vet" -ForegroundColor Cyan
 go vet ./...
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
+Write-Host "==> go tool staticcheck" -ForegroundColor Cyan
+go tool staticcheck ./...
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
 Write-Host "==> go mod tidy (check)" -ForegroundColor Cyan
 go mod tidy
 if ($LASTEXITCODE -ne 0) { exit 1 }

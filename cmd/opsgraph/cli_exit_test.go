@@ -292,7 +292,7 @@ func TestCLIWhyHandoffJSON(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("why json exit = %d", code)
 	}
-	if !strings.Contains(out, `"why"`) || !strings.Contains(out, "checkout") {
+	if !strings.Contains(out, `"why"`) || !strings.Contains(out, `"health"`) || !strings.Contains(out, "checkout") {
 		t.Fatalf("why json missing fields: %s", out)
 	}
 	out, _, code = runRoot(t, "handoff", "checkout", "--fixture", fx, "--format", "json")

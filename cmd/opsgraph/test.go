@@ -15,6 +15,7 @@ import (
 
 func newTestCmd() *cobra.Command {
 	var update bool
+	var format string
 	cmd := &cobra.Command{
 		Use:   "test <fixture-dir>",
 		Short: "Run a fixture pack and compare output against its golden files",
@@ -25,6 +26,9 @@ func newTestCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireArg("fixture-dir", args[0]); err != nil {
 				return err
+			}
+			if format != "table" && format != "json" {
+				return fail(2, "invalid --format %q (want table or json)", format)
 			}
 			dir := args[0]
 			ls, err := storeFromFixtureDir(dir)
@@ -44,17 +48,24 @@ func newTestCmd() *cobra.Command {
 				}
 			}
 
+			type fileResult struct {
+				Name   string `json:"name"`
+				Status string `json:"status"`
+				Detail string `json:"detail,omitempty"`
+			}
+			var files []fileResult
 			verifier := runbook.NewVerifier(ls.store, ls.now)
 			var failures int
 			checked := 0
+			record := func(name, status, detail string) {
+				files = append(files, fileResult{Name: name, Status: status, Detail: detail})
+			}
 			for _, svc := range services {
 				_, rbErr := ls.store.GetRunbook(svc.ID)
 				hasRB := rbErr == nil
 				askName := "ask_" + svc.ID + ".json"
 				askPath := filepath.Join(expectedDir, askName)
 				_, askExists := os.Stat(askPath)
-				// Compare any existing ask golden; on --update only services with runbooks
-				// (primary contract) plus any service that already had an ask golden.
 				if !hasRB && !update && askExists != nil {
 					continue
 				}
@@ -66,7 +77,7 @@ func newTestCmd() *cobra.Command {
 				if err != nil {
 					return fail(2, "ask %s: %v", svc.ID, err)
 				}
-				if err := goldenIO(cmd, expectedDir, askName, res, update, &failures); err != nil {
+				if err := goldenIO(cmd, expectedDir, askName, res, update, &failures, format == "json", record); err != nil {
 					return err
 				}
 				checked++
@@ -78,7 +89,7 @@ func newTestCmd() *cobra.Command {
 				if err != nil {
 					return fail(2, "verify %s: %v", svc.ID, err)
 				}
-				if err := goldenIO(cmd, expectedDir, "verify_"+svc.ID+".json", vr, update, &failures); err != nil {
+				if err := goldenIO(cmd, expectedDir, "verify_"+svc.ID+".json", vr, update, &failures, format == "json", record); err != nil {
 					return err
 				}
 			}
@@ -87,21 +98,42 @@ func newTestCmd() *cobra.Command {
 				return fail(2, "no services with runbooks or ask goldens found in %q", dir)
 			}
 			if update {
+				if format == "json" {
+					return output.JSON(cmd.OutOrStdout(), map[string]any{
+						"updated": true,
+						"checked": checked,
+						"files":   files,
+					})
+				}
 				cmd.Printf("updated goldens for %d service(s)\n", checked)
 				return nil
+			}
+			if format == "json" {
+				if err := output.JSON(cmd.OutOrStdout(), map[string]any{
+					"ok":       failures == 0,
+					"checked":  checked,
+					"failures": failures,
+					"files":    files,
+				}); err != nil {
+					return fail(2, "%v", err)
+				}
 			}
 			if failures > 0 {
 				return fail(1, "%d golden mismatch(es)", failures)
 			}
-			cmd.Printf("ok - %d service(s) match goldens\n", checked)
+			if format != "json" {
+				cmd.Printf("ok - %d service(s) match goldens\n", checked)
+			}
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&update, "update", false, "write/regenerate golden files instead of comparing")
+	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json")
+	bindFormatCompletion(cmd)
 	return cmd
 }
 
-func goldenIO(cmd *cobra.Command, dir, name string, v any, update bool, failures *int) error {
+func goldenIO(cmd *cobra.Command, dir, name string, v any, update bool, failures *int, quiet bool, record func(string, string, string)) error {
 	var buf bytes.Buffer
 	if err := output.JSON(&buf, v); err != nil {
 		return err
@@ -113,22 +145,42 @@ func goldenIO(cmd *cobra.Command, dir, name string, v any, update bool, failures
 		if err := os.WriteFile(path, got, 0o644); err != nil {
 			return fail(2, "write golden %s: %v", name, err)
 		}
-		cmd.Printf("wrote %s\n", name)
+		if record != nil {
+			record(name, "wrote", "")
+		}
+		if !quiet {
+			cmd.Printf("wrote %s\n", name)
+		}
 		return nil
 	}
 
 	want, err := os.ReadFile(path)
 	if err != nil {
-		cmd.PrintErrf("MISS %s: %v\n", name, err)
+		detail := err.Error()
+		if record != nil {
+			record(name, "miss", detail)
+		}
+		if !quiet {
+			cmd.PrintErrf("MISS %s: %v\n", name, err)
+		}
 		*failures++
 		return nil
 	}
 	wantNorm := bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))
 	gotNorm := bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n"))
 	if !bytes.Equal(wantNorm, gotNorm) {
-		cmd.PrintErrf("DIFF %s: %s\n", name, firstDiff(wantNorm, gotNorm))
+		detail := firstDiff(wantNorm, gotNorm)
+		if record != nil {
+			record(name, "diff", detail)
+		}
+		if !quiet {
+			cmd.PrintErrf("DIFF %s: %s\n", name, detail)
+		}
 		*failures++
 		return nil
+	}
+	if record != nil {
+		record(name, "ok", "")
 	}
 	return nil
 }

@@ -43,8 +43,9 @@ func newHandoffCmd() *cobra.Command {
 			}
 			note := handoffNote(res)
 			if format == "json" {
-				return output.JSON(cmd.OutOrStdout(), map[string]string{
+				return output.JSON(cmd.OutOrStdout(), map[string]any{
 					"service": res.Service.ID,
+					"health":  res.Service.Health,
 					"note":    note,
 				})
 			}
