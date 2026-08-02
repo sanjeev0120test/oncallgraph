@@ -41,6 +41,10 @@ fixture-test: build ## Run the golden fixture test
 validate-fixture: build ## Validate the primary fixture pack
 	$(BIN) validate-fixture $(FIXTURE)
 
+fleet-healthy: build ## Validate the all-green fixture + health --strict
+	$(BIN) validate-fixture $(HEALTHY)
+	$(BIN) health --fixture $(HEALTHY) --strict
+
 demo: build ## Run the built-in incident demo
 	$(BIN) demo
 
@@ -57,13 +61,17 @@ tidy-check: ## Ensure go.mod/go.sum are tidy
 staticcheck: ## Run staticcheck via go tool (sum-pinned in go.mod)
 	go tool staticcheck ./...
 
+deadcode: ## Fail if unreachable funcs remain (go tool, sum-pinned)
+	@out="$$(go tool deadcode -test ./...)"; \
+	if [ -n "$$out" ]; then echo "$$out"; exit 1; fi
+
 govulncheck: ## Run govulncheck via go tool (sum-pinned in go.mod)
 	go tool govulncheck ./...
 
-quick: fmt vet build test validate-fixture fixture-test demo ## Fast local validation (recommended)
+quick: fmt vet build test validate-fixture fleet-healthy fixture-test demo ## Fast local validation (recommended)
 
 # Local "ci" stays laptop-friendly (no -race). GitHub Actions runs the race matrix.
-ci: fmt vet tidy-check build test validate-fixture fixture-test demo ## Local gate (race/matrix live in Actions)
+ci: fmt vet tidy-check staticcheck build test validate-fixture fleet-healthy fixture-test demo ## Local gate (race/matrix live in Actions)
 
 cross: ## Cross-compile release binaries (linux/darwin/windows × amd64/arm64)
 	@mkdir -p dist
