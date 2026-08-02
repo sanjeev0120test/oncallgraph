@@ -20,6 +20,13 @@ Update goldens only when behavior intentionally changes:
 go run ./cmd/opsgraph test ./fixtures/incident_checkout --update
 ```
 
+## Module / build invariants (CI-enforced)
+
+- No `replace` / `exclude` in `go.mod`
+- Default binary stays pure-Go (`CGO_ENABLED=0`, no `k8s.io/*` in the link graph)
+- Fixture goldens are LF-only (`.gitattributes` + `scripts/check_lf.go`)
+- After `go mod tidy`, builds use a locked module graph (`-mod=readonly`)
+
 ## Do not commit
 
 - Binaries / release archives (`bin/`, `dist/`, `*.tar.gz`, `*.zip`, `SHA256SUMS`)

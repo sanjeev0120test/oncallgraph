@@ -62,9 +62,17 @@ jobs:
             exit 1
           fi
           echo "| go mod tidy | ok |" >> "$GITHUB_STEP_SUMMARY"
-          # Offline-first proof: rebuild with module proxy disabled after download.
+          # Clean module graph: no replace/exclude hacks (portable, reproducible).
+          if grep -E '^(replace|exclude)[[:space:]]|^replace \(|^exclude \(' go.mod; then
+            echo "::error::go.mod must not contain replace/exclude directives"
+            echo "| go.mod hygiene | fail |" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "| go.mod hygiene | ok |" >> "$GITHUB_STEP_SUMMARY"
+          # Offline-first + locked module graph for the production package.
+          GOPROXY=off GOFLAGS="-mod=readonly" go build -trimpath -ldflags="-s -w -buildid=" ./cmd/opsgraph
           GOPROXY=off go build ./...
-          echo "| go build (GOPROXY=off) | ok |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| go build (GOPROXY=off, -mod=readonly cmd) | ok |" >> "$GITHUB_STEP_SUMMARY"
           # Precompiled binaries/archives belong in GitHub Releases only.
           tracked="$(git ls-files -z | tr '\0' '\n' | grep -E '(^|/)(bin|dist)/|(^|/)opsgraph(\.exe)?$|(^|/)opsgraph_.+\.(tar\.gz|zip)$|(^|/)SHA256SUMS$|(^|/)DEPENDENCIES\.txt$' || true)"
           if [ -n "$tracked" ]; then
@@ -91,6 +99,7 @@ jobs:
           test -s scripts/pack-release.sh
           test -s scripts/coverfloor.go
           test -s scripts/jsonassert.go
+          test -s scripts/check_lf.go
           head -n 1 scripts/install.sh | grep -qE '^#!/'
           head -n 1 scripts/pack-release.sh | grep -qE '^#!/'
           head -n 1 scripts/verify.sh | grep -qE '^#!/'
@@ -105,15 +114,25 @@ jobs:
           go build -o /dev/null scripts/gomod_sbom.go
           go build -o /dev/null scripts/jsonassert.go
           go build -o /dev/null scripts/coverfloor.go
+          go build -o /dev/null scripts/check_lf.go
           printf '%s\n' '{"ok":true,"total":2,"name":"x"}' | go run ./scripts/jsonassert.go true:ok eqnum:total=2 eq:name=x gte:total=1
+          # Determinism: golden + pack YAML/JSON must stay LF-only across OSes.
+          go run ./scripts/check_lf.go \
+            fixtures/incident_checkout/expected \
+            fixtures/fleet_healthy/expected \
+            fixtures/incident_checkout \
+            fixtures/fleet_healthy
           echo "| shellcheck (sha256-pinned) | ok |" >> "$GITHUB_STEP_SUMMARY"
           echo "| jsonassert self-check | ok |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| golden LF-only | ok |" >> "$GITHUB_STEP_SUMMARY"
           # Live-connector smoke fixture must resolve its k8s snapshot.
           test -f fixtures/ci_live_k8s/.opsgraph.yaml
           test -d fixtures/incident_checkout/k8s
           test -f fixtures/incident_checkout/k8s/deployments.yaml
           test -f fixtures/fleet_healthy/meta.yaml
           test -f fixtures/fleet_healthy/services.yaml
+          test -f fixtures/fleet_healthy/expected/ask_api.json
+          test -f fixtures/fleet_healthy/expected/verify_api.json
           echo "| fixture hygiene | ok |" >> "$GITHUB_STEP_SUMMARY"
 
   staticcheck:
@@ -170,22 +189,37 @@ jobs:
           if [ "${RUNNER_OS}" = Windows ]; then out=bin/opsgraph.exe; fi
           go build -trimpath -ldflags="-s -w -buildid=" -o "$out" ./cmd/opsgraph
           test -s "$out"
+          # Pure-Go build proof: main module path + correct GOOS/GOARCH stamps.
+          meta="$(go version -m "$out")"
+          echo "$meta" | grep -F "github.com/sanjeev0120test/opsgraph/cmd/opsgraph" >/dev/null
+          case "${RUNNER_OS}" in
+            Linux) echo "$meta" | grep -F "GOOS=linux" >/dev/null ;;
+            macOS) echo "$meta" | grep -F "GOOS=darwin" >/dev/null ;;
+            Windows) echo "$meta" | grep -F "GOOS=windows" >/dev/null ;;
+            *) echo "unsupported RUNNER_OS=${RUNNER_OS}" >&2; exit 1 ;;
+          esac
+          case "${RUNNER_ARCH}" in
+            X64|AMD64) echo "$meta" | grep -F "GOARCH=amd64" >/dev/null ;;
+            ARM64) echo "$meta" | grep -F "GOARCH=arm64" >/dev/null ;;
+            *) echo "unsupported RUNNER_ARCH=${RUNNER_ARCH}" >&2; exit 1 ;;
+          esac
       - name: Unit tests (shuffle)
         if: ${{ !matrix.race }}
-        run: go test -count=1 -timeout=5m -shuffle=on ./...
+        run: go test -count=1 -timeout=5m -shuffle=on -fullpath ./...
       - name: Unit tests (race + shuffle + cover)
         if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' }}
         env:
           CGO_ENABLED: "1"
         run: |
           set -euo pipefail
-          go test -count=1 -timeout=5m -race -shuffle=on -coverprofile=cover.out -covermode=atomic ./...
-          go tool cover -func=cover.out | tee cover-func.txt |             go run ./scripts/coverfloor.go \
+          go test -count=1 -timeout=5m -race -shuffle=on -fullpath -coverprofile=cover.out -covermode=atomic ./...
+          go tool cover -func=cover.out | tee cover-func.txt | go run ./scripts/coverfloor.go \
               total=64 \
               cmd/opsgraph=56 \
               internal/ai=45 \
               internal/ask=75 \
-              internal/store=60
+              internal/store=60 \
+              internal/deps=80
           tail -n 1 cover-func.txt | tee cover-summary.txt
           # Short deterministic fuzz budget (no corpus commit required).
           go test -count=1 -timeout=2m -fuzz=FuzzOfStablePrefix -fuzztime=5s ./internal/fingerprint
@@ -196,7 +230,7 @@ jobs:
             cat cover-summary.txt
             echo '```'
             echo ""
-            echo "Floors: total>=64, cmd/opsgraph>=56, internal/ai>=45, internal/ask>=75, internal/store>=60"
+            echo "Floors: total>=64, cmd/opsgraph>=56, internal/ai>=45, internal/ask>=75, internal/store>=60, internal/deps>=80"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverprofile
         if: ${{ matrix.race && matrix.os == 'ubuntu-24.04' && always() }}
@@ -608,7 +642,8 @@ jobs:
             GOARCH="${pair#*/}"
             out="dist/opsgraph-${GOOS}-${GOARCH}"
             if [ "$GOOS" = windows ]; then out="${out}.exe"; fi
-            GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/opsgraph &
+            GOOS="$GOOS" GOARCH="$GOARCH" GOFLAGS="-mod=readonly" \
+              go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/opsgraph &
             pids+=($!)
           done
           for pid in "${pids[@]}"; do
@@ -626,6 +661,7 @@ jobs:
             meta="$(go version -m "$f")"
             echo "$meta" | grep -F "GOOS=${GOOS}" >/dev/null
             echo "$meta" | grep -F "GOARCH=${GOARCH}" >/dev/null
+            echo "$meta" | grep -F "github.com/sanjeev0120test/opsgraph/cmd/opsgraph" >/dev/null
           done
           for f in dist/opsgraph-linux-amd64 dist/opsgraph-linux-arm64; do
             bytes="$(wc -c < "$f")"
@@ -635,6 +671,12 @@ jobs:
               exit 1
             fi
           done
+          # Pure-Go static proof: ldd must fail (not a dynamic executable).
+          if ldd ./dist/opsgraph-linux-amd64 >/tmp/ldd.out 2>&1; then
+            echo "::error::linux/amd64 binary is dynamically linked (want CGO_ENABLED=0 static)"
+            cat /tmp/ldd.out
+            exit 1
+          fi
           ./dist/opsgraph-linux-amd64 version | grep -F "$VERSION"
 
           chmod +x scripts/install.sh scripts/pack-release.sh
