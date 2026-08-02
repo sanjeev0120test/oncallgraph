@@ -400,6 +400,9 @@ jobs:
           "$BIN" owners --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" eqnum:total=1 has:owners
           "$BIN" graph --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" has:nodes has:edges
           "$BIN" path api db --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" true:ok true:found eq:from=api eq:to=db eqnum:hops=1
+          "$BIN" evidence --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" has:evidence eqnum:total=0 false:truncated
+          "$BIN" compare api db --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" has:delta has:winner eq:winner=tie eqnum:delta=0
+          "$BIN" status --fixture ./fixtures/fleet_healthy --format json | "${JA[@]}" true:ok true:has_data eq:active_source=fixture
           set +e
           "$BIN" health --fixture ./fixtures/incident_checkout --strict >/dev/null
           strict_health=$?
