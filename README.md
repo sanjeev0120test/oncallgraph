@@ -4,7 +4,7 @@
 
 Free, offline-first incident context for engineers.
 
-Evidence-backed timeline, blast radius, runbooks, severity scoring, and optional local AI - no accounts, no cloud LLM, no paid services.
+Evidence-backed timeline, blast radius, runbooks, severity scoring and optional local AI - no accounts, no cloud LLM, no paid services.
 
 ```bash
 # Prefer attested GitHub Release installers (see docs/USAGE.md).
